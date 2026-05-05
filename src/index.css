@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* 배경 */
+  --color-bg: #0d1b3e;
+  --color-bg-deeper: #0a1530;
+  --color-surface: #16254a;
+  --color-surface-container: #1d2b56;
+  --color-surface-hover: #243466;
+
+  /* 포인트 (골드) */
+  --color-primary: #e6c364;
+  --color-primary-container: #c9a84c;
+  --color-primary-soft: rgba(230, 195, 100, 0.15);
+
+  /* 텍스트 */
+  --color-on-surface: #e1e3e4;
+  --color-on-surface-muted: rgba(225, 227, 228, 0.7);
+  --color-on-surface-faint: rgba(225, 227, 228, 0.45);
+
+  /* 상태 */
+  --color-important: #e6c364;
+  --color-later: #60a5fa;
+  --color-done: #4ade80;
+  --color-danger: #f87171;
+
+  /* 보더 */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* 폰트 */
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-on-surface);
+  background-color: var(--color-bg);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* 스크롤바 (다크 모드) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-deeper);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-container);
+  border-radius: 6px;
+  border: 2px solid var(--color-bg-deeper);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-hover);
+}
+
+/* 선택 색상 */
+::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
