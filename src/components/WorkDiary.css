@@ -353,14 +353,15 @@
 
 .wd-composer-input {
   width: 100%;
-  min-height: 84px;
+  min-height: 150px;
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 13.5px;
   line-height: 1.6;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
   outline: none;
   transition: border-color 0.15s ease;
 }
@@ -586,14 +587,15 @@
 
 .wd-card-edit {
   width: 100%;
-  min-height: 70px;
+  min-height: 150px;
   background: var(--color-bg-deeper);
   border: 1px solid var(--color-primary-soft);
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 13.5px;
   line-height: 1.6;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
   outline: none;
 }
 

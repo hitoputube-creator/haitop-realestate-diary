@@ -53,10 +53,17 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
   const [draft, setDraft] = useState(memo.content)
   const taRef = useRef(null)
 
+  function autoResize(el) {
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.max(150, el.scrollHeight)}px`
+  }
+
   useEffect(() => {
     if (editing && taRef.current) {
       taRef.current.focus()
       taRef.current.setSelectionRange(draft.length, draft.length)
+      autoResize(taRef.current)
     }
   }, [editing])
 
@@ -98,7 +105,10 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
           ref={taRef}
           className="wd-card-edit"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            autoResize(e.target)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               setDraft(memo.content)
@@ -205,6 +215,13 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
 function Composer({ onSubmit, disabled }) {
   const [value, setValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const composerRef = useRef(null)
+
+  function autoResizeComposer(el) {
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.max(150, el.scrollHeight)}px`
+  }
 
   async function handleSubmit() {
     const trimmed = value.trim()
@@ -213,6 +230,7 @@ function Composer({ onSubmit, disabled }) {
     try {
       await onSubmit(trimmed)
       setValue('')
+      if (composerRef.current) composerRef.current.style.height = '150px'
     } finally {
       setSubmitting(false)
     }
@@ -223,10 +241,14 @@ function Composer({ onSubmit, disabled }) {
   return (
     <div className="wd-composer">
       <textarea
+        ref={composerRef}
         className="wd-composer-input"
         placeholder="이 날짜에 메모를 남겨보세요. #태그를 포함하면 자동으로 분류됩니다."
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          setValue(e.target.value)
+          autoResizeComposer(e.target)
+        }}
         onKeyDown={(e) => {
           if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault()
