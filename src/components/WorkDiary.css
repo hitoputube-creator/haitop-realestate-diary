@@ -769,3 +769,34 @@
   align-items: center;
   gap: 8px;
 }
+
+/* ===== 달력 작성자별 고대비 도트 스타일 ===== */
+.wd-cal-day-dots {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 2px;
+  height: 4px;
+}
+
+.wd-cal-day-dot.dot-joo {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #F2C94C; /* 주현희 골드 */
+}
+
+.wd-cal-day-dot.dot-kim {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4ADE80; /* 김정현 민트 (네이비 배경 고대비) */
+}
+
+/* 선택되었을 때도 도트 고대비 유지 */
+.wd-cal-day.selected .wd-cal-day-dot.dot-joo {
+  background: #F2C94C;
+}
+.wd-cal-day.selected .wd-cal-day-dot.dot-kim {
+  background: #4ADE80;
+}

@@ -18,7 +18,7 @@ export default function WorkDiary() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const [notedDateKeys, setNotedDateKeys] = useState(new Set())
+  const [notedDateKeys, setNotedDateKeys] = useState({})
 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -59,7 +59,7 @@ export default function WorkDiary() {
   /* ===== 표시 중인 달의 메모 있는 날짜 마킹 ===== */
   const loadMonthDots = useCallback(async () => {
     if (!isSupabaseConfigured) {
-      setNotedDateKeys(new Set())
+      setNotedDateKeys({})
       return
     }
     try {
@@ -69,11 +69,25 @@ export default function WorkDiary() {
       const endStr = toDateKey(end)
       const { data, error: e } = await supabase
         .from(TABLE)
-        .select('date')
+        .select('date, writer')
         .gte('date', startStr)
         .lte('date', endStr)
       if (e) throw e
-      setNotedDateKeys(new Set((data || []).map((r) => r.date)))
+
+      const dotsMap = {}
+      if (data) {
+        data.forEach((r) => {
+          const dateKey = r.date
+          const writer = r.writer || '주현희'
+          if (!dotsMap[dateKey]) {
+            dotsMap[dateKey] = []
+          }
+          if (!dotsMap[dateKey].includes(writer)) {
+            dotsMap[dateKey].push(writer)
+          }
+        })
+      }
+      setNotedDateKeys(dotsMap)
     } catch (err) {
       // 도트는 실패해도 무시 (UI 차단 X)
       // eslint-disable-next-line no-console
@@ -158,8 +172,13 @@ export default function WorkDiary() {
         if (e) throw e
         setMemos((prev) => [...prev, data])
         setNotedDateKeys((prev) => {
-          const next = new Set(prev)
-          next.add(dateStr)
+          const next = { ...prev }
+          if (!next[dateStr]) {
+            next[dateStr] = []
+          }
+          if (!next[dateStr].includes(writer)) {
+            next[dateStr].push(writer)
+          }
           return next
         })
         setError(null)
@@ -318,6 +337,7 @@ export default function WorkDiary() {
           viewMonth={viewMonth}
           selectedDate={selectedDate}
           notedDateKeys={notedDateKeys}
+          filterWriter={filterWriter}
           onSelectDate={handleSelectDate}
           onPrevMonth={handlePrevMonth}
           onNextMonth={handleNextMonth}

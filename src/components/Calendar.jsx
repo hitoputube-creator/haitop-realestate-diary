@@ -18,7 +18,8 @@ export default function Calendar({
   onPrevMonth,
   onNextMonth,
   onJumpToday,
-  notedDateKeys = new Set(),
+  notedDateKeys = {},
+  filterWriter = 'all',
 }) {
   const todayKey = toDateKey(new Date())
   const selectedKey = toDateKey(selectedDate)
@@ -128,7 +129,10 @@ export default function Calendar({
             const key = toDateKey(date)
             const isToday = key === todayKey
             const isSelected = key === selectedKey
-            const hasNote = notedDateKeys.has(key)
+            const writers = notedDateKeys[key] || []
+            const showJoo = (filterWriter === 'all' || filterWriter === '주현희') && writers.includes('주현희')
+            const showKim = (filterWriter === 'all' || filterWriter === '김정현') && writers.includes('김정현')
+            const hasNote = showJoo || showKim
             const weekday = date.getDay()
 
             const cls = [
@@ -152,7 +156,12 @@ export default function Calendar({
                 aria-pressed={isSelected}
               >
                 <span>{date.getDate()}</span>
-                {hasNote && <span className="wd-cal-day-dot" aria-hidden="true" />}
+                {hasNote && (
+                  <div className="wd-cal-day-dots" aria-hidden="true">
+                    {showJoo && <span className="wd-cal-day-dot dot-joo" />}
+                    {showKim && <span className="wd-cal-day-dot dot-kim" />}
+                  </div>
+                )}
               </button>
             )
           })}
