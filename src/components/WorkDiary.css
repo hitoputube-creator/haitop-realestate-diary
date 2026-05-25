@@ -709,3 +709,63 @@
 .wd-notice strong {
   color: #bfdbfe;
 }
+
+/* ===== 작성자 필터 탭 바 ===== */
+.wd-filter-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 28px;
+  margin-top: 16px;
+  margin-bottom: -8px;
+  max-width: 1440px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.wd-filter-tab {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 20px;
+  background: var(--color-surface);
+  color: var(--color-on-surface-muted);
+  border: 1px solid var(--color-border);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.wd-filter-tab:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-on-surface);
+}
+
+.wd-filter-tab.active {
+  background: var(--color-primary);
+  color: var(--color-bg);
+  border-color: var(--color-primary);
+}
+
+/* ===== Composer 작성자 선택 드롭다운 ===== */
+.wd-composer-writer-select {
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-border);
+  color: var(--color-on-surface);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.wd-composer-writer-select:focus {
+  border-color: var(--color-primary);
+}
+
+.wd-composer-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

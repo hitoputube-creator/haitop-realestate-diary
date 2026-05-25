@@ -25,6 +25,7 @@ export default function WorkDiary() {
   const [searchLoading, setSearchLoading] = useState(false)
 
   const searchMode = searchQuery.trim().length > 0
+  const [filterWriter, setFilterWriter] = useState('all')
 
   /* ===== 선택 날짜의 메모 로드 ===== */
   const loadMemosForSelected = useCallback(async () => {
@@ -135,7 +136,7 @@ export default function WorkDiary() {
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
-    async (content) => {
+    async (content, writer = '주현희') => {
       if (!isSupabaseConfigured) {
         setError('Supabase 연결이 설정되지 않았습니다. .env에 VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY를 추가해주세요.')
         return
@@ -150,6 +151,7 @@ export default function WorkDiary() {
             tags,
             status: 'normal',
             date: dateStr,
+            writer,
           })
           .select()
           .single()
@@ -168,6 +170,12 @@ export default function WorkDiary() {
     },
     [selectedDate]
   )
+
+  const filteredMemos = useMemo(() => {
+    const raw = searchMode ? searchResults : memos
+    if (filterWriter === 'all') return raw
+    return raw.filter((m) => (m.writer || '주현희') === filterWriter)
+  }, [searchMode, searchResults, memos, filterWriter])
 
   const handleChangeStatus = useCallback(async (id, nextStatus) => {
     if (!isSupabaseConfigured) return
@@ -269,6 +277,30 @@ export default function WorkDiary() {
         <SearchBar value={searchQuery} onChange={setSearchQuery} />
       </header>
 
+      <div className="wd-filter-tabs">
+        <button
+          type="button"
+          className={`wd-filter-tab ${filterWriter === 'all' ? 'active' : ''}`}
+          onClick={() => setFilterWriter('all')}
+        >
+          전체
+        </button>
+        <button
+          type="button"
+          className={`wd-filter-tab ${filterWriter === '주현희' ? 'active' : ''}`}
+          onClick={() => setFilterWriter('주현희')}
+        >
+          주현희
+        </button>
+        <button
+          type="button"
+          className={`wd-filter-tab ${filterWriter === '김정현' ? 'active' : ''}`}
+          onClick={() => setFilterWriter('김정현')}
+        >
+          김정현
+        </button>
+      </div>
+
       {!isSupabaseConfigured && (
         <div className="wd-notice">
           <span aria-hidden="true">!</span>
@@ -294,7 +326,7 @@ export default function WorkDiary() {
 
         <DiaryList
           selectedDate={selectedDate}
-          memos={searchMode ? searchResults : memos}
+          memos={filteredMemos}
           loading={searchMode ? searchLoading : loading}
           error={error}
           searchMode={searchMode}

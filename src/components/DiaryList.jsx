@@ -93,6 +93,9 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
       <div className="wd-card-top">
         <div className="wd-card-meta">
           <span className="wd-card-time">{formatTime(memo.created_at)}</span>
+          <span className="wd-card-writer" style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>
+            · {memo.writer || '주현희'}
+          </span>
           {showDate && <span className="wd-card-date">· {formatDateLabel(memo.date)}</span>}
         </div>
         <StatusBadge status={memo.status || 'normal'} />
@@ -214,6 +217,7 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
 /* ===== 입력창 (Composer) ===== */
 function Composer({ onSubmit, disabled }) {
   const [value, setValue] = useState('')
+  const [writer, setWriter] = useState('주현희')
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
 
@@ -228,7 +232,7 @@ function Composer({ onSubmit, disabled }) {
     if (!trimmed || submitting) return
     setSubmitting(true)
     try {
-      await onSubmit(trimmed)
+      await onSubmit(trimmed, writer)
       setValue('')
       if (composerRef.current) composerRef.current.style.height = '150px'
     } finally {
@@ -266,14 +270,25 @@ function Composer({ onSubmit, disabled }) {
             </span>
           )}
         </div>
-        <button
-          type="button"
-          className="wd-btn wd-btn-primary"
-          onClick={handleSubmit}
-          disabled={disabled || submitting || !value.trim()}
-        >
-          {submitting ? '저장 중...' : '저장'}
-        </button>
+        <div className="wd-composer-actions-right">
+          <select
+            className="wd-composer-writer-select"
+            value={writer}
+            onChange={(e) => setWriter(e.target.value)}
+            disabled={disabled || submitting}
+          >
+            <option value="주현희">주현희</option>
+            <option value="김정현">김정현</option>
+          </select>
+          <button
+            type="button"
+            className="wd-btn wd-btn-primary"
+            onClick={handleSubmit}
+            disabled={disabled || submitting || !value.trim()}
+          >
+            {submitting ? '저장 중...' : '저장'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -336,7 +351,7 @@ export default function DiaryList({
         </div>
       )}
 
-      {!searchMode && <Composer onSubmit={onCreate} disabled={composerDisabled} />}
+      {!searchMode && <Composer onSubmit={(content, writer) => onCreate(content, writer)} disabled={composerDisabled} />}
 
       {error && <div className="wd-error" role="alert">{error}</div>}
 
