@@ -170,6 +170,17 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
             <span className="wd-action-spacer" />
             <button
               type="button"
+              className="wd-action-btn send-property"
+              onClick={() => {
+                sessionStorage.setItem('property_memo', memo.content)
+                window.location.hash = '#/property-register'
+              }}
+              aria-label="매물등록 페이지로 이동"
+            >
+              <span aria-hidden="true">🏠</span> 매물보내기
+            </button>
+            <button
+              type="button"
               className="wd-action-btn"
               onClick={() => setEditing(true)}
               aria-label="메모 수정"
