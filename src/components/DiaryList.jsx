@@ -172,10 +172,10 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
               type="button"
               className="wd-action-btn send-property"
               onClick={() => {
-                sessionStorage.setItem('property_memo', memo.content)
-                window.location.hash = '#/property-register'
+                const encoded = encodeURIComponent(memo.content)
+                window.location.href = `https://hitoputube-creator.github.io/haitop-realty-system/?memo=${encoded}`
               }}
-              aria-label="매물등록 페이지로 이동"
+              aria-label="매물관리 프로그램으로 이동"
             >
               <span aria-hidden="true">🏠</span> 매물보내기
             </button>
