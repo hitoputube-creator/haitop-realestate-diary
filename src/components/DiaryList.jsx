@@ -1,5 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 
+/* ===== 스티커 메타 ===== */
+export const STICKER_META = {
+  '계약': { color: '#C9A84C' },
+  '잔금': { color: '#E74C3C' },
+  '약속': { color: '#3498DB' },
+  '내부': { color: '#27AE60' },
+  '기타': { color: '#95A5A6' },
+}
+
+const STICKER_OPTIONS = [
+  { value: null,   label: '없음' },
+  { value: '계약', label: '계약' },
+  { value: '잔금', label: '잔금' },
+  { value: '약속', label: '약속' },
+  { value: '내부', label: '내부' },
+  { value: '기타', label: '기타' },
+]
+
 /* ===== 헬퍼 ===== */
 const TAG_REGEX = /#[\w가-힣]+/g
 
@@ -73,6 +91,8 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
 
   const tags = memo.tags && memo.tags.length ? memo.tags : extractTags(memo.content)
 
+  const stickerMeta = memo.sticker ? STICKER_META[memo.sticker] : null
+
   const cls = ['wd-card', `status-${memo.status || 'normal'}`, editing && 'editing']
     .filter(Boolean)
     .join(' ')
@@ -98,7 +118,17 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
           </span>
           {showDate && <span className="wd-card-date">· {formatDateLabel(memo.date)}</span>}
         </div>
-        <StatusBadge status={memo.status || 'normal'} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {stickerMeta && (
+            <span
+              className="wd-sticker-badge"
+              style={{ background: stickerMeta.color }}
+            >
+              {memo.sticker}
+            </span>
+          )}
+          <StatusBadge status={memo.status || 'normal'} />
+        </div>
       </div>
 
       <div className="wd-card-content">{memo.content}</div>
@@ -229,6 +259,7 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
 function Composer({ onSubmit, disabled }) {
   const [value, setValue] = useState('')
   const [writer, setWriter] = useState('주현희')
+  const [sticker, setSticker] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
 
@@ -243,8 +274,9 @@ function Composer({ onSubmit, disabled }) {
     if (!trimmed || submitting) return
     setSubmitting(true)
     try {
-      await onSubmit(trimmed, writer)
+      await onSubmit(trimmed, writer, sticker)
       setValue('')
+      setSticker(null)
       if (composerRef.current) composerRef.current.style.height = '150px'
     } finally {
       setSubmitting(false)
@@ -272,6 +304,34 @@ function Composer({ onSubmit, disabled }) {
         }}
         disabled={disabled || submitting}
       />
+
+      {/* 스티커 선택 */}
+      <div className="wd-sticker-bar">
+        <span className="wd-sticker-bar-label">스티커</span>
+        {STICKER_OPTIONS.map((opt) => {
+          const isActive = sticker === opt.value
+          const meta = opt.value ? STICKER_META[opt.value] : null
+          return (
+            <button
+              key={opt.value ?? 'none'}
+              type="button"
+              className={`wd-sticker-btn ${isActive ? 'active' : ''}`}
+              style={
+                meta
+                  ? isActive
+                    ? { background: meta.color, borderColor: meta.color, color: '#fff' }
+                    : { borderColor: meta.color + '88', color: meta.color }
+                  : {}
+              }
+              onClick={() => setSticker(isActive && opt.value !== null ? null : opt.value)}
+              disabled={disabled || submitting}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+      </div>
+
       <div className="wd-composer-bar">
         <div className="wd-composer-hint">
           <code>Cmd/Ctrl + Enter</code> 로 저장
@@ -362,7 +422,7 @@ export default function DiaryList({
         </div>
       )}
 
-      {!searchMode && <Composer onSubmit={(content, writer) => onCreate(content, writer)} disabled={composerDisabled} />}
+      {!searchMode && <Composer onSubmit={(content, writer, sticker) => onCreate(content, writer, sticker)} disabled={composerDisabled} />}
 
       {error && <div className="wd-error" role="alert">{error}</div>}
 

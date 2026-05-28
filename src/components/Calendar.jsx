@@ -2,6 +2,14 @@ import { useMemo } from 'react'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
+const STICKER_COLORS = {
+  '계약': '#C9A84C',
+  '잔금': '#E74C3C',
+  '약속': '#3498DB',
+  '내부': '#27AE60',
+  '기타': '#95A5A6',
+}
+
 function pad(n) {
   return String(n).padStart(2, '0')
 }
@@ -129,10 +137,25 @@ export default function Calendar({
             const key = toDateKey(date)
             const isToday = key === todayKey
             const isSelected = key === selectedKey
-            const writers = notedDateKeys[key] || []
-            const showJoo = (filterWriter === 'all' || filterWriter === '주현희') && writers.includes('주현희')
-            const showKim = (filterWriter === 'all' || filterWriter === '김정현') && writers.includes('김정현')
-            const hasNote = showJoo || showKim
+            const entries = notedDateKeys[key] || []
+
+            // 작성자 필터 적용
+            const filtered = filterWriter === 'all'
+              ? entries
+              : entries.filter((e) => e.writer === filterWriter)
+
+            // 스티커 라벨 (중복 제거)
+            const stickerLabels = [...new Set(
+              filtered.filter((e) => e.sticker).map((e) => e.sticker)
+            )]
+
+            // 스티커 없는 일반 메모 → 작성자별 도트
+            const hasJooDot = filtered.some((e) => !e.sticker && e.writer === '주현희') &&
+              (filterWriter === 'all' || filterWriter === '주현희')
+            const hasKimDot = filtered.some((e) => !e.sticker && e.writer === '김정현') &&
+              (filterWriter === 'all' || filterWriter === '김정현')
+
+            const hasNote = stickerLabels.length > 0 || hasJooDot || hasKimDot
             const weekday = date.getDay()
 
             const cls = [
@@ -155,11 +178,26 @@ export default function Calendar({
                 aria-label={`${date.getMonth() + 1}월 ${date.getDate()}일${hasNote ? ', 메모 있음' : ''}`}
                 aria-pressed={isSelected}
               >
-                <span>{date.getDate()}</span>
-                {hasNote && (
+                <span className="wd-cal-day-num">{date.getDate()}</span>
+
+                {stickerLabels.length > 0 && (
+                  <div className="wd-cal-day-stickers" aria-hidden="true">
+                    {stickerLabels.map((s) => (
+                      <span
+                        key={s}
+                        className="wd-cal-sticker-label"
+                        style={{ background: STICKER_COLORS[s] }}
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {(hasJooDot || hasKimDot) && (
                   <div className="wd-cal-day-dots" aria-hidden="true">
-                    {showJoo && <span className="wd-cal-day-dot dot-joo" />}
-                    {showKim && <span className="wd-cal-day-dot dot-kim" />}
+                    {hasJooDot && <span className="wd-cal-day-dot dot-joo" />}
+                    {hasKimDot && <span className="wd-cal-day-dot dot-kim" />}
                   </div>
                 )}
               </button>

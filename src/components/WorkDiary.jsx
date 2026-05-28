@@ -69,22 +69,21 @@ export default function WorkDiary() {
       const endStr = toDateKey(end)
       const { data, error: e } = await supabase
         .from(TABLE)
-        .select('date, writer')
+        .select('date, writer, sticker')
         .gte('date', startStr)
         .lte('date', endStr)
       if (e) throw e
 
+      // { [dateKey]: [{ writer, sticker }] }
       const dotsMap = {}
       if (data) {
         data.forEach((r) => {
           const dateKey = r.date
-          const writer = r.writer || '주현희'
-          if (!dotsMap[dateKey]) {
-            dotsMap[dateKey] = []
-          }
-          if (!dotsMap[dateKey].includes(writer)) {
-            dotsMap[dateKey].push(writer)
-          }
+          if (!dotsMap[dateKey]) dotsMap[dateKey] = []
+          dotsMap[dateKey].push({
+            writer: r.writer || '주현희',
+            sticker: r.sticker || null,
+          })
         })
       }
       setNotedDateKeys(dotsMap)
@@ -150,7 +149,7 @@ export default function WorkDiary() {
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
-    async (content, writer = '주현희') => {
+    async (content, writer = '주현희', sticker = null) => {
       if (!isSupabaseConfigured) {
         setError('Supabase 연결이 설정되지 않았습니다. .env에 VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY를 추가해주세요.')
         return
@@ -166,6 +165,7 @@ export default function WorkDiary() {
             status: 'normal',
             date: dateStr,
             writer,
+            sticker: sticker || null,
           })
           .select()
           .single()
@@ -173,12 +173,8 @@ export default function WorkDiary() {
         setMemos((prev) => [...prev, data])
         setNotedDateKeys((prev) => {
           const next = { ...prev }
-          if (!next[dateStr]) {
-            next[dateStr] = []
-          }
-          if (!next[dateStr].includes(writer)) {
-            next[dateStr].push(writer)
-          }
+          if (!next[dateStr]) next[dateStr] = []
+          next[dateStr] = [...next[dateStr], { writer, sticker: sticker || null }]
           return next
         })
         setError(null)
