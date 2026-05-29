@@ -115,9 +115,9 @@ export default function PrivateNotes({ onBack }) {
         category: form.category,
         memo: form.memo.trim() || null,
         updated_at: now,
-        // 기존 컬럼 보존 (화면 미사용)
-        status: null,
-        priority: null,
+        // 기존 컬럼 — 화면 미사용, DB NOT NULL 제약 충족용 기본값
+        status: '메모',
+        priority: '보통',
         due_date: null,
         next_action: null,
       }
