@@ -30,8 +30,11 @@ function fmtKo(dateStr) {
   return `${y}년 ${Number(m)}월 ${Number(d)}일`
 }
 
+/* ── 날짜 헬퍼: 오늘 날짜 문자열 ── */
+function todayStr() { return isoToDate(new Date().toISOString()) }
+
 /* ── 빈 폼 ── */
-const EMPTY_FORM = { title: '', category: '유튜브', memo: '' }
+const EMPTY_FORM = { title: '', category: '유튜브', memo: '', memo_date: todayStr() }
 
 /* ══════════════════════════════════════════════
    메인 컴포넌트
@@ -89,7 +92,7 @@ export default function PrivateNotes({ onBack }) {
     try {
       const { data, error } = await supabase
         .from('private_notes')
-        .select('id, title, category, memo, created_at, updated_at')
+        .select('id, title, category, memo, due_date, created_at, updated_at')
         .order('created_at', { ascending: false })
       if (error) throw error
       setNotes(data || [])
@@ -126,16 +129,20 @@ export default function PrivateNotes({ onBack }) {
   }
 
   /* ── 폼 열기/닫기 ── */
-  function openNewForm() {
+  function openNewForm(preDate) {
     setEditId(null)
-    setForm(EMPTY_FORM)
+    setForm({ ...EMPTY_FORM, memo_date: preDate || todayStr() })
     setShowForm(true)
-    // 약간 delay 후 폼으로 스크롤
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
   }
   function openEditForm(note) {
     setEditId(note.id)
-    setForm({ title: note.title || '', category: note.category || '유튜브', memo: note.memo || '' })
+    setForm({
+      title:     note.title     || '',
+      category:  note.category  || '유튜브',
+      memo:      note.memo      || '',
+      memo_date: note.due_date  || isoToDate(note.created_at) || todayStr(),
+    })
     setShowForm(true)
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
   }
@@ -156,10 +163,11 @@ export default function PrivateNotes({ onBack }) {
         category:    form.category,
         memo:        form.memo.trim() || null,
         updated_at:  new Date().toISOString(),
+        // 메모 날짜: 사용자가 입력한 날짜를 due_date에 저장
+        due_date:    form.memo_date || null,
         // DB NOT NULL 제약 충족 — 화면에는 표시 안 함
         status:      '메모',
         priority:    '보통',
-        due_date:    null,
         next_action: null,
       }
       if (editId) {
@@ -202,11 +210,11 @@ export default function PrivateNotes({ onBack }) {
     })
   }, [notes, catFilter, searchQ])
 
-  /* ── 달력용 날짜 맵 (created_at 기준) ── */
+  /* ── 달력용 날짜 맵 (due_date 기준, 없으면 created_at 폴백) ── */
   const calDateMap = useMemo(() => {
     const map = {}
     notes.forEach(n => {
-      const d = isoToDate(n.created_at)
+      const d = n.due_date || isoToDate(n.created_at)
       if (!d) return
       if (!map[d]) map[d] = []
       map[d].push(n)
@@ -225,7 +233,14 @@ export default function PrivateNotes({ onBack }) {
 
   /* ── 달력 날짜 클릭 ── */
   function onCalDateClick(dateStr) {
+    // 같은 날짜 재클릭 시 선택 해제, 새 날짜 클릭 시 선택
     setCalSelDate(prev => prev === dateStr ? null : dateStr)
+  }
+
+  /* ── 달력에서 "+ 새 메모" 클릭 시 해당 날짜 자동 입력 ── */
+  function openNewFormFromCal(dateStr) {
+    setView('list')
+    openNewForm(dateStr)
   }
 
   /* ── 선택된 달력 날짜의 메모 ── */
@@ -379,6 +394,17 @@ export default function PrivateNotes({ onBack }) {
                 </select>
               </div>
 
+              {/* 메모 날짜 */}
+              <div className="pn-form-date-row">
+                <label className="pn-date-label">📅 메모 날짜</label>
+                <input
+                  className="pn-date-input"
+                  type="date"
+                  value={form.memo_date}
+                  onChange={e => setForm(f => ({ ...f, memo_date: e.target.value }))}
+                />
+              </div>
+
               {/* 메모 내용 */}
               <textarea
                 className="pn-memo-input"
@@ -461,7 +487,10 @@ export default function PrivateNotes({ onBack }) {
 
               {/* 범례 */}
               <div className="pn-cal-legend">
-                {CAT_OPTIONS.filter(c => notes.some(n => isoToDate(n.created_at)?.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`) && n.category === c))
+                {CAT_OPTIONS.filter(c => notes.some(n => {
+                const d = n.due_date || isoToDate(n.created_at)
+                return d?.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`) && n.category === c
+              }))
                   .map(cat => (
                     <span key={cat} className="pn-leg-item">
                       <span className="pn-leg-dot" style={{ background: CAT_COLOR[cat] }} />
@@ -475,8 +504,15 @@ export default function PrivateNotes({ onBack }) {
             {calSelDate ? (
               <div className="pn-cal-day-notes">
                 <div className="pn-cal-day-title">
-                  📅 {fmtKo(calSelDate)} 작성 메모
+                  📅 {fmtKo(calSelDate)} 메모
                   <span className="pn-cal-day-count">{calSelNotes.length}개</span>
+                  <button
+                    type="button"
+                    className="pn-cal-add-btn"
+                    onClick={() => openNewFormFromCal(calSelDate)}
+                  >
+                    + 이 날짜로 새 메모
+                  </button>
                 </div>
                 {calSelNotes.length === 0 ? (
                   <div className="pn-center-msg" style={{ minHeight: '80px' }}>
@@ -534,6 +570,9 @@ function NoteCard({ note, onEdit, onDelete }) {
           {note.category}
         </span>
         <span className="pn-card-title">{note.title}</span>
+        {note.due_date && (
+          <span className="pn-card-memo-date">📅 {fmtShort(note.due_date)}</span>
+        )}
       </div>
       {note.memo && <div className="pn-card-body">{note.memo}</div>}
       <div className="pn-card-foot">

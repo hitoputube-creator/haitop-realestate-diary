@@ -387,6 +387,34 @@
 .pn-cat-select:focus { border-color: #a855f7; }
 .pn-cat-select option { background: var(--color-surface); }
 
+/* 메모 날짜 입력 */
+.pn-form-date-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.pn-date-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-on-surface-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pn-date-input {
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  padding: 8px 11px;
+  font-size: 13px;
+  color: var(--color-on-surface);
+  outline: none;
+  transition: border-color 0.15s ease;
+  font-family: inherit;
+  cursor: pointer;
+}
+.pn-date-input:focus { border-color: #a855f7; }
+
 .pn-memo-input {
   width: 100%;
   min-height: 350px;
@@ -476,6 +504,19 @@
   line-height: 1.4;
   word-break: break-word;
 }
+/* 카드 메모 날짜 배지 */
+.pn-card-memo-date {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 .pn-card-body {
   font-size: 13.5px;
   line-height: 1.75;
@@ -668,6 +709,23 @@
   border-radius: 999px;
   padding: 2px 9px;
 }
+
+/* 달력 날짜 선택 후 새 메모 버튼 */
+.pn-cal-add-btn {
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-primary);
+  color: var(--color-bg);
+  border: 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.pn-cal-add-btn:hover { background: var(--color-primary-container); }
 
 .pn-cal-hint {
   text-align: center;
