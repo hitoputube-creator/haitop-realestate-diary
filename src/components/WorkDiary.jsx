@@ -7,7 +7,7 @@ import './WorkDiary.css'
 
 const TABLE = 'work_diary'
 
-export default function WorkDiary() {
+export default function WorkDiary({ onOpenPrivateNotes }) {
   const today = useMemo(() => new Date(), [])
 
   const [selectedDate, setSelectedDate] = useState(today)
@@ -290,6 +290,15 @@ export default function WorkDiary() {
           </div>
         </div>
         <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        {onOpenPrivateNotes && (
+          <button
+            type="button"
+            className="wd-btn-private-notes"
+            onClick={onOpenPrivateNotes}
+          >
+            🔒 비공개 개인노트
+          </button>
+        )}
       </header>
 
       <div className="wd-filter-tabs">
