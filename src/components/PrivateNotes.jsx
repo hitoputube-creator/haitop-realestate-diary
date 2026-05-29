@@ -26,14 +26,13 @@ function fmtShort(iso) {
   return `${y}.${m}.${d}`
 }
 function fmtKo(dateStr) {
+  if (!dateStr) return ''
   const [y, m, d] = dateStr.split('-')
   return `${y}년 ${Number(m)}월 ${Number(d)}일`
 }
 
-/* ── 날짜 헬퍼: 오늘 날짜 문자열 ── */
 function todayStr() { return isoToDate(new Date().toISOString()) }
 
-/* ── 빈 폼 ── */
 const EMPTY_FORM = { title: '', category: '유튜브', memo: '', memo_date: todayStr() }
 
 /* ══════════════════════════════════════════════
@@ -53,24 +52,20 @@ export default function PrivateNotes({ onBack }) {
   const [dataLoading, setDataLoading] = useState(false)
   const [dataErr,     setDataErr]     = useState('')
 
-  /* 보기 */
-  const [view,        setView]        = useState('list')   // 'list' | 'calendar'
-
   /* 검색/필터 */
   const [searchQ,     setSearchQ]     = useState('')
   const [catFilter,   setCatFilter]   = useState('전체')
 
-  /* 작성폼 */
-  const [showForm,    setShowForm]    = useState(false)
-  const [form,        setForm]        = useState(EMPTY_FORM)
-  const [editId,      setEditId]      = useState(null)
-  const [saveBusy,    setSaveBusy]    = useState(false)
-  const formRef = useRef(null)
-
-  /* 달력 */
+  /* 달력 & 선택 날짜 */
   const [calYear,   setCalYear]   = useState(new Date().getFullYear())
   const [calMonth,  setCalMonth]  = useState(new Date().getMonth())
-  const [calSelDate, setCalSelDate] = useState(null) // 'YYYY-MM-DD' | null
+  const [calSelDate, setCalSelDate] = useState(todayStr()) // 기본값: 오늘
+
+  /* 작성폼 */
+  const [form,        setForm]        = useState({ ...EMPTY_FORM, memo_date: todayStr() })
+  const [editId,      setEditId]      = useState(null)
+  const [saveBusy,    setSaveBusy]    = useState(false)
+  const formTitleRef = useRef(null)
 
   /* ── 세션 복원 ── */
   useEffect(() => {
@@ -125,16 +120,19 @@ export default function PrivateNotes({ onBack }) {
   async function doLogout() {
     await supabase.auth.signOut()
     setNotes([])
-    closeForm()
+    resetForm()
   }
 
-  /* ── 폼 열기/닫기 ── */
-  function openNewForm(preDate) {
+  /* ── 폼 초기화 ── */
+  function resetForm() {
     setEditId(null)
-    setForm({ ...EMPTY_FORM, memo_date: preDate || todayStr() })
-    setShowForm(true)
-    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+    setForm({ ...EMPTY_FORM, memo_date: calSelDate || todayStr() })
+    setTimeout(() => {
+      formTitleRef.current?.focus()
+    }, 50)
   }
+
+  /* ── 편집 폼 열기 ── */
   function openEditForm(note) {
     setEditId(note.id)
     setForm({
@@ -143,13 +141,18 @@ export default function PrivateNotes({ onBack }) {
       memo:      note.memo      || '',
       memo_date: note.due_date  || isoToDate(note.created_at) || todayStr(),
     })
-    setShowForm(true)
-    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
-  }
-  function closeForm() {
-    setShowForm(false)
-    setEditId(null)
-    setForm(EMPTY_FORM)
+    // 폼 열면서 해당 달력 날짜로 맞춤
+    if (note.due_date) {
+        setCalSelDate(note.due_date)
+        const [y, m] = note.due_date.split('-')
+        setCalYear(Number(y))
+        setCalMonth(Number(m) - 1)
+    }
+    setTimeout(() => {
+      formTitleRef.current?.focus()
+      // 모바일 등에서 화면 스크롤 필요 시 여기에 구현
+      formTitleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 50)
   }
 
   /* ── 저장 ── */
@@ -163,10 +166,8 @@ export default function PrivateNotes({ onBack }) {
         category:    form.category,
         memo:        form.memo.trim() || null,
         updated_at:  new Date().toISOString(),
-        // 메모 날짜: 사용자가 입력한 날짜를 due_date에 저장
         due_date:    form.memo_date || null,
-        // DB NOT NULL 제약 충족 — 화면에는 표시 안 함
-        status:      '메모',
+        status:      '예정', // DB 제약조건 우회 (이전 '메모' -> '예정')
         priority:    '보통',
         next_action: null,
       }
@@ -179,7 +180,14 @@ export default function PrivateNotes({ onBack }) {
         const { error } = await supabase.from('private_notes').insert(payload)
         if (error) throw error
       }
-      closeForm()
+      // 저장 후 달력 뷰 날짜 변경
+      if (form.memo_date) {
+          setCalSelDate(form.memo_date)
+          const [y, m] = form.memo_date.split('-')
+          setCalYear(Number(y))
+          setCalMonth(Number(m) - 1)
+      }
+      resetForm()
       await loadNotes()
     } catch (err) {
       setDataErr(`저장 실패: ${err.message}`)
@@ -195,12 +203,14 @@ export default function PrivateNotes({ onBack }) {
       const { error } = await supabase.from('private_notes').delete().eq('id', id)
       if (error) throw error
       setNotes(prev => prev.filter(n => n.id !== id))
+      if (editId === id) resetForm()
     } catch (err) {
       setDataErr(`삭제 실패: ${err.message}`)
     }
   }
 
-  /* ── 필터링된 목록 ── */
+  /* ── 필터링된 달력 표시용 노트 맵 ── */
+  // 검색어/카테고리 필터가 적용된 상태의 달력을 보여주기 위해 필터 먼저 적용
   const filteredNotes = useMemo(() => {
     const q = searchQ.trim().toLowerCase()
     return notes.filter(n => {
@@ -210,41 +220,35 @@ export default function PrivateNotes({ onBack }) {
     })
   }, [notes, catFilter, searchQ])
 
-  /* ── 달력용 날짜 맵 (due_date 기준, 없으면 created_at 폴백) ── */
   const calDateMap = useMemo(() => {
     const map = {}
-    notes.forEach(n => {
-      const d = n.due_date || isoToDate(n.created_at)
+    filteredNotes.forEach(n => {
+      const d = n.due_date // 메모 날짜(due_date) 최우선. 작성일로 fallback 안함 (사용자 요구사항). 없으면 캘린더 미표시
       if (!d) return
       if (!map[d]) map[d] = []
       map[d].push(n)
     })
     return map
-  }, [notes])
+  }, [filteredNotes])
 
-  /* ── 달력 이동 ── */
+  /* ── 선택된 달력 날짜의 메모 (검색 적용) ── */
+  const calSelNotes = calSelDate ? (calDateMap[calSelDate] || []) : []
+
+  /* ── 달력 네비게이션 ── */
   function calMove(delta) {
     let m = calMonth + delta, y = calYear
     if (m < 0) { m = 11; y-- }
     if (m > 11) { m = 0; y++ }
     setCalMonth(m); setCalYear(y)
-    setCalSelDate(null)
   }
 
-  /* ── 달력 날짜 클릭 ── */
-  function onCalDateClick(dateStr) {
-    // 같은 날짜 재클릭 시 선택 해제, 새 날짜 클릭 시 선택
-    setCalSelDate(prev => prev === dateStr ? null : dateStr)
+  function handleDateClick(dateStr) {
+      setCalSelDate(dateStr)
+      // 오른쪽 폼의 날짜도 동기화 (단, 폼이 비어있거나 수정 중이 아닐 때)
+      if (!editId) {
+          setForm(f => ({ ...f, memo_date: dateStr }))
+      }
   }
-
-  /* ── 달력에서 "+ 새 메모" 클릭 시 해당 날짜 자동 입력 ── */
-  function openNewFormFromCal(dateStr) {
-    setView('list')
-    openNewForm(dateStr)
-  }
-
-  /* ── 선택된 달력 날짜의 메모 ── */
-  const calSelNotes = calSelDate ? (calDateMap[calSelDate] || []) : []
 
   /* ════════════ 렌더 분기 ════════════ */
   if (authLoading) {
@@ -295,6 +299,34 @@ export default function PrivateNotes({ onBack }) {
             <div className="pn-brand-sub">유튜브 아이디어 · 블로그 소재 · AI 공부 · 수익화 구상 · 개인 생각</div>
           </div>
         </div>
+
+        {/* 상단 필터/검색 (작게 배치) */}
+        <div className="pn-top-filters">
+            <div className="pn-search-wrap">
+                <span className="pn-search-icon">🔍</span>
+                <input
+                    className="pn-search"
+                    type="text"
+                    placeholder="제목 또는 내용 검색"
+                    value={searchQ}
+                    onChange={e => setSearchQ(e.target.value)}
+                />
+                {searchQ && (
+                    <button type="button" className="pn-search-clear" onClick={() => setSearchQ('')}>✕</button>
+                )}
+            </div>
+            <div className="pn-cat-bar">
+                {CAT_ALL.map(cat => (
+                    <button key={cat} type="button"
+                    className={`pn-cat-btn${catFilter === cat ? ' active' : ''}`}
+                    style={cat !== '전체' ? { '--cat-c': CAT_COLOR[cat] } : {}}
+                    onClick={() => setCatFilter(cat)}>
+                    {cat}
+                    </button>
+                ))}
+            </div>
+        </div>
+
         <div className="pn-header-right">
           <span className="pn-user-chip">🔒 {user.email}</span>
           <button type="button" className="pn-logout-btn" onClick={doLogout}>로그아웃</button>
@@ -310,162 +342,10 @@ export default function PrivateNotes({ onBack }) {
         </div>
       )}
 
-      {/* 툴바 */}
-      <div className="pn-toolbar">
-        <div className="pn-toolbar-left">
-          {/* 검색 */}
-          <div className="pn-search-wrap">
-            <span className="pn-search-icon">🔍</span>
-            <input
-              className="pn-search"
-              type="text"
-              placeholder="제목 또는 내용 검색"
-              value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
-            />
-            {searchQ && (
-              <button type="button" className="pn-search-clear" onClick={() => setSearchQ('')}>✕</button>
-            )}
-          </div>
-          {/* 보기 전환 */}
-          <div className="pn-view-tabs">
-            <button type="button"
-              className={`pn-view-tab${view === 'list' ? ' active' : ''}`}
-              onClick={() => { setView('list'); setCalSelDate(null) }}>
-              ☰ 목록
-            </button>
-            <button type="button"
-              className={`pn-view-tab${view === 'calendar' ? ' active' : ''}`}
-              onClick={() => { setView('calendar'); closeForm() }}>
-              📅 달력
-            </button>
-          </div>
-        </div>
-        {/* 새 메모 작성 버튼 */}
-        {!showForm && (
-          <button type="button" className="pn-new-btn" onClick={openNewForm}>
-            + 새 메모 작성
-          </button>
-        )}
-      </div>
-
-      {/* 분류 필터 (목록 보기일 때만) */}
-      {view === 'list' && (
-        <div className="pn-cat-bar">
-          {CAT_ALL.map(cat => (
-            <button key={cat} type="button"
-              className={`pn-cat-btn${catFilter === cat ? ' active' : ''}`}
-              style={cat !== '전체' ? { '--cat-c': CAT_COLOR[cat] } : {}}
-              onClick={() => setCatFilter(cat)}>
-              {cat}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* 본문 */}
-      <div className="pn-body">
-
-        {/* ═══ 작성폼 (열렸을 때만) ═══ */}
-        {showForm && (
-          <div ref={formRef} className="pn-form-wrap">
-            <form className="pn-form" onSubmit={saveNote}>
-              <div className="pn-form-head">
-                <span className="pn-form-title">{editId ? '✏️ 메모 수정' : '✏️ 새 메모 작성'}</span>
-                <button type="button" className="pn-cancel-btn" onClick={closeForm}>✕ 닫기</button>
-              </div>
-
-              {/* 제목 + 분류 */}
-              <div className="pn-form-top-row">
-                <input
-                  className="pn-title-input"
-                  type="text"
-                  placeholder="제목을 입력해주세요"
-                  value={form.title}
-                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  required
-                  autoFocus
-                />
-                <select
-                  className="pn-cat-select"
-                  value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {CAT_OPTIONS.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-
-              {/* 메모 날짜 */}
-              <div className="pn-form-date-row">
-                <label className="pn-date-label">📅 메모 날짜</label>
-                <input
-                  className="pn-date-input"
-                  type="date"
-                  value={form.memo_date}
-                  onChange={e => setForm(f => ({ ...f, memo_date: e.target.value }))}
-                />
-              </div>
-
-              {/* 메모 내용 */}
-              <textarea
-                className="pn-memo-input"
-                placeholder="유튜브 아이디어, 블로그 초안, AI 공부 메모, 수익화 구상, 개인 생각 등을 자유롭게 적어주세요."
-                value={form.memo}
-                onChange={e => setForm(f => ({ ...f, memo: e.target.value }))}
-              />
-
-              <div className="pn-form-foot">
-                <button type="button" className="pn-cancel-btn" onClick={closeForm}>취소</button>
-                <button type="submit" className="pn-save-btn" disabled={saveBusy}>
-                  {saveBusy ? '저장 중...' : '💾 저장'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* ═══ 목록 보기 ═══ */}
-        {view === 'list' && (
-          <div className="pn-list">
-            {/* 결과 요약 */}
-            <div className="pn-list-info">
-              메모 {filteredNotes.length}개
-              {catFilter !== '전체' ? ` · ${catFilter}` : ''}
-              {searchQ ? ` · "${searchQ}"` : ''}
-            </div>
-
-            {dataLoading && <div className="pn-center-msg">메모를 불러오는 중...</div>}
-
-            {!dataLoading && filteredNotes.length === 0 && (
-              <div className="pn-empty-state">
-                <div className="pn-empty-icon">📝</div>
-                <div className="pn-empty-text">
-                  {searchQ || catFilter !== '전체'
-                    ? '검색 결과가 없습니다.'
-                    : '아직 저장된 메모가 없습니다.'}
-                </div>
-                {!searchQ && catFilter === '전체' && (
-                  <button type="button" className="pn-new-btn" onClick={openNewForm}>
-                    + 새 메모 작성
-                  </button>
-                )}
-              </div>
-            )}
-
-            {!dataLoading && filteredNotes.map(note => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                onEdit={() => openEditForm(note)}
-                onDelete={() => deleteNote(note.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* ═══ 달력 보기 ═══ */}
-        {view === 'calendar' && (
-          <div className="pn-cal-view">
-            {/* 달력 */}
+      {/* 3단 본문 레이아웃 */}
+      <div className="pn-body-3col">
+        {/* 1. 달력 영역 (왼쪽) */}
+        <div className="pn-col-calendar">
             <div className="pn-cal-panel">
               <div className="pn-cal-header">
                 <button type="button" className="pn-cal-nav-btn" onClick={() => calMove(-1)}>◀</button>
@@ -481,61 +361,118 @@ export default function PrivateNotes({ onBack }) {
                   year={calYear} month={calMonth}
                   calDateMap={calDateMap}
                   selDate={calSelDate}
-                  onSelect={onCalDateClick}
+                  onSelect={handleDateClick}
                 />
               </div>
+            </div>
+        </div>
 
-              {/* 범례 */}
-              <div className="pn-cal-legend">
-                {CAT_OPTIONS.filter(c => notes.some(n => {
-                const d = n.due_date || isoToDate(n.created_at)
-                return d?.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`) && n.category === c
-              }))
-                  .map(cat => (
-                    <span key={cat} className="pn-leg-item">
-                      <span className="pn-leg-dot" style={{ background: CAT_COLOR[cat] }} />
-                      {cat}
-                    </span>
-                  ))}
-              </div>
+        {/* 2. 스티커 목록 영역 (가운데) */}
+        <div className="pn-col-stickers">
+            <div className="pn-stickers-head">
+                <span className="pn-stickers-title">
+                    📅 {calSelDate ? fmtKo(calSelDate) + ' 메모' : '날짜를 선택하세요'}
+                </span>
+                {calSelDate && <span className="pn-stickers-count">{calSelNotes.length}개</span>}
             </div>
 
-            {/* 선택된 날짜 메모 */}
-            {calSelDate ? (
-              <div className="pn-cal-day-notes">
-                <div className="pn-cal-day-title">
-                  📅 {fmtKo(calSelDate)} 메모
-                  <span className="pn-cal-day-count">{calSelNotes.length}개</span>
-                  <button
-                    type="button"
-                    className="pn-cal-add-btn"
-                    onClick={() => openNewFormFromCal(calSelDate)}
-                  >
-                    + 이 날짜로 새 메모
-                  </button>
-                </div>
-                {calSelNotes.length === 0 ? (
-                  <div className="pn-center-msg" style={{ minHeight: '80px' }}>
-                    이 날짜에 작성한 메모가 없습니다.
-                  </div>
-                ) : (
-                  calSelNotes.map(note => (
-                    <NoteCard
-                      key={note.id}
-                      note={note}
-                      onEdit={() => { openEditForm(note); setView('list') }}
-                      onDelete={() => deleteNote(note.id)}
-                    />
-                  ))
+            <div className="pn-stickers-list">
+                {dataLoading && <div className="pn-center-msg">불러오는 중...</div>}
+                
+                {!dataLoading && calSelDate && calSelNotes.length === 0 && (
+                    <div className="pn-empty-state">
+                        <div className="pn-empty-icon">📝</div>
+                        <div className="pn-empty-text">이 날짜에 작성된 메모가 없습니다.</div>
+                    </div>
                 )}
-              </div>
-            ) : (
-              <div className="pn-cal-hint">날짜를 클릭하면 해당 날짜에 작성한 메모를 볼 수 있습니다.</div>
-            )}
-          </div>
-        )}
 
-      </div>{/* /pn-body */}
+                {!dataLoading && !calSelDate && (
+                    <div className="pn-empty-state">
+                        <div className="pn-empty-icon">👈</div>
+                        <div className="pn-empty-text">달력에서 날짜를 선택해주세요.</div>
+                    </div>
+                )}
+
+                {!dataLoading && calSelNotes.map(note => (
+                    <StickerCard
+                        key={note.id}
+                        note={note}
+                        isActive={editId === note.id}
+                        onEdit={() => openEditForm(note)}
+                        onDelete={() => deleteNote(note.id)}
+                    />
+                ))}
+            </div>
+        </div>
+
+        {/* 3. 메모 입력창 영역 (오른쪽) */}
+        <div className="pn-col-editor">
+            <div className="pn-editor-panel">
+                <form className="pn-form" onSubmit={saveNote}>
+                    <div className="pn-form-head">
+                        <span className="pn-form-title">{editId ? '✏️ 메모 수정' : '✏️ 새 메모 작성'}</span>
+                        <div className="pn-form-head-actions">
+                            <button type="button" className="pn-new-reset-btn" onClick={resetForm}>
+                                ✨ 새 메모
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="pn-form-date-row">
+                        <label className="pn-date-label">기록 날짜</label>
+                        <input
+                            className="pn-date-input"
+                            type="date"
+                            value={form.memo_date}
+                            onChange={e => {
+                                setForm(f => ({ ...f, memo_date: e.target.value }))
+                                if (!editId) setCalSelDate(e.target.value) // 새 메모일 땐 달력도 연동
+                            }}
+                        />
+                    </div>
+
+                    <div className="pn-form-top-row">
+                        <input
+                            ref={formTitleRef}
+                            className="pn-title-input"
+                            type="text"
+                            placeholder="제목을 입력해주세요"
+                            value={form.title}
+                            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                            required
+                        />
+                        <select
+                            className="pn-cat-select"
+                            value={form.category}
+                            onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                            {CAT_OPTIONS.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                    </div>
+
+                    <textarea
+                        className="pn-memo-input"
+                        placeholder="유튜브 아이디어, 블로그 초안, AI 공부 메모, 수익화 구상, 개인 생각 등을 자유롭게 적어주세요."
+                        value={form.memo}
+                        onChange={e => setForm(f => ({ ...f, memo: e.target.value }))}
+                    />
+
+                    <div className="pn-form-foot">
+                        {editId && (
+                            <button type="button" className="pn-cancel-btn pn-del-btn" onClick={() => deleteNote(editId)}>
+                                🗑 삭제
+                            </button>
+                        )}
+                        <div style={{ flex: 1 }}></div>
+                        <button type="button" className="pn-cancel-btn" onClick={resetForm}>초기화</button>
+                        <button type="submit" className="pn-save-btn" disabled={saveBusy}>
+                            {saveBusy ? '저장 중...' : (editId ? '💾 수정 저장' : '💾 새 메모 저장')}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+      </div>{/* /pn-body-3col */}
     </div>
   )
 }
@@ -558,32 +495,32 @@ function PnHeader({ onBack }) {
 }
 
 /* ══════════════════════════════════════════════
-   메모 카드
+   스티커 카드
 ══════════════════════════════════════════════ */
-function NoteCard({ note, onEdit, onDelete }) {
+function StickerCard({ note, isActive, onEdit, onDelete }) {
   const color = CAT_COLOR[note.category] || '#9ca3af'
   const isEdited = note.updated_at && note.updated_at !== note.created_at
+  
   return (
-    <div className="pn-card" style={{ '--cat-c': color }}>
-      <div className="pn-card-head">
-        <span className="pn-card-cat" style={{ color, borderColor: color + '55' }}>
+    <div className={`pn-sticker ${isActive ? 'active' : ''}`} style={{ '--cat-c': color }} onClick={onEdit}>
+      <div className="pn-sticker-head">
+        <span className="pn-sticker-cat" style={{ color, borderColor: color + '55', background: color + '15' }}>
           {note.category}
         </span>
-        <span className="pn-card-title">{note.title}</span>
-        {note.due_date && (
-          <span className="pn-card-memo-date">📅 {fmtShort(note.due_date)}</span>
-        )}
-      </div>
-      {note.memo && <div className="pn-card-body">{note.memo}</div>}
-      <div className="pn-card-foot">
-        <span className="pn-card-date">
-          작성 {fmtShort(note.created_at)}
-          {isEdited ? ` · 수정 ${fmtShort(note.updated_at)}` : ''}
-        </span>
-        <div className="pn-card-actions">
-          <button type="button" className="pn-act-btn" onClick={onEdit}>✏️ 수정</button>
-          <button type="button" className="pn-act-btn pn-act-del" onClick={onDelete}>🗑 삭제</button>
+        <div className="pn-sticker-actions" onClick={e => e.stopPropagation()}>
+          <button type="button" className="pn-s-act" onClick={onEdit}>✏️</button>
+          <button type="button" className="pn-s-act del" onClick={onDelete}>🗑</button>
         </div>
+      </div>
+      <div className="pn-sticker-title">{note.title}</div>
+      {note.memo && (
+          <div className="pn-sticker-body">
+              {note.memo.length > 80 ? note.memo.slice(0, 80) + '...' : note.memo}
+          </div>
+      )}
+      <div className="pn-sticker-foot">
+        작성 {fmtShort(note.created_at)}
+        {isEdited ? ` · 수정 ${fmtShort(note.updated_at)}` : ''}
       </div>
     </div>
   )
@@ -593,7 +530,7 @@ function NoteCard({ note, onEdit, onDelete }) {
    달력 셀
 ══════════════════════════════════════════════ */
 function CalCells({ year, month, calDateMap, selDate, onSelect }) {
-  const todayStr   = isoToDate(new Date().toISOString())
+  const todayStr   = todayStr()
   const firstDow   = new Date(year, month, 1).getDay()
   const daysInMon  = new Date(year, month + 1, 0).getDate()
   const prevDays   = new Date(year, month, 0).getDate()
@@ -613,9 +550,6 @@ function CalCells({ year, month, calDateMap, selDate, onSelect }) {
     const isSel   = dateStr === selDate
     const dayNotes = (cell.cur && dateStr && calDateMap[dateStr]) || []
 
-    // 분류별 유니크 색상 점 (최대 4개)
-    const dotColors = [...new Set(dayNotes.map(n => CAT_COLOR[n.category] || '#9ca3af'))].slice(0, 4)
-
     return (
       <div
         key={i}
@@ -631,15 +565,12 @@ function CalCells({ year, month, calDateMap, selDate, onSelect }) {
         <span className={`pn-cal-num${dow === 0 ? ' sun' : dow === 6 ? ' sat' : ''}`}>
           {cell.day}
         </span>
-        {dotColors.length > 0 && (
-          <div className="pn-cal-dots">
-            {dotColors.map((c, j) => (
-              <span key={j} className="pn-cal-dot" style={{ background: c }} />
-            ))}
-          </div>
-        )}
+        
+        {/* 메모가 있으면 스티커 표시 */}
         {dayNotes.length > 0 && (
-          <span className="pn-cal-count">{dayNotes.length}</span>
+          <div className="pn-cal-sticker-badges">
+            📝 {dayNotes.length}
+          </div>
         )}
       </div>
     )
