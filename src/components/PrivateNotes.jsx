@@ -530,7 +530,7 @@ function StickerCard({ note, isActive, onEdit, onDelete }) {
    달력 셀
 ══════════════════════════════════════════════ */
 function CalCells({ year, month, calDateMap, selDate, onSelect }) {
-  const todayStr   = todayStr()
+  const today      = todayStr()
   const firstDow   = new Date(year, month, 1).getDay()
   const daysInMon  = new Date(year, month + 1, 0).getDate()
   const prevDays   = new Date(year, month, 0).getDate()
@@ -546,7 +546,7 @@ function CalCells({ year, month, calDateMap, selDate, onSelect }) {
     const dateStr = cell.cur
       ? `${year}-${String(month + 1).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}`
       : null
-    const isToday = dateStr === todayStr
+    const isToday = dateStr === today
     const isSel   = dateStr === selDate
     const dayNotes = (cell.cur && dateStr && calDateMap[dateStr]) || []
 
