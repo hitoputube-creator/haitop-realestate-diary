@@ -67,6 +67,14 @@
   width: 100%;
 }
 
+/* ===== 좌측 컬럼 래퍼 (달력 + 포스트잇) ===== */
+.wd-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
 @media (max-width: 960px) {
   .wd-main {
     grid-template-columns: 1fr;

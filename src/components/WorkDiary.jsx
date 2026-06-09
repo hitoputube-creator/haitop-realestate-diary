@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
+import StickyNotes from './StickyNotes'
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
@@ -29,9 +30,19 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
 
   /* ===== 연결고리 ===== */
   const [allLinkKeys, setAllLinkKeys] = useState([])
-  const [linkKeyFilter, setLinkKeyFilter] = useState(null) // 연결 메모 패널 열릴 때 설정
+  const [linkKeyFilter, setLinkKeyFilter] = useState(null)
   const [linkMemos, setLinkMemos] = useState([])
   const [linkMemosLoading, setLinkMemosLoading] = useState(false)
+
+  /* ===== 포스트잇 ===== */
+  const [stickyData, setStickyData] = useState([])   // [{sticky, memo}]
+  const [stickyLoading, setStickyLoading] = useState(false)
+
+  // 현재 고정된 diary_id Set — MemoCard 버튼 상태 판단용
+  const pinnedDiaryIds = useMemo(
+    () => new Set(stickyData.map((d) => d.sticky.diary_id)),
+    [stickyData]
+  )
 
   /* ===== 선택 날짜의 메모 로드 ===== */
   const loadMemosForSelected = useCallback(async () => {
@@ -149,6 +160,74 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
     setLinkKeyFilter(key)
     loadLinkMemos(key)
   }
+
+  /* ===== 포스트잇 로드 ===== */
+  const loadStickyNotes = useCallback(async () => {
+    if (!isSupabaseConfigured) return
+    setStickyLoading(true)
+    try {
+      const { data: stickies, error: e1 } = await supabase
+        .from('work_sticky_notes')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (e1) throw e1
+
+      if (!stickies || stickies.length === 0) {
+        setStickyData([])
+        return
+      }
+
+      const ids = stickies.map((s) => s.diary_id)
+      const { data: diaryMemos, error: e2 } = await supabase
+        .from(TABLE)
+        .select('*')
+        .in('id', ids)
+      if (e2) throw e2
+
+      const memoMap = {}
+      ;(diaryMemos || []).forEach((m) => { memoMap[m.id] = m })
+      setStickyData(stickies.map((s) => ({ sticky: s, memo: memoMap[s.diary_id] || null })))
+    } catch (err) {
+      console.warn('[StickyNotes] load failed:', err.message || err)
+    } finally {
+      setStickyLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadStickyNotes() }, [loadStickyNotes])
+
+  /* 포스트잇 추가 */
+  const handlePin = useCallback(async (diaryId) => {
+    if (!isSupabaseConfigured) return
+    try {
+      const { data, error: e } = await supabase
+        .from('work_sticky_notes')
+        .insert({ diary_id: diaryId, status: '진행중' })
+        .select()
+        .single()
+      if (e) throw e
+      // 원본 메모 찾기 (현재 날짜 목록 또는 검색 결과)
+      const memo = [...memos, ...searchResults].find((m) => m.id === diaryId) || null
+      setStickyData((prev) => [{ sticky: data, memo }, ...prev])
+    } catch (err) {
+      setError(`포스트잇 추가 실패: ${err.message || err}`)
+    }
+  }, [memos, searchResults])
+
+  /* 포스트잇 해제 (삭제) */
+  const handleUnpin = useCallback(async (diaryId) => {
+    if (!isSupabaseConfigured) return
+    try {
+      const { error: e } = await supabase
+        .from('work_sticky_notes')
+        .delete()
+        .eq('diary_id', diaryId)
+      if (e) throw e
+      setStickyData((prev) => prev.filter((d) => d.sticky.diary_id !== diaryId))
+    } catch (err) {
+      setError(`포스트잇 해제 실패: ${err.message || err}`)
+    }
+  }, [])
 
   /* ===== 검색 ===== */
   useEffect(() => {
@@ -466,17 +545,25 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
       )}
 
       <main className="wd-main">
-        <Calendar
-          viewYear={viewYear}
-          viewMonth={viewMonth}
-          selectedDate={selectedDate}
-          notedDateKeys={notedDateKeys}
-          filterWriter={filterWriter}
-          onSelectDate={handleSelectDate}
-          onPrevMonth={handlePrevMonth}
-          onNextMonth={handleNextMonth}
-          onJumpToday={handleJumpToday}
-        />
+        <div className="wd-left-col">
+          <Calendar
+            viewYear={viewYear}
+            viewMonth={viewMonth}
+            selectedDate={selectedDate}
+            notedDateKeys={notedDateKeys}
+            filterWriter={filterWriter}
+            onSelectDate={handleSelectDate}
+            onPrevMonth={handlePrevMonth}
+            onNextMonth={handleNextMonth}
+            onJumpToday={handleJumpToday}
+          />
+          <StickyNotes
+            stickyData={stickyData}
+            loading={stickyLoading}
+            onUnpin={handleUnpin}
+            onLinkKeyClick={handleLinkKeyClick}
+          />
+        </div>
 
         <DiaryList
           selectedDate={selectedDate}
@@ -492,6 +579,9 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
           composerDisabled={!isSupabaseConfigured}
           allLinkKeys={allLinkKeys}
           onLinkKeyClick={handleLinkKeyClick}
+          pinnedDiaryIds={pinnedDiaryIds}
+          onPin={handlePin}
+          onUnpin={handleUnpin}
         />
       </main>
 

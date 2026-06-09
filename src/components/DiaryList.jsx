@@ -66,7 +66,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys }) {
+function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const taRef = useRef(null)
@@ -256,6 +256,15 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
       <div className="wd-card-actions">
         {!editing ? (
           <>
+            {/* 포스트잇 추가/해제 */}
+            <button
+              type="button"
+              className={`wd-action-btn wd-pin-btn ${isPinned ? 'pinned' : ''}`}
+              onClick={() => isPinned ? onUnpin && onUnpin(memo.id) : onPin && onPin(memo.id)}
+              title={isPinned ? '포스트잇 해제' : '달력 아래에 고정'}
+            >
+              {isPinned ? '📌 포스트잇 해제' : '📌 포스트잇 추가'}
+            </button>
             {!memo.link_key && !linkEditing && (
               <button
                 type="button"
@@ -510,6 +519,9 @@ export default function DiaryList({
   composerDisabled,
   allLinkKeys,
   onLinkKeyClick,
+  pinnedDiaryIds,
+  onPin,
+  onUnpin,
 }) {
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
@@ -594,6 +606,9 @@ export default function DiaryList({
               onLinkKeyClick={onLinkKeyClick}
               onUpdateLinkKey={onUpdateLinkKey}
               allLinkKeys={allLinkKeys}
+              isPinned={pinnedDiaryIds?.has(m.id) ?? false}
+              onPin={onPin}
+              onUnpin={onUnpin}
             />
           ))
         )}

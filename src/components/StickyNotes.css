@@ -1,0 +1,300 @@
+/* ===================================================
+   진행중 포스트잇 — StickyNotes.css (v2)
+=================================================== */
+
+/* ── 섹션 ── */
+.wsn-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* ── 헤더 ── */
+.wsn-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.wsn-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  letter-spacing: -0.2px;
+}
+
+.wsn-sub {
+  font-size: 10.5px;
+  color: var(--color-on-surface-faint);
+  margin-top: 3px;
+}
+
+/* ── 빈 상태 / 로딩 ── */
+.wsn-loading,
+.wsn-empty {
+  text-align: center;
+  padding: 18px 16px;
+  font-size: 12px;
+  color: var(--color-on-surface-faint);
+}
+
+/* ── 포스트잇 칩 목록 ── */
+.wsn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+
+.wsn-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(252, 240, 170, 0.055);
+  border: 1px solid rgba(252, 240, 170, 0.15);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  width: 100%;
+}
+.wsn-chip:hover {
+  background: rgba(252, 240, 170, 0.10);
+  border-color: rgba(252, 240, 170, 0.28);
+}
+
+.wsn-chip-pin {
+  font-size: 13px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.wsn-chip-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===================================================
+   원본 메모 상세 모달
+=================================================== */
+.wsn-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.wsn-detail-modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+
+.wsn-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.wsn-detail-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.wsn-modal-close {
+  font-size: 14px;
+  color: var(--color-on-surface-faint);
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.wsn-modal-close:hover {
+  color: var(--color-on-surface);
+  background: var(--color-surface-container);
+}
+
+/* 상세 본문 */
+.wsn-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wsn-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--color-on-surface-faint);
+}
+
+.wsn-detail-date {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.wsn-detail-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.wsn-detail-writer {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.wsn-detail-sticker {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.wsn-detail-link-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  color: #d4af37;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  align-self: flex-start;
+}
+.wsn-detail-link-badge:hover {
+  background: rgba(212, 175, 55, 0.2);
+}
+
+.wsn-detail-content {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-on-surface);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 하단 버튼 */
+.wsn-detail-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.wsn-footer-spacer { flex: 1; }
+
+.wsn-btn-unpin {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  color: rgba(212, 175, 55, 0.7);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.wsn-btn-unpin:hover {
+  background: rgba(212, 175, 55, 0.1);
+  border-color: rgba(212, 175, 55, 0.55);
+  color: #d4af37;
+}
+
+.wsn-modal-cancel {
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-on-surface-muted);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.wsn-modal-cancel:hover {
+  background: var(--color-surface-container);
+}
+
+.wsn-modal-save {
+  padding: 7px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  color: #4ade80;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.wsn-modal-save:hover {
+  background: rgba(74, 222, 128, 0.2);
+}
+
+/* ===================================================
+   메모 카드 핀 버튼 스타일 (WorkDiary.css에 있어도 되지만
+   연관성을 위해 여기서 관리)
+=================================================== */
+.wd-pin-btn {
+  color: rgba(212, 175, 55, 0.55) !important;
+}
+.wd-pin-btn:hover {
+  color: #d4af37 !important;
+  background: rgba(212, 175, 55, 0.1) !important;
+}
+.wd-pin-btn.pinned {
+  color: #d4af37 !important;
+  background: rgba(212, 175, 55, 0.12) !important;
+}
+.wd-pin-btn.pinned:hover {
+  background: rgba(212, 175, 55, 0.2) !important;
+}
+
+/* ===================================================
+   모바일
+=================================================== */
+@media (max-width: 600px) {
+  .wsn-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .wsn-detail-modal {
+    border-radius: 16px 16px 0 0;
+    max-width: 100%;
+    max-height: 90vh;
+  }
+}
