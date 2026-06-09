@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import Calendar, { toDateKey } from './Calendar'
-import DiaryList, { extractTags } from './DiaryList'
+import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
 import './WorkDiary.css'
 
@@ -26,6 +26,12 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
 
   const searchMode = searchQuery.trim().length > 0
   const [filterWriter, setFilterWriter] = useState('all')
+
+  /* ===== 연결고리 ===== */
+  const [allLinkKeys, setAllLinkKeys] = useState([])
+  const [linkKeyFilter, setLinkKeyFilter] = useState(null) // 연결 메모 패널 열릴 때 설정
+  const [linkMemos, setLinkMemos] = useState([])
+  const [linkMemosLoading, setLinkMemosLoading] = useState(false)
 
   /* ===== 선택 날짜의 메모 로드 ===== */
   const loadMemosForSelected = useCallback(async () => {
@@ -98,6 +104,52 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
     loadMonthDots()
   }, [loadMonthDots])
 
+  /* ===== 사용 중인 연결고리 목록 로드 ===== */
+  const loadAllLinkKeys = useCallback(async () => {
+    if (!isSupabaseConfigured) return
+    try {
+      const { data, error: e } = await supabase
+        .from(TABLE)
+        .select('link_key')
+        .neq('link_key', '')
+      if (e) throw e
+      const unique = Array.from(new Set((data || []).map((r) => r.link_key).filter(Boolean))).sort()
+      setAllLinkKeys(unique)
+    } catch {
+      // 실패해도 무시
+    }
+  }, [])
+
+  useEffect(() => {
+    loadAllLinkKeys()
+  }, [loadAllLinkKeys])
+
+  /* ===== 연결 메모 조회 ===== */
+  const loadLinkMemos = useCallback(async (key) => {
+    if (!isSupabaseConfigured || !key) return
+    setLinkMemosLoading(true)
+    try {
+      const { data, error: e } = await supabase
+        .from(TABLE)
+        .select('*')
+        .eq('link_key', key)
+        .order('date', { ascending: true })
+        .order('created_at', { ascending: true })
+      if (e) throw e
+      setLinkMemos(data || [])
+    } catch (err) {
+      setError(`연결 메모 조회 실패: ${err.message || err}`)
+      setLinkMemos([])
+    } finally {
+      setLinkMemosLoading(false)
+    }
+  }, [])
+
+  function handleLinkKeyClick(key) {
+    setLinkKeyFilter(key)
+    loadLinkMemos(key)
+  }
+
   /* ===== 검색 ===== */
   useEffect(() => {
     const q = searchQuery.trim()
@@ -118,10 +170,10 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
         const isTagSearch = q.startsWith('#')
         const tagTerm = isTagSearch ? q.slice(1) : q
 
-        // content ilike 또는 태그 array contains
+        // content ilike 또는 태그 array contains 또는 link_key ilike
         const orFilter = isTagSearch
           ? `tags.cs.{${tagTerm}}`
-          : `content.ilike.%${q}%,tags.cs.{${tagTerm}}`
+          : `content.ilike.%${q}%,tags.cs.{${tagTerm}},link_key.ilike.%${q}%`
 
         const { data, error: e } = await supabase
           .from(TABLE)
@@ -149,7 +201,7 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
-    async (content, writer = '주현희', sticker = null) => {
+    async (content, writer = '주현희', sticker = null, linkKey = '') => {
       if (!isSupabaseConfigured) {
         setError('Supabase 연결이 설정되지 않았습니다. .env에 VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY를 추가해주세요.')
         return
@@ -166,6 +218,7 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
             date: dateStr,
             writer,
             sticker: sticker || null,
+            link_key: linkKey || '',
           })
           .select()
           .single()
@@ -177,6 +230,12 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
           next[dateStr] = [...next[dateStr], { writer, sticker: sticker || null }]
           return next
         })
+        // 새 연결고리가 있으면 목록 갱신
+        if (linkKey) {
+          setAllLinkKeys((prev) =>
+            prev.includes(linkKey) ? prev : [...prev, linkKey].sort()
+          )
+        }
         setError(null)
       } catch (err) {
         setError(`저장 실패: ${err.message || err}`)
@@ -233,6 +292,30 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
     [memos, searchResults, loadMonthDots]
   )
 
+  const handleUpdateLinkKey = useCallback(async (id, linkKey) => {
+    if (!isSupabaseConfigured) return
+    const normalized = (linkKey || '').trim()
+    // 낙관적 업데이트
+    setMemos((prev) => prev.map((m) => (m.id === id ? { ...m, link_key: normalized } : m)))
+    setSearchResults((prev) => prev.map((m) => (m.id === id ? { ...m, link_key: normalized } : m)))
+    try {
+      const { error: e } = await supabase
+        .from(TABLE)
+        .update({ link_key: normalized })
+        .eq('id', id)
+      if (e) throw e
+      // 새 연결태그가 생겼으면 목록 갱신
+      if (normalized) {
+        setAllLinkKeys((prev) =>
+          prev.includes(normalized) ? prev : [...prev, normalized].sort()
+        )
+      }
+    } catch (err) {
+      setError(`연결태그 저장 실패: ${err.message || err}`)
+      loadMemosForSelected()
+    }
+  }, [loadMemosForSelected])
+
   const handleUpdateContent = useCallback(async (id, content) => {
     if (!isSupabaseConfigured) return
     const tags = extractTags(content)
@@ -278,6 +361,52 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
       setViewMonth(d.getMonth())
     }
   }
+
+  /* ===== 연결 메모 패널 ===== */
+  const LinkPanel = linkKeyFilter ? (
+    <div className="wd-link-modal" role="dialog" aria-modal="true" aria-label="연결 메모 보기">
+      <div className="wd-link-panel">
+        <div className="wd-link-panel-header">
+          <div>
+            <div className="wd-link-panel-title">연결태그 메모: {linkKeyFilter}</div>
+            <div className="wd-link-panel-sub">{linkMemos.length}건 · 날짜순</div>
+          </div>
+          <button
+            type="button"
+            className="wd-link-panel-close"
+            onClick={() => { setLinkKeyFilter(null); setLinkMemos([]) }}
+          >
+            닫기
+          </button>
+        </div>
+        <div className="wd-link-panel-body">
+          {linkMemosLoading ? (
+            <div className="wd-loading">불러오는 중...</div>
+          ) : linkMemos.length === 0 ? (
+            <div className="wd-empty">
+              <div className="wd-empty-icon" aria-hidden="true">🔗</div>
+              <div className="wd-empty-title">연결된 메모가 없습니다</div>
+            </div>
+          ) : (
+            linkMemos.map((m) => (
+              <div key={m.id} className="wd-link-memo-item">
+                <div className="wd-link-memo-date">{m.date}</div>
+                <div className="wd-link-memo-content">{m.content}</div>
+                {m.sticker && (
+                  <span
+                    className="wd-sticker-badge"
+                    style={{ background: (STICKER_META_REF[m.sticker] || {}).color || '#888', marginTop: 4 }}
+                  >
+                    {m.sticker}
+                  </span>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null
 
   return (
     <div className="wd-app">
@@ -359,9 +488,14 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
           onChangeStatus={handleChangeStatus}
           onDelete={handleDelete}
           onUpdateContent={handleUpdateContent}
+          onUpdateLinkKey={handleUpdateLinkKey}
           composerDisabled={!isSupabaseConfigured}
+          allLinkKeys={allLinkKeys}
+          onLinkKeyClick={handleLinkKeyClick}
         />
       </main>
+
+      {LinkPanel}
     </div>
   )
 }

@@ -892,6 +892,324 @@
   cursor: not-allowed;
 }
 
+/* ===== 연결고리 입력 바 (Composer) ===== */
+.wd-link-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.wd-link-bar-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-on-surface-faint);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.wd-link-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  color: var(--color-on-surface);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.wd-link-input:focus {
+  border-color: var(--color-primary);
+}
+
+.wd-link-input::placeholder {
+  color: var(--color-on-surface-faint);
+}
+
+.wd-link-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.wd-link-hint {
+  font-size: 10.5px;
+  color: var(--color-on-surface-faint);
+  margin-top: 4px;
+  padding-left: 2px;
+}
+
+.wd-link-clear-btn {
+  font-size: 11px;
+  color: var(--color-on-surface-faint);
+  padding: 3px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.wd-link-clear-btn:hover {
+  color: var(--color-danger, #f87171);
+}
+
+/* ===== 연결고리 배지 (메모 카드) ===== */
+.wd-link-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  color: #d4af37;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wd-link-badge:hover {
+  background: rgba(212, 175, 55, 0.22);
+  border-color: rgba(212, 175, 55, 0.6);
+}
+
+/* ===== 메모 카드 연결태그 수정 버튼 ===== */
+.wd-link-edit-btn {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  color: rgba(212, 175, 55, 0.7);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.wd-link-edit-btn:hover {
+  background: rgba(212, 175, 55, 0.12);
+  border-color: rgba(212, 175, 55, 0.6);
+  color: #d4af37;
+}
+
+/* ===== 연결태그 추가 버튼 (액션 영역) ===== */
+.wd-link-add-btn {
+  color: rgba(212, 175, 55, 0.6) !important;
+  font-size: 11px !important;
+}
+
+.wd-link-add-btn:hover {
+  color: #d4af37 !important;
+  background: rgba(212, 175, 55, 0.1) !important;
+}
+
+/* ===== 연결태그 인라인 편집 (카드 내부) ===== */
+.wd-link-inline-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  background: rgba(212, 175, 55, 0.06);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 8px;
+}
+
+.wd-link-inline-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(212, 175, 55, 0.8);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.wd-link-inline-input {
+  flex: 1;
+  min-width: 140px;
+  background: var(--color-surface-container);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 12.5px;
+  color: var(--color-on-surface);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.wd-link-inline-input:focus {
+  border-color: rgba(212, 175, 55, 0.7);
+}
+
+.wd-link-inline-input::placeholder {
+  color: var(--color-on-surface-faint);
+}
+
+.wd-link-inline-save {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: rgba(212, 175, 55, 0.18);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  color: #d4af37;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.wd-link-inline-save:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.28);
+}
+
+.wd-link-inline-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wd-link-inline-cancel {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-on-surface-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wd-link-inline-cancel:hover:not(:disabled) {
+  background: var(--color-surface-container);
+  color: var(--color-on-surface-muted);
+}
+
+/* ===== 연결 메모 모달 오버레이 ===== */
+.wd-link-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.wd-link-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.wd-link-panel-header {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.wd-link-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--color-on-surface);
+}
+
+.wd-link-panel-sub {
+  font-size: 11px;
+  color: var(--color-on-surface-faint);
+  margin-top: 4px;
+}
+
+.wd-link-panel-close {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-border);
+  color: var(--color-on-surface-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wd-link-panel-close:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-on-surface);
+}
+
+.wd-link-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ===== 연결 메모 아이템 ===== */
+.wd-link-memo-item {
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid rgba(212, 175, 55, 0.5);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.wd-link-memo-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+
+.wd-link-memo-content {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--color-on-surface);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 600px) {
+  .wd-link-modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .wd-link-panel {
+    border-radius: 16px 16px 0 0;
+    max-height: 85vh;
+    max-width: 100%;
+  }
+  .wd-link-input {
+    min-width: 140px;
+  }
+}
+
 /* ===== 메모 카드 스티커 배지 ===== */
 .wd-sticker-badge {
   display: inline-flex;

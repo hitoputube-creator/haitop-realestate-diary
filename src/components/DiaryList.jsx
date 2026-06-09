@@ -66,10 +66,38 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate }) {
+function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const taRef = useRef(null)
+
+  // 연결태그 인라인 편집 상태
+  const [linkEditing, setLinkEditing] = useState(false)
+  const [linkDraft, setLinkDraft] = useState(memo.link_key || '')
+  const [linkSaving, setLinkSaving] = useState(false)
+  const linkInputRef = useRef(null)
+
+  useEffect(() => {
+    setLinkDraft(memo.link_key || '')
+  }, [memo.link_key])
+
+  useEffect(() => {
+    if (linkEditing && linkInputRef.current) {
+      linkInputRef.current.focus()
+      linkInputRef.current.select()
+    }
+  }, [linkEditing])
+
+  async function saveLinkKey() {
+    if (linkSaving) return
+    setLinkSaving(true)
+    try {
+      await onUpdateLinkKey(memo.id, linkDraft.trim())
+      setLinkEditing(false)
+    } finally {
+      setLinkSaving(false)
+    }
+  }
 
   function autoResize(el) {
     if (!el) return
@@ -118,7 +146,29 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
           </span>
           {showDate && <span className="wd-card-date">· {formatDateLabel(memo.date)}</span>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {memo.link_key ? (
+            <>
+              <button
+                type="button"
+                className="wd-link-badge"
+                onClick={(e) => { e.stopPropagation(); onLinkKeyClick && onLinkKeyClick(memo.link_key) }}
+                title={`연결태그 메모 보기: ${memo.link_key}`}
+              >
+                🔗 {memo.link_key}
+              </button>
+              {!editing && (
+                <button
+                  type="button"
+                  className="wd-link-edit-btn"
+                  onClick={() => setLinkEditing(true)}
+                  title="연결태그 수정"
+                >
+                  수정
+                </button>
+              )}
+            </>
+          ) : null}
           {stickerMeta && (
             <span
               className="wd-sticker-badge"
@@ -130,6 +180,45 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
           <StatusBadge status={memo.status || 'normal'} />
         </div>
       </div>
+
+      {/* 연결태그 인라인 편집 */}
+      {linkEditing && (
+        <div className="wd-link-inline-editor">
+          <span className="wd-link-inline-label">연결태그</span>
+          <input
+            ref={linkInputRef}
+            list="wd-link-key-datalist-card"
+            className="wd-link-inline-input"
+            placeholder="예: 금승리67-6, 공장손님-김OO"
+            value={linkDraft}
+            onChange={(e) => setLinkDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); saveLinkKey() }
+              if (e.key === 'Escape') { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }
+            }}
+            disabled={linkSaving}
+          />
+          <datalist id="wd-link-key-datalist-card">
+            {(allLinkKeys || []).map((k) => <option key={k} value={k} />)}
+          </datalist>
+          <button
+            type="button"
+            className="wd-link-inline-save"
+            onClick={saveLinkKey}
+            disabled={linkSaving}
+          >
+            {linkSaving ? '저장 중...' : '저장'}
+          </button>
+          <button
+            type="button"
+            className="wd-link-inline-cancel"
+            onClick={() => { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }}
+            disabled={linkSaving}
+          >
+            취소
+          </button>
+        </div>
+      )}
 
       <div className="wd-card-content">{memo.content}</div>
 
@@ -167,6 +256,15 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
       <div className="wd-card-actions">
         {!editing ? (
           <>
+            {!memo.link_key && !linkEditing && (
+              <button
+                type="button"
+                className="wd-action-btn wd-link-add-btn"
+                onClick={() => setLinkEditing(true)}
+              >
+                🔗 연결태그 추가
+              </button>
+            )}
             <button
               type="button"
               className={`wd-action-btn ${memo.status === 'important' ? 'active' : ''}`}
@@ -256,10 +354,11 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate })
 }
 
 /* ===== 입력창 (Composer) ===== */
-function Composer({ onSubmit, disabled }) {
+function Composer({ onSubmit, disabled, allLinkKeys }) {
   const [value, setValue] = useState('')
   const [writer, setWriter] = useState('주현희')
   const [sticker, setSticker] = useState(null)
+  const [linkKey, setLinkKey] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
 
@@ -274,9 +373,10 @@ function Composer({ onSubmit, disabled }) {
     if (!trimmed || submitting) return
     setSubmitting(true)
     try {
-      await onSubmit(trimmed, writer, sticker)
+      await onSubmit(trimmed, writer, sticker, linkKey.trim())
       setValue('')
       setSticker(null)
+      setLinkKey('')
       if (composerRef.current) composerRef.current.style.height = '150px'
     } finally {
       setSubmitting(false)
@@ -332,6 +432,36 @@ function Composer({ onSubmit, disabled }) {
         })}
       </div>
 
+      {/* 연결태그 입력 */}
+      <div className="wd-link-bar">
+        <span className="wd-link-bar-label">연결태그</span>
+        <input
+          list="wd-link-key-datalist"
+          className="wd-link-input"
+          placeholder="예: 금승리67-6, 공장손님-김OO"
+          value={linkKey}
+          onChange={(e) => setLinkKey(e.target.value)}
+          disabled={disabled || submitting}
+        />
+        <datalist id="wd-link-key-datalist">
+          {(allLinkKeys || []).map((k) => (
+            <option key={k} value={k} />
+          ))}
+        </datalist>
+        {linkKey && (
+          <button
+            type="button"
+            className="wd-link-clear-btn"
+            onClick={() => setLinkKey('')}
+            disabled={disabled || submitting}
+            aria-label="연결태그 초기화"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
+
       <div className="wd-composer-bar">
         <div className="wd-composer-hint">
           <code>Cmd/Ctrl + Enter</code> 로 저장
@@ -376,7 +506,10 @@ export default function DiaryList({
   onChangeStatus,
   onDelete,
   onUpdateContent,
+  onUpdateLinkKey,
   composerDisabled,
+  allLinkKeys,
+  onLinkKeyClick,
 }) {
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
@@ -422,7 +555,13 @@ export default function DiaryList({
         </div>
       )}
 
-      {!searchMode && <Composer onSubmit={(content, writer, sticker) => onCreate(content, writer, sticker)} disabled={composerDisabled} />}
+      {!searchMode && (
+        <Composer
+          onSubmit={(content, writer, sticker, linkKey) => onCreate(content, writer, sticker, linkKey)}
+          disabled={composerDisabled}
+          allLinkKeys={allLinkKeys}
+        />
+      )}
 
       {error && <div className="wd-error" role="alert">{error}</div>}
 
@@ -452,6 +591,9 @@ export default function DiaryList({
               onChangeStatus={onChangeStatus}
               onDelete={onDelete}
               onUpdateContent={onUpdateContent}
+              onLinkKeyClick={onLinkKeyClick}
+              onUpdateLinkKey={onUpdateLinkKey}
+              allLinkKeys={allLinkKeys}
             />
           ))
         )}
