@@ -184,71 +184,84 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
 
       {/* 연결태그 인라인 편집 */}
       {linkEditing && (
-        <>
-          <div className="wd-link-inline-editor">
-            <span className="wd-link-inline-label">연결태그</span>
-            <input
-              ref={linkInputRef}
-              list="wd-link-key-datalist-card"
-              className="wd-link-inline-input"
-              placeholder="예: 금승리67-6, 공장손님-김OO"
-              value={linkDraft}
-              onChange={(e) => setLinkDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); saveLinkKey() }
-                if (e.key === 'Escape') { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }
-              }}
-              disabled={linkSaving}
-            />
-            <datalist id="wd-link-key-datalist-card">
-              {(allLinkKeys || []).map((k) => <option key={k} value={k} />)}
-            </datalist>
-            <button
-              type="button"
-              className="wd-link-inline-save"
-              onClick={saveLinkKey}
-              disabled={linkSaving}
-            >
-              {linkSaving ? '저장 중...' : '저장'}
-            </button>
-            <button
-              type="button"
-              className="wd-link-inline-cancel"
-              onClick={() => { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }}
-              disabled={linkSaving}
-            >
-              취소
-            </button>
-          </div>
-          <LinkKeySearchBox
-            currentValue={linkDraft}
-            onSelect={setLinkDraft}
+        <div className="wd-link-inline-editor">
+          <span className="wd-link-inline-label">연결태그</span>
+          <input
+            ref={linkInputRef}
+            list="wd-link-key-datalist-card"
+            className="wd-link-inline-input"
+            placeholder="예: 금승리67-6, 공장손님-김OO"
+            value={linkDraft}
+            onChange={(e) => setLinkDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); saveLinkKey() }
+              if (e.key === 'Escape') { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }
+            }}
             disabled={linkSaving}
           />
-        </>
+          <datalist id="wd-link-key-datalist-card">
+            {(allLinkKeys || []).map((k) => <option key={k} value={k} />)}
+          </datalist>
+          <button
+            type="button"
+            className="wd-link-inline-save"
+            onClick={saveLinkKey}
+            disabled={linkSaving}
+          >
+            {linkSaving ? '저장 중...' : '저장'}
+          </button>
+          <button
+            type="button"
+            className="wd-link-inline-cancel"
+            onClick={() => { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }}
+            disabled={linkSaving}
+          >
+            취소
+          </button>
+          {/* 내용 수정창이 없을 때는 link 에디터 바 안에 인라인 표시 */}
+          {!editing && (
+            <LinkKeySearchBox
+              currentValue={linkDraft}
+              onSelect={setLinkDraft}
+              disabled={linkSaving}
+              variant="inline"
+            />
+          )}
+        </div>
       )}
 
       <div className="wd-card-content">{memo.content}</div>
 
       {editing && (
-        <textarea
-          ref={taRef}
-          className="wd-card-edit"
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value)
-            autoResize(e.target)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              setDraft(memo.content)
-              setEditing(false)
-            }
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-              saveEdit()
-            }
-          }}
-        />
+        <div className="wd-card-edit-wrap">
+          {/* 내용 수정 중 + 연결태그 수정 중이면 오른쪽 상단에 검색창 표시 */}
+          {linkEditing && (
+            <LinkKeySearchBox
+              currentValue={linkDraft}
+              onSelect={setLinkDraft}
+              disabled={linkSaving}
+              variant="topright"
+            />
+          )}
+          <textarea
+            ref={taRef}
+            className="wd-card-edit"
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              autoResize(e.target)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setDraft(memo.content)
+                setEditing(false)
+              }
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                saveEdit()
+              }
+            }}
+          />
+        </div>
       )}
 
       {tags.length > 0 && !editing && (
@@ -371,7 +384,8 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
 }
 
 /* ===== 연결태그 검색박스 ===== */
-function LinkKeySearchBox({ currentValue, onSelect, disabled }) {
+// variant: "topright" = textarea 오른쪽 상단 absolute | "inline" = flex 바 내 인라인
+function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'topright' }) {
   const [query, setQuery]       = useState('')
   const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
@@ -456,7 +470,7 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled }) {
   }
 
   return (
-    <div className="lks-wrap" ref={wrapRef}>
+    <div className={`lks-wrap lks-wrap--${variant}`} ref={wrapRef}>
       <div className="lks-input-row">
         <span className="lks-icon">🔍</span>
         <input
@@ -538,23 +552,31 @@ function Composer({ onSubmit, disabled, allLinkKeys }) {
 
   return (
     <div className="wd-composer">
-      <textarea
-        ref={composerRef}
-        className="wd-composer-input"
-        placeholder="이 날짜에 메모를 남겨보세요. #태그를 포함하면 자동으로 분류됩니다."
-        value={value}
-        onChange={(e) => {
-          setValue(e.target.value)
-          autoResizeComposer(e.target)
-        }}
-        onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-            e.preventDefault()
-            handleSubmit()
-          }
-        }}
-        disabled={disabled || submitting}
-      />
+      <div className="wd-composer-input-wrap">
+        <LinkKeySearchBox
+          currentValue={linkKey}
+          onSelect={setLinkKey}
+          disabled={disabled || submitting}
+          variant="topright"
+        />
+        <textarea
+          ref={composerRef}
+          className="wd-composer-input"
+          placeholder="이 날짜에 메모를 남겨보세요. #태그를 포함하면 자동으로 분류됩니다."
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value)
+            autoResizeComposer(e.target)
+          }}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault()
+              handleSubmit()
+            }
+          }}
+          disabled={disabled || submitting}
+        />
+      </div>
 
       {/* 스티커 선택 */}
       <div className="wd-sticker-bar">
@@ -611,11 +633,6 @@ function Composer({ onSubmit, disabled, allLinkKeys }) {
           </button>
         )}
       </div>
-      <LinkKeySearchBox
-        currentValue={linkKey}
-        onSelect={setLinkKey}
-        disabled={disabled || submitting}
-      />
       <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
 
       <div className="wd-composer-bar">

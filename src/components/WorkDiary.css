@@ -1049,12 +1049,41 @@
   padding-left: 2px;
 }
 
-/* ===== 연결태그 검색박스 (LinkKeySearchBox) ===== */
-.lks-wrap {
+/* ===== 메모 입력창 wrapper (Composer + Card edit) ===== */
+.wd-composer-input-wrap,
+.wd-card-edit-wrap {
   position: relative;
-  margin-top: 6px;
 }
 
+/* textarea에 오른쪽 여백 추가 (검색창 공간 확보) */
+.wd-composer-input-wrap .wd-composer-input,
+.wd-card-edit-wrap .wd-card-edit {
+  padding-right: 218px;
+}
+
+/* ===== 연결태그 검색박스 (LinkKeySearchBox) ===== */
+
+/* 기본 (topright variant): textarea wrapper 안 absolute 배치 */
+.lks-wrap {
+  position: relative; /* dropdown 기준점 */
+}
+
+.lks-wrap--topright {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 200px;
+  z-index: 10;
+}
+
+/* inline variant: link 에디터 바 안에서 flex 흐름을 따름 */
+.lks-wrap--inline {
+  position: relative;
+  flex: 0 0 auto;
+  width: 180px;
+}
+
+/* 공통 input row */
 .lks-input-row {
   display: flex;
   align-items: center;
@@ -1120,6 +1149,7 @@
   color: var(--color-danger, #f87171);
 }
 
+/* 드롭다운: lks-wrap 기준으로 아래에 표시, textarea 위에 겹침 */
 .lks-dropdown {
   position: absolute;
   top: calc(100% + 4px);
@@ -1129,7 +1159,7 @@
   border: 1px solid var(--color-border);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 200;
+  z-index: 300;
   max-height: 240px;
   overflow-y: auto;
   padding: 4px 0;
@@ -1187,6 +1217,25 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ===== 모바일: 검색창 static 배치로 전환 ===== */
+@media (max-width: 600px) {
+  .lks-wrap--topright {
+    position: static;
+    width: 100%;
+    margin-bottom: 6px;
+  }
+
+  .wd-composer-input-wrap .wd-composer-input,
+  .wd-card-edit-wrap .wd-card-edit {
+    padding-right: 12px;
+  }
+
+  .lks-wrap--inline {
+    width: 100%;
+    margin-top: 6px;
+  }
 }
 
 .wd-link-clear-btn {
