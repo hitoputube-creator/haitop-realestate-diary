@@ -123,6 +123,49 @@
 }
 .pn-logout-btn:hover { background: rgba(248, 113, 113, 0.2); }
 
+/* ══ 작성자 선택 탭 ══ */
+.pn-owner-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: rgba(13, 27, 62, 0.6);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+.pn-owner-tab {
+  padding: 7px 18px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: 1.5px solid rgba(56, 100, 200, 0.3);
+  color: rgba(147, 180, 248, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.pn-owner-tab:hover {
+  border-color: rgba(56, 100, 200, 0.6);
+  color: #93b4f8;
+  background: rgba(56, 100, 200, 0.1);
+}
+.pn-owner-tab.active {
+  background: rgba(56, 100, 200, 0.2);
+  border-color: rgba(56, 100, 200, 0.8);
+  color: #c7d9ff;
+  box-shadow: 0 0 0 1px rgba(56, 100, 200, 0.25);
+}
+.pn-owner-indicator {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-on-surface-faint);
+}
+.pn-owner-indicator strong {
+  color: #93b4f8;
+}
+
 /* ══ 상단 필터/검색 ══ */
 .pn-top-filters {
     display: flex;
