@@ -18,9 +18,6 @@ const CAT_COLOR = {
 
 const WEEK_NAMES = ['일', '월', '화', '수', '목', '금', '토']
 
-/* ── 작성자 목록 ── */
-const OWNERS = ['주현희', '김정현']
-
 /* ── 날짜 헬퍼 ── */
 function isoToDate(iso) { return iso ? iso.slice(0, 10) : null }
 function fmtShort(iso) {
@@ -42,8 +39,8 @@ const EMPTY_FORM = { title: '', category: '유튜브', memo: '', memo_date: toda
    메인 컴포넌트
 ══════════════════════════════════════════════ */
 export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
-  /* 작성자 선택 (인증 없음) */
-  const [owner, setOwner] = useState(initialOwner)
+  /* owner는 진입 시 고정 — 화면 안에서 변경 불가 */
+  const owner = initialOwner
 
   /* 데이터 */
   const [notes,       setNotes]       = useState([])
@@ -84,14 +81,10 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
     }
   }, [owner])
 
-  /* 작성자 바뀌면 목록 새로고침 + 필터/폼 초기화 */
+  /* 최초 진입 시 목록 로드 */
   useEffect(() => {
     loadNotes()
-    setSearchQ('')
-    setCatFilter('전체')
-    setEditId(null)
-    setForm({ ...EMPTY_FORM, memo_date: calSelDate || todayStr() })
-  }, [owner, loadNotes])
+  }, [loadNotes])
 
   /* ── 폼 초기화 ── */
   function resetForm() {
@@ -256,20 +249,10 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
         </div>
       </header>
 
-      {/* 작성자 선택 탭 */}
-      <div className="pn-owner-tabs">
-        {OWNERS.map(name => (
-          <button
-            key={name}
-            type="button"
-            className={`pn-owner-tab${owner === name ? ' active' : ''}`}
-            onClick={() => setOwner(name)}
-          >
-            👤 {name} 개인메모
-          </button>
-        ))}
+      {/* 메모 개수 표시 (전환 버튼 없음) */}
+      <div className="pn-owner-info">
         <span className="pn-owner-indicator">
-          현재: <strong>{owner}</strong>의 메모 {!dataLoading && `(${notes.length}개)`}
+          📓 <strong>{owner}</strong> 개인일지 {!dataLoading && `· 총 ${notes.length}개`}
         </span>
       </div>
 

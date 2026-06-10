@@ -123,7 +123,16 @@
 }
 .pn-logout-btn:hover { background: rgba(248, 113, 113, 0.2); }
 
-/* ══ 작성자 선택 탭 ══ */
+/* ══ 개인일지 소유자 정보 표시 (전환 버튼 없음) ══ */
+.pn-owner-info {
+  display: flex;
+  align-items: center;
+  padding: 8px 20px;
+  background: rgba(13, 27, 62, 0.6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ══ 작성자 선택 탭 (더 이상 사용 안 함 — 스타일만 유지) ══ */
 .pn-owner-tabs {
   display: flex;
   align-items: center;
