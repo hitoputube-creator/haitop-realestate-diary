@@ -197,12 +197,12 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
   useEffect(() => { loadStickyNotes() }, [loadStickyNotes])
 
   /* 포스트잇 추가 */
-  const handlePin = useCallback(async (diaryId) => {
+  const handlePin = useCallback(async (diaryId, color = 'yellow') => {
     if (!isSupabaseConfigured) return
     try {
       const { data, error: e } = await supabase
         .from('work_sticky_notes')
-        .insert({ diary_id: diaryId, status: '진행중' })
+        .insert({ diary_id: diaryId, status: '진행중', color })
         .select()
         .single()
       if (e) throw e
@@ -213,6 +213,27 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
       setError(`포스트잇 추가 실패: ${err.message || err}`)
     }
   }, [memos, searchResults])
+
+  /* 포스트잇 색상 변경 */
+  const handleUpdateStickyColor = useCallback(async (stickyId, color) => {
+    if (!isSupabaseConfigured) return
+    // 낙관적 업데이트
+    setStickyData((prev) =>
+      prev.map((d) =>
+        d.sticky.id === stickyId ? { ...d, sticky: { ...d.sticky, color } } : d
+      )
+    )
+    try {
+      const { error: e } = await supabase
+        .from('work_sticky_notes')
+        .update({ color })
+        .eq('id', stickyId)
+      if (e) throw e
+    } catch (err) {
+      setError(`색상 변경 실패: ${err.message || err}`)
+      loadStickyNotes()
+    }
+  }, [loadStickyNotes])
 
   /* 포스트잇 해제 (삭제) */
   const handleUnpin = useCallback(async (diaryId) => {
@@ -498,6 +519,14 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
           </div>
         </div>
         <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        <a
+          href="https://hitoputube-creator.github.io/hitop-ai-workcenter/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="wd-btn-workcenter"
+        >
+          🏢 하이탑업무센타
+        </a>
         {onOpenPrivateNotes && (
           <button
             type="button"
@@ -561,6 +590,7 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
             stickyData={stickyData}
             loading={stickyLoading}
             onUnpin={handleUnpin}
+            onUpdateColor={handleUpdateStickyColor}
             onLinkKeyClick={handleLinkKeyClick}
           />
         </div>
