@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -183,41 +184,48 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
 
       {/* 연결태그 인라인 편집 */}
       {linkEditing && (
-        <div className="wd-link-inline-editor">
-          <span className="wd-link-inline-label">연결태그</span>
-          <input
-            ref={linkInputRef}
-            list="wd-link-key-datalist-card"
-            className="wd-link-inline-input"
-            placeholder="예: 금승리67-6, 공장손님-김OO"
-            value={linkDraft}
-            onChange={(e) => setLinkDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); saveLinkKey() }
-              if (e.key === 'Escape') { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }
-            }}
+        <>
+          <div className="wd-link-inline-editor">
+            <span className="wd-link-inline-label">연결태그</span>
+            <input
+              ref={linkInputRef}
+              list="wd-link-key-datalist-card"
+              className="wd-link-inline-input"
+              placeholder="예: 금승리67-6, 공장손님-김OO"
+              value={linkDraft}
+              onChange={(e) => setLinkDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); saveLinkKey() }
+                if (e.key === 'Escape') { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }
+              }}
+              disabled={linkSaving}
+            />
+            <datalist id="wd-link-key-datalist-card">
+              {(allLinkKeys || []).map((k) => <option key={k} value={k} />)}
+            </datalist>
+            <button
+              type="button"
+              className="wd-link-inline-save"
+              onClick={saveLinkKey}
+              disabled={linkSaving}
+            >
+              {linkSaving ? '저장 중...' : '저장'}
+            </button>
+            <button
+              type="button"
+              className="wd-link-inline-cancel"
+              onClick={() => { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }}
+              disabled={linkSaving}
+            >
+              취소
+            </button>
+          </div>
+          <LinkKeySearchBox
+            currentValue={linkDraft}
+            onSelect={setLinkDraft}
             disabled={linkSaving}
           />
-          <datalist id="wd-link-key-datalist-card">
-            {(allLinkKeys || []).map((k) => <option key={k} value={k} />)}
-          </datalist>
-          <button
-            type="button"
-            className="wd-link-inline-save"
-            onClick={saveLinkKey}
-            disabled={linkSaving}
-          >
-            {linkSaving ? '저장 중...' : '저장'}
-          </button>
-          <button
-            type="button"
-            className="wd-link-inline-cancel"
-            onClick={() => { setLinkDraft(memo.link_key || ''); setLinkEditing(false) }}
-            disabled={linkSaving}
-          >
-            취소
-          </button>
-        </div>
+        </>
       )}
 
       <div className="wd-card-content">{memo.content}</div>
@@ -362,6 +370,140 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
   )
 }
 
+/* ===== 연결태그 검색박스 ===== */
+function LinkKeySearchBox({ currentValue, onSelect, disabled }) {
+  const [query, setQuery]       = useState('')
+  const [results, setResults]   = useState([])
+  const [searching, setSearching] = useState(false)
+  const [open, setOpen]         = useState(false)
+  const wrapRef  = useRef(null)
+  const timerRef = useRef(null)
+
+  // 바깥 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const doSearch = useCallback(async (q) => {
+    const trimmed = q.trim()
+    if (!trimmed || !isSupabaseConfigured) { setResults([]); setOpen(false); return }
+    setSearching(true)
+    try {
+      // work_diary: content 또는 link_key 에서 검색 (포스트잇 고정 여부와 무관하게 전체 메모 대상)
+      const { data: diaryRows } = await supabase
+        .from('work_diary')
+        .select('id, content, link_key, writer, date, created_at')
+        .or(`content.ilike.%${trimmed}%,link_key.ilike.%${trimmed}%`)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      const rows = diaryRows || []
+
+      setResults(rows)
+      setOpen(rows.length > 0)
+    } catch {
+      setResults([])
+    } finally {
+      setSearching(false)
+    }
+  }, [])
+
+  function handleChange(e) {
+    const q = e.target.value
+    setQuery(q)
+    clearTimeout(timerRef.current)
+    if (!q.trim()) { setResults([]); setOpen(false); return }
+    timerRef.current = setTimeout(() => doSearch(q), 280)
+  }
+
+  function appendTag(tag) {
+    const trimTag = tag.trim()
+    if (!trimTag) return
+    const existing = currentValue
+      .split(/[,\s]+/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+    if (existing.includes(trimTag)) return // 중복 방지
+    const next = existing.length ? existing.join(', ') + ', ' + trimTag : trimTag
+    onSelect(next)
+    setQuery('')
+    setResults([])
+    setOpen(false)
+  }
+
+  function handleResultClick(row) {
+    // link_key 가 있으면 그것을 추가, 없으면 내용 앞부분을 태그로 사용
+    const tag = row.link_key
+      ? row.link_key.trim()
+      : (row.content || '').slice(0, 20).trim()
+    appendTag(tag)
+  }
+
+  function formatSnippet(content) {
+    if (!content) return ''
+    return content.length > 60 ? content.slice(0, 60) + '…' : content
+  }
+
+  function formatDate(iso) {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (isNaN(d)) return iso
+    return `${d.getMonth() + 1}/${d.getDate()}`
+  }
+
+  return (
+    <div className="lks-wrap" ref={wrapRef}>
+      <div className="lks-input-row">
+        <span className="lks-icon">🔍</span>
+        <input
+          className="lks-input"
+          placeholder="연결할 메모·매물·사람 검색"
+          value={query}
+          onChange={handleChange}
+          onFocus={() => results.length > 0 && setOpen(true)}
+          disabled={disabled}
+          autoComplete="off"
+        />
+        {searching && <span className="lks-spinner">…</span>}
+        {query && !searching && (
+          <button
+            type="button"
+            className="lks-clear"
+            onClick={() => { setQuery(''); setResults([]); setOpen(false) }}
+          >✕</button>
+        )}
+      </div>
+
+      {open && results.length > 0 && (
+        <ul className="lks-dropdown" role="listbox">
+          {results.map((row) => (
+            <li
+              key={row.id}
+              className="lks-item"
+              role="option"
+              onMouseDown={(e) => { e.preventDefault(); handleResultClick(row) }}
+            >
+              <div className="lks-item-top">
+                {row.link_key && (
+                  <span className="lks-item-tag">🔗 {row.link_key}</span>
+                )}
+                <span className="lks-item-meta">
+                  {row.writer || '?'} · {formatDate(row.date || row.created_at)}
+                </span>
+              </div>
+              <div className="lks-item-content">{formatSnippet(row.content)}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 /* ===== 입력창 (Composer) ===== */
 function Composer({ onSubmit, disabled, allLinkKeys }) {
   const [value, setValue] = useState('')
@@ -469,6 +611,11 @@ function Composer({ onSubmit, disabled, allLinkKeys }) {
           </button>
         )}
       </div>
+      <LinkKeySearchBox
+        currentValue={linkKey}
+        onSelect={setLinkKey}
+        disabled={disabled || submitting}
+      />
       <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
 
       <div className="wd-composer-bar">
