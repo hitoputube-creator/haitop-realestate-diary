@@ -41,9 +41,9 @@ const EMPTY_FORM = { title: '', category: '유튜브', memo: '', memo_date: toda
 /* ══════════════════════════════════════════════
    메인 컴포넌트
 ══════════════════════════════════════════════ */
-export default function PrivateNotes({ onBack }) {
+export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
   /* 작성자 선택 (인증 없음) */
-  const [owner, setOwner] = useState('주현희')
+  const [owner, setOwner] = useState(initialOwner)
 
   /* 데이터 */
   const [notes,       setNotes]       = useState([])
@@ -219,8 +219,8 @@ export default function PrivateNotes({ onBack }) {
         <div className="pn-brand">
           <div className="pn-brand-mark">H</div>
           <div>
-            <div className="pn-brand-title">개인메모</div>
-            <div className="pn-brand-sub">개인별 메모를 작성하고 관리하는 공간입니다.</div>
+            <div className="pn-brand-title">{owner} 개인일지</div>
+            <div className="pn-brand-sub">개인 달력 · 메모 작성 · 분류 관리</div>
           </div>
         </div>
 

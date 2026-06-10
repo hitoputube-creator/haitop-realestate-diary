@@ -4,12 +4,18 @@ import PrivateNotes from './components/PrivateNotes'
 
 function App() {
   const [page, setPage] = useState('diary')
+  const [diaryOwner, setDiaryOwner] = useState('주현희')
 
-  if (page === 'private-notes') {
-    return <PrivateNotes onBack={() => setPage('diary')} />
+  function openDiary(owner) {
+    setDiaryOwner(owner)
+    setPage('private-notes')
   }
 
-  return <WorkDiary onOpenPrivateNotes={() => setPage('private-notes')} />
+  if (page === 'private-notes') {
+    return <PrivateNotes initialOwner={diaryOwner} onBack={() => setPage('diary')} />
+  }
+
+  return <WorkDiary onOpenDiary={openDiary} />
 }
 
 export default App

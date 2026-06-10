@@ -8,7 +8,7 @@ import './WorkDiary.css'
 
 const TABLE = 'work_diary'
 
-export default function WorkDiary({ onOpenPrivateNotes }) {
+export default function WorkDiary({ onOpenDiary }) {
   const today = useMemo(() => new Date(), [])
 
   const [selectedDate, setSelectedDate] = useState(today)
@@ -527,15 +527,6 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
         >
           🏢 하이탑업무센타
         </a>
-        {onOpenPrivateNotes && (
-          <button
-            type="button"
-            className="wd-btn-private-notes"
-            onClick={onOpenPrivateNotes}
-          >
-            🔒 비공개 개인노트
-          </button>
-        )}
       </header>
 
       <div className="wd-filter-tabs">
@@ -559,6 +550,23 @@ export default function WorkDiary({ onOpenPrivateNotes }) {
           onClick={() => setFilterWriter('김정현')}
         >
           김정현
+        </button>
+
+        <div className="wd-filter-divider" />
+
+        <button
+          type="button"
+          className="wd-btn-personal-diary"
+          onClick={() => onOpenDiary?.('주현희')}
+        >
+          📓 주현희 개인일지
+        </button>
+        <button
+          type="button"
+          className="wd-btn-personal-diary"
+          onClick={() => onOpenDiary?.('김정현')}
+        >
+          📓 김정현 개인일지
         </button>
       </div>
 
