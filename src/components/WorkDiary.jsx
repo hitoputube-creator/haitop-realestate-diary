@@ -24,6 +24,7 @@ export default function WorkDiary({ onOpenDiary }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
+  const [highlightMemoId, setHighlightMemoId] = useState(null)
 
   const searchMode = searchQuery.trim().length > 0
   const [filterWriter, setFilterWriter] = useState('all')
@@ -250,6 +251,18 @@ export default function WorkDiary({ onOpenDiary }) {
     }
   }, [])
 
+  /* ===== 날짜 네비게이션 (LinkKeySearchBox 검색 결과 클릭 시) ===== */
+  const handleNavigate = useCallback((dateStr, memoId) => {
+    if (!dateStr) return
+    const d = new Date(dateStr + 'T00:00:00')
+    if (isNaN(d.getTime())) return
+    setSearchQuery('')         // 메인 검색 초기화
+    handleSelectDate(d)        // 해당 날짜로 이동
+    setHighlightMemoId(memoId || null)
+    // 3초 후 하이라이트 해제
+    if (memoId) setTimeout(() => setHighlightMemoId(null), 3000)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ===== 검색 ===== */
   useEffect(() => {
     const q = searchQuery.trim()
@@ -266,22 +279,34 @@ export default function WorkDiary({ onOpenDiary }) {
     setSearchLoading(true)
     ;(async () => {
       try {
-        // #으로 시작하면 태그 검색, 아니면 컨텐츠 + 태그 모두 검색
         const isTagSearch = q.startsWith('#')
         const tagTerm = isTagSearch ? q.slice(1) : q
+        // 공백·언더바를 제거한 정규화 쿼리 (헤이 부동산 → 헤이부동산)
+        const normQ = q.replace(/[\s_]+/g, '')
 
-        // content ilike 또는 태그 array contains 또는 link_key ilike
-        const orFilter = isTagSearch
-          ? `tags.cs.{${tagTerm}}`
-          : `content.ilike.%${q}%,tags.cs.{${tagTerm}},link_key.ilike.%${q}%`
+        let orParts
+        if (isTagSearch) {
+          orParts = [`tags.cs.{${tagTerm}}`]
+        } else {
+          orParts = [
+            `content.ilike.%${q}%`,
+            `tags.cs.{${tagTerm}}`,
+            `link_key.ilike.%${q}%`,
+            `writer.ilike.%${q}%`,
+          ]
+          // 정규화 쿼리가 원본과 다를 때 추가 검색
+          if (normQ && normQ !== q) {
+            orParts.push(`content.ilike.%${normQ}%`, `link_key.ilike.%${normQ}%`)
+          }
+        }
 
         const { data, error: e } = await supabase
           .from(TABLE)
           .select('*')
-          .or(orFilter)
+          .or(orParts.join(','))
           .order('date', { ascending: false })
           .order('created_at', { ascending: false })
-          .limit(100)
+          .limit(200)
         if (e) throw e
         if (!cancelled) setSearchResults(data || [])
       } catch (err) {
@@ -620,6 +645,8 @@ export default function WorkDiary({ onOpenDiary }) {
           pinnedDiaryIds={pinnedDiaryIds}
           onPin={handlePin}
           onUnpin={handleUnpin}
+          onNavigate={handleNavigate}
+          highlightMemoId={highlightMemoId}
         />
       </main>
 

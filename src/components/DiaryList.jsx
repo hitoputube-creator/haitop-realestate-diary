@@ -67,10 +67,11 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin }) {
+function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const taRef = useRef(null)
+  const cardRef = useRef(null)
 
   // 연결태그 인라인 편집 상태
   const [linkEditing, setLinkEditing] = useState(false)
@@ -81,6 +82,12 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
   useEffect(() => {
     setLinkDraft(memo.link_key || '')
   }, [memo.link_key])
+
+  useEffect(() => {
+    if (isHighlighted && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [isHighlighted])
 
   useEffect(() => {
     if (linkEditing && linkInputRef.current) {
@@ -122,7 +129,7 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
 
   const stickerMeta = memo.sticker ? STICKER_META[memo.sticker] : null
 
-  const cls = ['wd-card', `status-${memo.status || 'normal'}`, editing && 'editing']
+  const cls = ['wd-card', `status-${memo.status || 'normal'}`, editing && 'editing', isHighlighted && 'wd-card-highlighted']
     .filter(Boolean)
     .join(' ')
 
@@ -138,7 +145,7 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
   }
 
   return (
-    <article className={cls} aria-label="메모">
+    <article ref={cardRef} className={cls} aria-label="메모">
       <div className="wd-card-top">
         <div className="wd-card-meta">
           <span className="wd-card-time">{formatTime(memo.created_at)}</span>
@@ -233,35 +240,37 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
       <div className="wd-card-content">{memo.content}</div>
 
       {editing && (
-        <div className="wd-card-edit-wrap">
-          {/* 내용 수정 중 + 연결태그 수정 중이면 오른쪽 상단에 검색창 표시 */}
+        <>
           {linkEditing && (
-            <LinkKeySearchBox
-              currentValue={linkDraft}
-              onSelect={setLinkDraft}
-              disabled={linkSaving}
-              variant="topright"
-            />
+            <div className="wd-composer-tools-row">
+              <LinkKeySearchBox
+                currentValue={linkDraft}
+                onSelect={setLinkDraft}
+                disabled={linkSaving}
+              />
+            </div>
           )}
-          <textarea
-            ref={taRef}
-            className="wd-card-edit"
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value)
-              autoResize(e.target)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setDraft(memo.content)
-                setEditing(false)
-              }
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                saveEdit()
-              }
-            }}
-          />
-        </div>
+          <div className="wd-card-edit-wrap">
+            <textarea
+              ref={taRef}
+              className="wd-card-edit"
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                autoResize(e.target)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setDraft(memo.content)
+                  setEditing(false)
+                }
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  saveEdit()
+                }
+              }}
+            />
+          </div>
+        </>
       )}
 
       {tags.length > 0 && !editing && (
@@ -385,7 +394,7 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
 
 /* ===== 연결태그 검색박스 ===== */
 // variant: "topright" = textarea 오른쪽 상단 absolute | "inline" = flex 바 내 인라인
-function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'topright' }) {
+function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'topright', onNavigate }) {
   const [query, setQuery]       = useState('')
   const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
@@ -407,16 +416,25 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
     if (!trimmed || !isSupabaseConfigured) { setResults([]); setOpen(false); return }
     setSearching(true)
     try {
-      // work_diary: content 또는 link_key 에서 검색 (포스트잇 고정 여부와 무관하게 전체 메모 대상)
+      const normQ = trimmed.replace(/[\s_]+/g, '')
+      const orParts = [
+        `content.ilike.%${trimmed}%`,
+        `link_key.ilike.%${trimmed}%`,
+        `writer.ilike.%${trimmed}%`,
+      ]
+      if (normQ && normQ !== trimmed) {
+        orParts.push(`content.ilike.%${normQ}%`, `link_key.ilike.%${normQ}%`)
+      }
+
       const { data: diaryRows } = await supabase
         .from('work_diary')
         .select('id, content, link_key, writer, date, created_at')
-        .or(`content.ilike.%${trimmed}%,link_key.ilike.%${trimmed}%`)
+        .or(orParts.join(','))
+        .order('date', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(20)
+        .limit(50)
 
       const rows = diaryRows || []
-
       setResults(rows)
       setOpen(rows.length > 0)
     } catch {
@@ -450,11 +468,19 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
   }
 
   function handleResultClick(row) {
-    // link_key 가 있으면 그것을 추가, 없으면 내용 앞부분을 태그로 사용
-    const tag = row.link_key
-      ? row.link_key.trim()
-      : (row.content || '').slice(0, 20).trim()
-    appendTag(tag)
+    setQuery('')
+    setResults([])
+    setOpen(false)
+    // onNavigate가 있으면 해당 날짜로 이동 + 하이라이트
+    if (onNavigate && row.date) {
+      onNavigate(row.date, row.id)
+    } else {
+      // fallback: 기존 link_key 태그 추가 방식
+      const tag = row.link_key
+        ? row.link_key.trim()
+        : (row.content || '').slice(0, 20).trim()
+      appendTag(tag)
+    }
   }
 
   function formatSnippet(content) {
@@ -462,11 +488,12 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
     return content.length > 60 ? content.slice(0, 60) + '…' : content
   }
 
-  function formatDate(iso) {
-    if (!iso) return ''
-    const d = new Date(iso)
-    if (isNaN(d)) return iso
-    return `${d.getMonth() + 1}/${d.getDate()}`
+  function formatDate(dateStr, isoFallback) {
+    const src = dateStr || isoFallback
+    if (!src) return ''
+    const d = new Date(src.includes('T') ? src : src + 'T00:00:00')
+    if (isNaN(d)) return src
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
   }
 
   return (
@@ -506,7 +533,7 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
                   <span className="lks-item-tag">🔗 {row.link_key}</span>
                 )}
                 <span className="lks-item-meta">
-                  {row.writer || '?'} · {formatDate(row.date || row.created_at)}
+                  {row.writer || '?'} · {formatDate(row.date, row.created_at)}
                 </span>
               </div>
               <div className="lks-item-content">{formatSnippet(row.content)}</div>
@@ -519,7 +546,7 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
 }
 
 /* ===== 입력창 (Composer) ===== */
-function Composer({ onSubmit, disabled, allLinkKeys }) {
+function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const [value, setValue] = useState('')
   const [writer, setWriter] = useState('주현희')
   const [sticker, setSticker] = useState(null)
@@ -552,13 +579,15 @@ function Composer({ onSubmit, disabled, allLinkKeys }) {
 
   return (
     <div className="wd-composer">
-      <div className="wd-composer-input-wrap">
+      <div className="wd-composer-tools-row">
         <LinkKeySearchBox
           currentValue={linkKey}
           onSelect={setLinkKey}
           disabled={disabled || submitting}
-          variant="topright"
+          onNavigate={onNavigate}
         />
+      </div>
+      <div className="wd-composer-input-wrap">
         <textarea
           ref={composerRef}
           className="wd-composer-input"
@@ -686,6 +715,8 @@ export default function DiaryList({
   pinnedDiaryIds,
   onPin,
   onUnpin,
+  onNavigate,
+  highlightMemoId,
 }) {
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
@@ -736,6 +767,7 @@ export default function DiaryList({
           onSubmit={(content, writer, sticker, linkKey) => onCreate(content, writer, sticker, linkKey)}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
+          onNavigate={onNavigate}
         />
       )}
 
@@ -773,6 +805,7 @@ export default function DiaryList({
               isPinned={pinnedDiaryIds?.has(m.id) ?? false}
               onPin={onPin}
               onUnpin={onUnpin}
+              isHighlighted={m.id === highlightMemoId}
             />
           ))
         )}

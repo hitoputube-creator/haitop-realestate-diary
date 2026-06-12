@@ -1049,36 +1049,27 @@
   padding-left: 2px;
 }
 
-/* ===== 메모 입력창 wrapper (Composer + Card edit) ===== */
+/* ===== 검색창 행 (textarea 위 오른쪽 정렬) ===== */
+.wd-composer-tools-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+/* ===== 메모 입력창 wrapper ===== */
 .wd-composer-input-wrap,
 .wd-card-edit-wrap {
   position: relative;
 }
 
-/* textarea에 오른쪽 여백 추가 (검색창 공간 확보) */
-.wd-composer-input-wrap .wd-composer-input,
-.wd-card-edit-wrap .wd-card-edit {
-  padding-right: 218px;
-}
-
 /* ===== 연결태그 검색박스 (LinkKeySearchBox) ===== */
-
-/* 기본 (topright variant): textarea wrapper 안 absolute 배치 */
 .lks-wrap {
-  position: relative; /* dropdown 기준점 */
-}
-
-.lks-wrap--topright {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 200px;
-  z-index: 10;
+  position: relative;
+  width: 210px;
 }
 
 /* inline variant: link 에디터 바 안에서 flex 흐름을 따름 */
 .lks-wrap--inline {
-  position: relative;
   flex: 0 0 auto;
   width: 180px;
 }
@@ -1219,17 +1210,11 @@
   text-overflow: ellipsis;
 }
 
-/* ===== 모바일: 검색창 static 배치로 전환 ===== */
+/* ===== 모바일: 검색창 전체 폭으로 전환 ===== */
 @media (max-width: 600px) {
-  .lks-wrap--topright {
-    position: static;
+  .wd-composer-tools-row .lks-wrap,
+  .lks-wrap--inline {
     width: 100%;
-    margin-bottom: 6px;
-  }
-
-  .wd-composer-input-wrap .wd-composer-input,
-  .wd-card-edit-wrap .wd-card-edit {
-    padding-right: 12px;
   }
 
   .lks-wrap--inline {
@@ -1517,4 +1502,15 @@
   color: #fff;
   letter-spacing: 0.3px;
   flex-shrink: 0;
+}
+
+@keyframes wd-highlight-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 180, 0, 0.7); background: rgba(255, 220, 0, 0.18); }
+  40%  { box-shadow: 0 0 0 8px rgba(255, 180, 0, 0); background: rgba(255, 220, 0, 0.22); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 180, 0, 0); background: transparent; }
+}
+
+.wd-card-highlighted {
+  animation: wd-highlight-pulse 1.5s ease 2;
+  border-color: #f5b800 !important;
 }
