@@ -40,10 +40,13 @@ function formatTime(iso) {
   return `${ampm} ${h12}:${m}`
 }
 
-function formatDateLabel(iso) {
+function formatDateLabel(iso, fullFormat = false) {
   if (!iso) return ''
-  const d = new Date(iso)
+  const d = new Date(iso.includes('T') ? iso : iso + 'T00:00:00')
   if (Number.isNaN(d.getTime())) return iso
+  if (fullFormat) {
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+  }
   return `${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
@@ -67,7 +70,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted }) {
+function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const taRef = useRef(null)
@@ -152,7 +155,7 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
           <span className="wd-card-writer" style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>
             · {memo.writer || '주현희'}
           </span>
-          {showDate && <span className="wd-card-date">· {formatDateLabel(memo.date)}</span>}
+          {showDate && <span className="wd-card-date">· {formatDateLabel(memo.date, true)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {memo.link_key ? (
@@ -237,7 +240,13 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
         </div>
       )}
 
-      <div className="wd-card-content">{memo.content}</div>
+      <div
+        className={`wd-card-content${showDate && onNavigate ? ' wd-card-content--navigable' : ''}`}
+        onClick={showDate && onNavigate && !editing ? () => onNavigate(memo.date, memo.id) : undefined}
+        title={showDate && onNavigate ? '클릭하면 해당 날짜로 이동합니다' : undefined}
+      >
+        {memo.content}
+      </div>
 
       {editing && (
         <>
@@ -704,6 +713,7 @@ export default function DiaryList({
   loading,
   error,
   searchMode,
+  searchQuery,
   onCreate,
   onChangeStatus,
   onDelete,
@@ -753,11 +763,20 @@ export default function DiaryList({
 
       {searchMode && (
         <div className="wd-search-result-banner">
-          <span>
-            검색 결과 <span className="wd-search-result-count">{memos.length}</span>건
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--color-on-surface-faint)' }}>
-            검색을 지우면 일자별 보기로 돌아갑니다
+          <div className="wd-search-result-title">
+            <span className="wd-search-result-label">검색 결과</span>
+            {searchQuery && (
+              <span className="wd-search-result-keyword">"{searchQuery.trim()}"</span>
+            )}
+            <span className="wd-search-result-count-wrap">
+              총 <strong>{memos.length}</strong>건
+              {memos.length >= 100 && (
+                <span className="wd-search-result-cap"> (상위 100건 표시)</span>
+              )}
+            </span>
+          </div>
+          <span className="wd-search-result-hint">
+            검색어를 지우거나 ✕를 누르면 날짜별 일지로 돌아갑니다
           </span>
         </div>
       )}
@@ -806,6 +825,7 @@ export default function DiaryList({
               onPin={onPin}
               onUnpin={onUnpin}
               isHighlighted={m.id === highlightMemoId}
+              onNavigate={searchMode ? onNavigate : undefined}
             />
           ))
         )}

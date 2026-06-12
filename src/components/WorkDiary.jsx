@@ -543,7 +543,7 @@ export default function WorkDiary({ onOpenDiary }) {
             <div className="wd-brand-sub">Work Diary</div>
           </div>
         </div>
-        <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        <SearchBar value={searchQuery} onChange={setSearchQuery} loading={searchLoading} />
         <a
           href="https://hitoputube-creator.github.io/hitop-ai-workcenter/"
           target="_blank"
@@ -647,6 +647,7 @@ export default function WorkDiary({ onOpenDiary }) {
           onUnpin={handleUnpin}
           onNavigate={handleNavigate}
           highlightMemoId={highlightMemoId}
+          searchQuery={searchQuery}
         />
       </main>
 

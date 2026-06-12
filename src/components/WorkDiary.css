@@ -176,6 +176,31 @@
   color: var(--color-primary);
 }
 
+.wd-searchbar-loading {
+  font-size: 13px;
+  color: var(--color-on-surface-faint);
+  animation: lks-pulse 0.8s ease infinite;
+}
+
+.wd-searchbar-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary);
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wd-searchbar-btn:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
 /* ===== 패널 (공통) ===== */
 .wd-panel {
   background: var(--color-surface);
@@ -752,25 +777,68 @@
 
 /* ===== 검색 결과 ===== */
 .wd-search-result-banner {
-  background: var(--color-bg-deeper);
+  background: rgba(96, 165, 250, 0.07);
   border-bottom: 1px solid var(--color-border);
-  padding: 12px 22px;
-  font-size: 12px;
+  padding: 14px 22px;
+  font-size: 13px;
   color: var(--color-on-surface-muted);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.wd-search-result-count {
+.wd-search-result-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wd-search-result-label {
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.wd-search-result-keyword {
   color: var(--color-primary);
   font-weight: 700;
+  font-size: 14px;
+}
+
+.wd-search-result-count-wrap {
+  color: var(--color-on-surface-muted);
+}
+
+.wd-search-result-count-wrap strong {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.wd-search-result-cap {
+  font-size: 11px;
+  color: var(--color-on-surface-faint);
+}
+
+.wd-search-result-hint {
+  font-size: 11px;
+  color: var(--color-on-surface-faint);
 }
 
 .wd-card-date {
   font-size: 11px;
   color: var(--color-on-surface-faint);
   font-weight: 500;
+}
+
+.wd-card-content--navigable {
+  cursor: pointer;
+}
+
+.wd-card-content--navigable:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-decoration-color: rgba(96, 165, 250, 0.4);
+  text-underline-offset: 2px;
 }
 
 /* ===== 알림 (Supabase 미설정) ===== */
