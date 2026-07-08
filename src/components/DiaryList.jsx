@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 /* ===== 스티커 메타 ===== */
@@ -554,14 +554,60 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
   )
 }
 
+/* ── 작성 중인 메모 임시저장 (탭 전환/새로고침에도 유지) ── */
+const COMPOSER_DRAFT_KEY = 'wd_composer_draft'
+
+function loadComposerDraft() {
+  try {
+    const raw = sessionStorage.getItem(COMPOSER_DRAFT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function saveComposerDraft(draft) {
+  try {
+    sessionStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft))
+  } catch {
+    // 저장 실패해도 작성은 계속 가능해야 하므로 무시
+  }
+}
+
+function clearComposerDraft() {
+  try {
+    sessionStorage.removeItem(COMPOSER_DRAFT_KEY)
+  } catch {
+    // 무시
+  }
+}
+
 /* ===== 입력창 (Composer) ===== */
 function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
-  const [value, setValue] = useState('')
-  const [writer, setWriter] = useState('주현희')
-  const [sticker, setSticker] = useState(null)
-  const [linkKey, setLinkKey] = useState('')
+  const initialDraft = useMemo(() => loadComposerDraft(), [])
+  const [value, setValue] = useState(initialDraft?.value ?? '')
+  const [writer, setWriter] = useState(initialDraft?.writer ?? '주현희')
+  const [sticker, setSticker] = useState(initialDraft?.sticker ?? null)
+  const [linkKey, setLinkKey] = useState(initialDraft?.linkKey ?? '')
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
+
+  // 입력값을 sessionStorage에 계속 동기화 — 완전히 빈 상태면 임시저장을 지운다
+  useEffect(() => {
+    const isEmpty = !value.trim() && !linkKey.trim() && !sticker
+    if (isEmpty) {
+      clearComposerDraft()
+    } else {
+      saveComposerDraft({ value, writer, sticker, linkKey })
+    }
+  }, [value, writer, sticker, linkKey])
+
+  // 최초 마운트 시 저장된 값 기준으로 textarea 높이 복원
+  useEffect(() => {
+    autoResizeComposer(composerRef.current)
+  }, [])
 
   function autoResizeComposer(el) {
     if (!el) return

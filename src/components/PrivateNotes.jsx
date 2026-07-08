@@ -35,6 +35,36 @@ function todayStr() { return isoToDate(new Date().toISOString()) }
 
 const EMPTY_FORM = { title: '', category: '유튜브', memo: '', memo_date: todayStr() }
 
+/* ── 작성 중인 폼 임시저장 (탭 전환/새로고침에도 유지) ── */
+function draftKey(owner) { return `pn_draft_${owner}` }
+
+function loadDraft(owner) {
+  try {
+    const raw = sessionStorage.getItem(draftKey(owner))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function saveDraft(owner, form, editId) {
+  try {
+    sessionStorage.setItem(draftKey(owner), JSON.stringify({ form, editId }))
+  } catch {
+    // 저장 실패해도 작성은 계속 가능해야 하므로 무시
+  }
+}
+
+function clearDraft(owner) {
+  try {
+    sessionStorage.removeItem(draftKey(owner))
+  } catch {
+    // 무시
+  }
+}
+
 /* ══════════════════════════════════════════════
    메인 컴포넌트
 ══════════════════════════════════════════════ */
@@ -51,16 +81,30 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
   const [searchQ,    setSearchQ]    = useState('')
   const [catFilter,  setCatFilter]  = useState('전체')
 
+  /* 작성 중이던 임시저장 폼 (탭 전환/새로고침 대비 — 최초 1회만 읽음) */
+  const initialDraft = useMemo(() => loadDraft(owner), [owner])
+
   /* 달력 & 선택 날짜 */
   const [calYear,    setCalYear]    = useState(new Date().getFullYear())
   const [calMonth,   setCalMonth]   = useState(new Date().getMonth())
-  const [calSelDate, setCalSelDate] = useState(todayStr())
+  const [calSelDate, setCalSelDate] = useState(initialDraft?.form?.memo_date || todayStr())
 
   /* 작성폼 */
-  const [form,     setForm]     = useState({ ...EMPTY_FORM, memo_date: todayStr() })
-  const [editId,   setEditId]   = useState(null)
+  const [form,     setForm]     = useState(initialDraft?.form || { ...EMPTY_FORM, memo_date: todayStr() })
+  const [editId,   setEditId]   = useState(initialDraft?.editId ?? null)
   const [saveBusy, setSaveBusy] = useState(false)
   const formTitleRef = useRef(null)
+
+  /* 작성 중인 폼을 sessionStorage에 계속 동기화 — 제목/내용이 비어있고 편집중도
+     아니면(=사실상 빈 폼) 임시저장을 지워서 다음 진입 시 불필요한 복원을 막는다 */
+  useEffect(() => {
+    const isEmpty = !form.title.trim() && !form.memo.trim() && !editId
+    if (isEmpty) {
+      clearDraft(owner)
+    } else {
+      saveDraft(owner, form, editId)
+    }
+  }, [owner, form, editId])
 
   /* ── 메모 불러오기 ── */
   const loadNotes = useCallback(async () => {
