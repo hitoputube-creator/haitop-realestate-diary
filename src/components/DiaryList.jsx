@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import { RECORD_TYPE_META, RECORD_TYPES, normalizePhone } from '../lib/crm'
+import { CUSTOMER_SELECT_FIELDS, RECORD_TYPE_META, RECORD_TYPES, buildCustomerSearchParts } from '../lib/crm'
 import { UnifiedCustomerResults } from './customer/CustomerWorkflow'
 import { AttachmentList, AttachmentUploader, PendingAttachmentPicker } from './attachments/AttachmentManager'
 
@@ -478,7 +478,7 @@ function MemoCard({
 
 /* ===== 연결태그 검색박스 ===== */
 // variant: "topright" = textarea 오른쪽 상단 absolute | "inline" = flex 바 내 인라인
-function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'topright', onNavigate }) {
+function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'topright', onNavigate, onSelectCustomer }) {
   const [query, setQuery]       = useState('')
   const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
@@ -518,7 +518,27 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
         .order('created_at', { ascending: false })
         .limit(50)
 
-      const rows = diaryRows || []
+      const { data: customerRows } = await supabase
+        .from('customers')
+        .select(CUSTOMER_SELECT_FIELDS)
+        .or(buildCustomerSearchParts(trimmed).join(','))
+        .order('updated_at', { ascending: false })
+        .limit(20)
+
+      const customerMemoRows = (customerRows || [])
+        .filter((customer) => (customer.memo || '').trim())
+        .map((customer) => ({
+          id: `customer_initial_memo_${customer.id}`,
+          type: 'customer_initial_memo',
+          customer,
+          content: customer.memo,
+          link_key: customer.name ? `고객-${customer.name}` : customer.customer_code,
+          writer: customer.manager || '',
+          date: customer.created_at,
+          created_at: customer.created_at,
+        }))
+
+      const rows = [...customerMemoRows, ...(diaryRows || [])]
       setResults(rows)
       setOpen(rows.length > 0)
     } catch {
@@ -556,7 +576,11 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
     setResults([])
     setOpen(false)
     // onNavigate가 있으면 해당 날짜로 이동 + 하이라이트
-    if (onNavigate && row.date) {
+    if (row.type === 'customer_initial_memo') {
+      onSelectCustomer?.(row.customer)
+      const tag = row.link_key || row.customer?.customer_code || row.customer?.name || ''
+      appendTag(tag)
+    } else if (onNavigate && row.date) {
       onNavigate(row.date, row.id)
     } else {
       // fallback: 기존 link_key 태그 추가 방식
@@ -613,7 +637,10 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
               onMouseDown={(e) => { e.preventDefault(); handleResultClick(row) }}
             >
               <div className="lks-item-top">
-                {row.link_key && (
+                {row.type === 'customer_initial_memo' && (
+                  <span className="lks-item-tag lks-item-tag--memo">고객 등록 메모</span>
+                )}
+                {row.link_key && row.type !== 'customer_initial_memo' && (
                   <span className="lks-item-tag">🔗 {row.link_key}</span>
                 )}
                 <span className="lks-item-meta">
@@ -686,18 +713,11 @@ function CustomerSearchBox({ selectedCustomer, onSelect, onClear, disabled }) {
     setSearching(true)
     setError('')
     try {
-      const digits = normalizePhone(trimmed)
-      const escaped = trimmed.replace(/[%_,]/g, '')
-      const parts = [
-        `name.ilike.%${escaped}%`,
-        `customer_code.ilike.%${escaped}%`,
-        `desired_region.ilike.%${escaped}%`,
-      ]
-      if (digits) parts.push(`phone_normalized.ilike.%${digits}%`, `phone.ilike.%${escaped}%`)
+      const parts = buildCustomerSearchParts(trimmed)
 
       const { data, error } = await supabase
         .from('customers')
-        .select('id, customer_code, name, phone, phone_normalized, customer_role, property_category, desired_region')
+        .select(CUSTOMER_SELECT_FIELDS)
         .or(parts.join(','))
         .order('updated_at', { ascending: false })
         .limit(20)
@@ -899,6 +919,10 @@ function Composer({
           onSelect={setLinkKey}
           disabled={disabled || submitting}
           onNavigate={onNavigate}
+          onSelectCustomer={(customer) => {
+            setSelectedCustomer(customer)
+            onSelectCustomer?.(customer)
+          }}
         />
       </div>
       <div className="wd-composer-input-wrap">

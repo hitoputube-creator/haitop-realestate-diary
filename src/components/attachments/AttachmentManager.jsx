@@ -262,7 +262,7 @@ export function AttachmentList({ attachments, compact = false, onDeleted, emptyT
   )
 }
 
-export function CustomerAttachments({ customer, uploadedBy, refreshKey = 0 }) {
+export function CustomerAttachments({ customer, uploadedBy, refreshKey = 0, onCountChange }) {
   const [attachments, setAttachments] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -271,17 +271,24 @@ export function CustomerAttachments({ customer, uploadedBy, refreshKey = 0 }) {
     let cancelled = false
     const timer = setTimeout(async () => {
       if (!customer?.id) {
-        if (!cancelled) setAttachments([])
+        if (!cancelled) {
+          setAttachments([])
+          onCountChange?.(0)
+        }
         return
       }
       setLoading(true)
       setError('')
       try {
         const rows = await listAttachmentsForCustomer(customer.id, 20)
-        if (!cancelled) setAttachments(rows)
+        if (!cancelled) {
+          setAttachments(rows)
+          onCountChange?.(rows.length)
+        }
       } catch (loadError) {
         if (!cancelled) {
           setAttachments([])
+          onCountChange?.(0)
           setError(`첨부파일 조회 실패: ${setupMessage(loadError)}`)
         }
       } finally {
@@ -292,7 +299,7 @@ export function CustomerAttachments({ customer, uploadedBy, refreshKey = 0 }) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [customer?.id, refreshKey])
+  }, [customer?.id, refreshKey, onCountChange])
 
   if (!customer?.id) return null
 
@@ -307,14 +314,26 @@ export function CustomerAttachments({ customer, uploadedBy, refreshKey = 0 }) {
           customerId={customer.id}
           uploadedBy={uploadedBy || customer.manager}
           buttonLabel="파일 추가"
-          onUploaded={(rows) => setAttachments((prev) => [...rows, ...prev])}
+          onUploaded={(rows) => {
+            setAttachments((prev) => {
+              const next = [...rows, ...prev]
+              onCountChange?.(next.length)
+              return next
+            })
+          }}
         />
       </div>
       {loading ? <div className="att-empty">첨부파일을 불러오는 중...</div> : null}
       {error ? <div className="att-error" role="alert">{error}</div> : null}
       <AttachmentList
         attachments={attachments}
-        onDeleted={(deleted) => setAttachments((prev) => prev.filter((row) => row.id !== deleted.id))}
+        onDeleted={(deleted) => {
+          setAttachments((prev) => {
+            const next = prev.filter((row) => row.id !== deleted.id)
+            onCountChange?.(next.length)
+            return next
+          })
+        }}
       />
     </section>
   )

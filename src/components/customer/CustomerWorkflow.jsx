@@ -17,6 +17,7 @@ import {
   toDateTimeValue,
 } from '../../lib/crm'
 import { CustomerAttachments } from '../attachments/AttachmentManager'
+import { listAttachmentsForCustomer } from '../../lib/attachments'
 import './CustomerWorkflow.css'
 
 const EMPTY_QUICK_FORM = {
@@ -42,6 +43,45 @@ function customerMeta(customer) {
     customer.desired_region,
     customer.manager && `담당 ${customer.manager}`,
   ].filter(Boolean).join(' · ')
+}
+
+function getCustomerInitialMemo(customer) {
+  return (customer?.memo || '').trim()
+}
+
+function normalizeCustomerTimeline(customer, rows) {
+  const initialMemo = getCustomerInitialMemo(customer)
+  const items = []
+
+  if (initialMemo) {
+    items.push({
+      id: `customer_initial_memo_${customer.id}`,
+      type: 'customer_initial_memo',
+      date: customer.created_at,
+      sortDate: customer.created_at || customer.updated_at,
+      title: '고객 등록 메모',
+      content: initialMemo,
+      writer: customer.manager || '',
+    })
+  }
+
+  ;(rows || []).forEach((row) => {
+    items.push({
+      ...row,
+      type: 'work_diary',
+      sortDate: row.date || row.created_at,
+      title: row.record_type || '?쇰컲硫붾え',
+    })
+  })
+
+  function toTime(item) {
+    const value = item.sortDate || item.date
+    if (!value) return 0
+    const date = new Date(String(value).includes('T') ? value : `${value}T00:00:00`)
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime()
+  }
+
+  return items.sort((a, b) => toTime(b) - toTime(a))
 }
 
 async function insertInitialRecord(customer, form) {
@@ -92,7 +132,7 @@ function TimelinePreview({ customer, refreshKey }) {
           .eq('customer_id', customer.id)
           .order('date', { ascending: false })
           .order('created_at', { ascending: false })
-          .limit(5)
+          .limit(80)
         if (timelineError) throw timelineError
         if (!cancelled) setRows(data || [])
       } catch (timelineError) {
@@ -111,13 +151,15 @@ function TimelinePreview({ customer, refreshKey }) {
     return () => clearTimeout(timer)
   }, [customer, refreshKey])
 
+  const timelineItems = useMemo(() => normalizeCustomerTimeline(customer, rows), [customer, rows])
+
   const summary = useMemo(() => {
     return {
-      total: rows.length,
+      total: timelineItems.length,
       next: rows.find((row) => row.scheduled_at)?.scheduled_at || customer?.next_contact_at,
       open: rows.filter((row) => row.status !== 'done').length,
     }
-  }, [customer?.next_contact_at, rows])
+  }, [customer?.next_contact_at, rows, timelineItems.length])
 
   if (!customer) return null
 
@@ -135,16 +177,19 @@ function TimelinePreview({ customer, refreshKey }) {
         <div className="cw-state">불러오는 중...</div>
       ) : error ? (
         <div className="cw-error">{error}</div>
-      ) : rows.length === 0 ? (
+      ) : timelineItems.length === 0 ? (
         <div className="cw-state">아직 연결된 업무기록이 없습니다.</div>
       ) : (
         <div className="cw-timeline-list">
-          {rows.map((row) => (
-            <article key={row.id} className="cw-timeline-item">
+          {timelineItems.map((row) => (
+            <article key={row.id} className={`cw-timeline-item ${row.type === 'customer_initial_memo' ? 'is-initial-memo' : ''}`}>
               <div>
                 <strong>{formatCrmDate(row.date)}</strong>
-                <span>{row.record_type || '일반메모'} · {row.writer || '-'}</span>
+                <span>{row.title || row.record_type || '일반메모'} · {row.writer || '-'}</span>
               </div>
+              {row.type === 'customer_initial_memo' && (
+                <span className="cw-initial-memo-badge">고객 등록 메모</span>
+              )}
               <p>{row.content}</p>
               {row.scheduled_at && (
                 <em className={isDueTodayOrPast(row.scheduled_at) ? 'is-due' : ''}>
@@ -346,7 +391,37 @@ export function CustomerWorkPanel({
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
   const [showQuickCreate, setShowQuickCreate] = useState(false)
+  const [activeTab, setActiveTab] = useState('info')
+  const [attachmentCount, setAttachmentCount] = useState(0)
   const timerRef = useRef(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setActiveTab('info')
+      setAttachmentCount(0)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [selectedCustomer?.id])
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      if (!selectedCustomer?.id || !isSupabaseConfigured) {
+        if (!cancelled) setAttachmentCount(0)
+        return
+      }
+      try {
+        const rows = await listAttachmentsForCustomer(selectedCustomer.id, 100)
+        if (!cancelled) setAttachmentCount(rows.length)
+      } catch {
+        if (!cancelled) setAttachmentCount(0)
+      }
+    }, 0)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [selectedCustomer?.id, timelineRefreshKey])
 
   const searchCustomers = useCallback(async (value) => {
     const trimmed = value.trim()
@@ -451,6 +526,36 @@ export function CustomerWorkPanel({
         />
       )}
 
+      {selectedCustomer && (
+        <div className="cw-detail-tabs" role="tablist" aria-label="고객 패널 보기">
+          <button
+            type="button"
+            role="tab"
+            className={activeTab === 'info' ? 'active' : ''}
+            onClick={() => setActiveTab('info')}
+          >
+            고객정보
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={activeTab === 'timeline' ? 'active' : ''}
+            onClick={() => setActiveTab('timeline')}
+          >
+            전체 타임라인
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={activeTab === 'attachments' ? 'active' : ''}
+            onClick={() => setActiveTab('attachments')}
+          >
+            첨부파일 {attachmentCount}
+          </button>
+        </div>
+      )}
+
+      {(!selectedCustomer || activeTab === 'info') && (
       <section className="cw-summary">
         <div className="cw-section-head">
           <h3>선택 고객</h3>
@@ -499,14 +604,24 @@ export function CustomerWorkPanel({
           </div>
         )}
       </section>
+      )}
 
-      <TimelinePreview customer={selectedCustomer} refreshKey={timelineRefreshKey} />
+      {selectedCustomer && activeTab === 'timeline' && (
+        <div className="cw-tab-panel">
+          <TimelinePreview customer={selectedCustomer} refreshKey={timelineRefreshKey} />
+        </div>
+      )}
 
-      <CustomerAttachments
-        customer={selectedCustomer}
-        uploadedBy={selectedCustomer?.manager}
-        refreshKey={timelineRefreshKey}
-      />
+      {selectedCustomer && activeTab === 'attachments' && (
+        <div className="cw-tab-panel">
+          <CustomerAttachments
+            customer={selectedCustomer}
+            uploadedBy={selectedCustomer?.manager}
+            refreshKey={timelineRefreshKey}
+            onCountChange={setAttachmentCount}
+          />
+        </div>
+      )}
 
       <button type="button" className="cw-full-list" onClick={() => onOpenCustomerManager?.(selectedCustomer?.id || null)}>
         전체 고객보기
@@ -530,6 +645,11 @@ export function UnifiedCustomerResults({ customers, onSelectCustomer }) {
             <strong>{customer.name}</strong>
             <span>{customerLabel(customer)}</span>
             <em>{customerMeta(customer)}</em>
+            {getCustomerInitialMemo(customer) && (
+              <small className="cw-customer-memo-hit">
+                고객 등록 메모 · {formatCrmDate(customer.created_at)} · {getCustomerInitialMemo(customer).slice(0, 70)}
+              </small>
+            )}
           </button>
         ))}
       </div>

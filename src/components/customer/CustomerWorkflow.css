@@ -343,6 +343,49 @@
   flex-wrap: wrap;
 }
 
+.cw-detail-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cw-detail-tabs button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-container);
+  color: var(--color-on-surface-muted);
+  font-size: 11.5px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cw-detail-tabs button.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.cw-tab-panel {
+  padding: 14px;
+  border-bottom: 1px solid var(--color-border);
+  overflow: auto;
+}
+
+.cw-tab-panel .cw-timeline,
+.cw-tab-panel .att-customer-panel {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .cw-timeline {
   overflow: auto;
   min-height: 0;
@@ -369,6 +412,11 @@
   border-radius: 9px;
   border: 1px solid var(--color-border);
   background: rgba(255, 255, 255, 0.035);
+}
+
+.cw-timeline-item.is-initial-memo {
+  border-color: rgba(230, 195, 100, 0.34);
+  background: rgba(230, 195, 100, 0.075);
 }
 
 .cw-timeline-item div {
@@ -401,6 +449,31 @@
 .cw-timeline-item em {
   display: inline-flex;
   margin-top: 7px;
+}
+
+.cw-initial-memo-badge {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 7px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(230, 195, 100, 0.34);
+  background: rgba(230, 195, 100, 0.12);
+  color: var(--color-primary);
+  font-size: 10.5px;
+  font-weight: 900;
+}
+
+.cw-customer-memo-hit {
+  display: block;
+  min-width: 0;
+  margin-top: 5px;
+  color: var(--color-primary);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cw-full-list {
@@ -445,5 +518,16 @@
   .cw-full-list,
   .cw-summary-actions {
     width: 100%;
+  }
+
+  .cw-detail-tabs {
+    gap: 4px;
+    padding: 9px 10px;
+  }
+
+  .cw-detail-tabs button {
+    min-height: 30px;
+    padding: 0 5px;
+    font-size: 10.5px;
   }
 }

@@ -129,15 +129,17 @@
 
 @media (max-width: 1280px) {
   .wd-main {
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: 280px minmax(420px, 1fr) 300px;
+    gap: 14px;
+    padding: 18px 18px;
   }
 
-  .cw-panel {
-    grid-column: 1 / -1;
+  .wd-composer {
+    padding: 16px 18px;
   }
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1080px) {
   .wd-main {
     grid-template-columns: 1fr;
   }
@@ -1597,6 +1599,12 @@
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.lks-item-tag--memo {
+  color: #bbf7d0;
+  background: rgba(74, 222, 128, 0.11);
+  border-color: rgba(74, 222, 128, 0.28);
 }
 
 .lks-item-meta {
