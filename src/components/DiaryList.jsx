@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { RECORD_TYPE_META, RECORD_TYPES, normalizePhone } from '../lib/crm'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -50,6 +51,13 @@ function formatDateLabel(iso, fullFormat = false) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
+function formatCustomerOption(customer) {
+  if (!customer) return ''
+  const details = [customer.phone, customer.customer_code].filter(Boolean).join(' · ')
+  const category = [customer.property_category, customer.customer_role].filter(Boolean).join(' · ')
+  return `${customer.name || '이름 없음'}${details ? ` / ${details}` : ''}${category ? ` / ${category}` : ''}`
+}
+
 /* ===== 상태 배지 ===== */
 const STATUS_META = {
   normal: { label: '일반', icon: null },
@@ -70,7 +78,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
+function MemoCard({ memo, customer, onCustomerClick, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const taRef = useRef(null)
@@ -131,6 +139,8 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
   const tags = memo.tags && memo.tags.length ? memo.tags : extractTags(memo.content)
 
   const stickerMeta = memo.sticker ? STICKER_META[memo.sticker] : null
+  const recordType = memo.record_type || '일반메모'
+  const recordTone = RECORD_TYPE_META[recordType]?.tone || 'memo'
 
   const cls = ['wd-card', `status-${memo.status || 'normal'}`, editing && 'editing', isHighlighted && 'wd-card-highlighted']
     .filter(Boolean)
@@ -158,6 +168,11 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
           {showDate && <span className="wd-card-date">· {formatDateLabel(memo.date, true)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {memo.record_type && (
+            <span className={`wd-record-type tone-${recordTone}`}>
+              {recordType}
+            </span>
+          )}
           {memo.link_key ? (
             <>
               <button
@@ -191,6 +206,22 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
           <StatusBadge status={memo.status || 'normal'} />
         </div>
       </div>
+
+      {memo.customer_id && (
+        <button
+          type="button"
+          className="wd-customer-badge"
+          onClick={(e) => {
+            e.stopPropagation()
+            onCustomerClick?.(memo.customer_id)
+          }}
+          title="고객관리에서 보기"
+        >
+          <span>고객</span>
+          <strong>{customer?.name || '연결 고객 없음'}</strong>
+          <em>{customer?.customer_code || memo.customer_id}</em>
+        </button>
+      )}
 
       {/* 연결태그 인라인 편집 */}
       {linkEditing && (
@@ -247,6 +278,12 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
       >
         {memo.content}
       </div>
+
+      {memo.scheduled_at && !editing && (
+        <div className="wd-scheduled-at">
+          다음 연락: {formatDateLabel(memo.scheduled_at, true)}
+        </div>
+      )}
 
       {editing && (
         <>
@@ -584,6 +621,128 @@ function clearComposerDraft() {
   }
 }
 
+function CustomerSearchBox({ selectedCustomer, onSelect, onClear, disabled }) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState('')
+  const timerRef = useRef(null)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapRef.current && !wrapRef.current.contains(event.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const searchCustomers = useCallback(async (value) => {
+    const trimmed = value.trim()
+    if (!trimmed || !isSupabaseConfigured) {
+      setResults([])
+      setOpen(false)
+      return
+    }
+    setSearching(true)
+    setError('')
+    try {
+      const digits = normalizePhone(trimmed)
+      const escaped = trimmed.replace(/[%_,]/g, '')
+      const parts = [
+        `name.ilike.%${escaped}%`,
+        `customer_code.ilike.%${escaped}%`,
+        `desired_region.ilike.%${escaped}%`,
+      ]
+      if (digits) parts.push(`phone_normalized.ilike.%${digits}%`, `phone.ilike.%${escaped}%`)
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, customer_code, name, phone, phone_normalized, customer_role, property_category, desired_region')
+        .or(parts.join(','))
+        .order('updated_at', { ascending: false })
+        .limit(20)
+      if (error) throw error
+      setResults(data || [])
+      setOpen((data || []).length > 0)
+    } catch (error) {
+      setResults([])
+      setOpen(false)
+      setError(`고객 검색 실패: ${error.message || error}`)
+    } finally {
+      setSearching(false)
+    }
+  }, [])
+
+  function handleChange(event) {
+    const next = event.target.value
+    setQuery(next)
+    clearTimeout(timerRef.current)
+    if (!next.trim()) {
+      setResults([])
+      setOpen(false)
+      setError('')
+      return
+    }
+    timerRef.current = setTimeout(() => searchCustomers(next), 300)
+  }
+
+  return (
+    <div className="wd-customer-select" ref={wrapRef}>
+      <div className="wd-customer-select-head">
+        <span>고객 연결</span>
+        {selectedCustomer && (
+          <button type="button" onClick={onClear} disabled={disabled}>
+            선택 해제
+          </button>
+        )}
+      </div>
+      {selectedCustomer ? (
+        <button type="button" className="wd-selected-customer" onClick={() => setOpen(false)} disabled={disabled}>
+          <strong>{selectedCustomer.name}</strong>
+          <span>{selectedCustomer.customer_code}</span>
+        </button>
+      ) : (
+        <div className="wd-customer-search-row">
+          <input
+            type="search"
+            value={query}
+            onChange={handleChange}
+            onFocus={() => results.length > 0 && setOpen(true)}
+            placeholder="고객명, 고객번호, 전화번호 검색"
+            disabled={disabled}
+            autoComplete="off"
+          />
+          {searching && <span>...</span>}
+        </div>
+      )}
+      {error && <div className="wd-customer-search-error">{error}</div>}
+      {open && results.length > 0 && !selectedCustomer && (
+        <ul className="wd-customer-results" role="listbox">
+          {results.map((customer) => (
+            <li key={customer.id} role="option">
+              <button
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  onSelect(customer)
+                  setQuery('')
+                  setResults([])
+                  setOpen(false)
+                }}
+              >
+                <strong>{customer.name}</strong>
+                <span>{formatCustomerOption(customer)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 /* ===== 입력창 (Composer) ===== */
 function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const initialDraft = useMemo(() => loadComposerDraft(), [])
@@ -591,18 +750,20 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const [writer, setWriter] = useState(initialDraft?.writer ?? '주현희')
   const [sticker, setSticker] = useState(initialDraft?.sticker ?? null)
   const [linkKey, setLinkKey] = useState(initialDraft?.linkKey ?? '')
+  const [selectedCustomer, setSelectedCustomer] = useState(initialDraft?.selectedCustomer ?? null)
+  const [recordType, setRecordType] = useState(initialDraft?.recordType ?? '일반메모')
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
 
   // 입력값을 sessionStorage에 계속 동기화 — 완전히 빈 상태면 임시저장을 지운다
   useEffect(() => {
-    const isEmpty = !value.trim() && !linkKey.trim() && !sticker
+    const isEmpty = !value.trim() && !linkKey.trim() && !sticker && !selectedCustomer && recordType === '일반메모'
     if (isEmpty) {
       clearComposerDraft()
     } else {
-      saveComposerDraft({ value, writer, sticker, linkKey })
+      saveComposerDraft({ value, writer, sticker, linkKey, selectedCustomer, recordType })
     }
-  }, [value, writer, sticker, linkKey])
+  }, [value, writer, sticker, linkKey, selectedCustomer, recordType])
 
   // 최초 마운트 시 저장된 값 기준으로 textarea 높이 복원
   useEffect(() => {
@@ -620,10 +781,12 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     if (!trimmed || submitting) return
     setSubmitting(true)
     try {
-      await onSubmit(trimmed, writer, sticker, linkKey.trim())
+      await onSubmit(trimmed, writer, sticker, linkKey.trim(), selectedCustomer, recordType)
       setValue('')
       setSticker(null)
       setLinkKey('')
+      setSelectedCustomer(null)
+      setRecordType('일반메모')
       if (composerRef.current) composerRef.current.style.height = '150px'
     } finally {
       setSubmitting(false)
@@ -634,6 +797,24 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
 
   return (
     <div className="wd-composer">
+      <div className="wd-crm-row">
+        <CustomerSearchBox
+          selectedCustomer={selectedCustomer}
+          onSelect={setSelectedCustomer}
+          onClear={() => setSelectedCustomer(null)}
+          disabled={disabled || submitting}
+        />
+        <label className="wd-record-select">
+          <span>기록 종류</span>
+          <select
+            value={recordType}
+            onChange={(event) => setRecordType(event.target.value)}
+            disabled={disabled || submitting}
+          >
+            {RECORD_TYPES.map((type) => <option key={type}>{type}</option>)}
+          </select>
+        </label>
+      </div>
       <div className="wd-composer-tools-row">
         <LinkKeySearchBox
           currentValue={linkKey}
@@ -773,6 +954,10 @@ export default function DiaryList({
   onUnpin,
   onNavigate,
   highlightMemoId,
+  customerMap,
+  onCustomerClick,
+  customerFilter,
+  onClearCustomerFilter,
 }) {
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
@@ -810,8 +995,12 @@ export default function DiaryList({
       {searchMode && (
         <div className="wd-search-result-banner">
           <div className="wd-search-result-title">
-            <span className="wd-search-result-label">검색 결과</span>
-            {searchQuery && (
+            <span className="wd-search-result-label">{customerFilter?.id ? '고객 업무기록' : '검색 결과'}</span>
+            {customerFilter?.id ? (
+              <span className="wd-search-result-keyword">
+                {customerFilter.name || customerFilter.customer_code}
+              </span>
+            ) : searchQuery && (
               <span className="wd-search-result-keyword">"{searchQuery.trim()}"</span>
             )}
             <span className="wd-search-result-count-wrap">
@@ -822,14 +1011,22 @@ export default function DiaryList({
             </span>
           </div>
           <span className="wd-search-result-hint">
-            검색어를 지우거나 ✕를 누르면 날짜별 일지로 돌아갑니다
+            {customerFilter?.id
+              ? 'customer_id 기준으로 정확히 연결된 기록만 표시합니다.'
+              : '검색어를 지우거나 ✕를 누르면 날짜별 일지로 돌아갑니다'}
           </span>
+          {customerFilter?.id && (
+            <button type="button" className="wd-clear-customer-filter" onClick={onClearCustomerFilter}>
+              고객 필터 해제
+            </button>
+          )}
         </div>
       )}
 
       {!searchMode && (
         <Composer
-          onSubmit={(content, writer, sticker, linkKey) => onCreate(content, writer, sticker, linkKey)}
+          onSubmit={(content, writer, sticker, linkKey, selectedCustomer, recordType) =>
+            onCreate(content, writer, sticker, linkKey, selectedCustomer, recordType)}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
@@ -860,6 +1057,8 @@ export default function DiaryList({
             <MemoCard
               key={m.id}
               memo={m}
+              customer={m.customer_id ? customerMap?.[m.customer_id] : null}
+              onCustomerClick={onCustomerClick}
               showDate={searchMode}
               onChangeStatus={onChangeStatus}
               onDelete={onDelete}

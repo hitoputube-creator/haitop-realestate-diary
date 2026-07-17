@@ -4,11 +4,12 @@ import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
 import StickyNotes from './StickyNotes'
+import { isMissingCustomerMigrationError } from '../lib/crm'
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
 
-export default function WorkDiary({ onOpenDiary }) {
+export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter, onClearCustomerFilter }) {
   const today = useMemo(() => new Date(), [])
 
   const [selectedDate, setSelectedDate] = useState(today)
@@ -25,9 +26,22 @@ export default function WorkDiary({ onOpenDiary }) {
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [highlightMemoId, setHighlightMemoId] = useState(null)
+  const [customerMap, setCustomerMap] = useState({})
 
-  const searchMode = searchQuery.trim().length > 0
+  const searchMode = searchQuery.trim().length > 0 || Boolean(customerFilter?.id)
   const [filterWriter, setFilterWriter] = useState('all')
+
+  useEffect(() => {
+    if (!customerFilter?.date) return
+    const timer = setTimeout(() => {
+      const target = new Date(`${customerFilter.date}T00:00:00`)
+      if (Number.isNaN(target.getTime())) return
+      setSelectedDate(target)
+      setViewYear(target.getFullYear())
+      setViewMonth(target.getMonth())
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [customerFilter?.date])
 
   /* ===== 연결고리 ===== */
   const [allLinkKeys, setAllLinkKeys] = useState([])
@@ -44,6 +58,29 @@ export default function WorkDiary({ onOpenDiary }) {
     () => new Set(stickyData.map((d) => d.sticky.diary_id)),
     [stickyData]
   )
+
+  const loadCustomersForMemos = useCallback(async (rows) => {
+    const ids = Array.from(new Set((rows || []).map((row) => row.customer_id).filter(Boolean)))
+    if (!isSupabaseConfigured || ids.length === 0) {
+      setCustomerMap({})
+      return
+    }
+    try {
+      const { data, error: e } = await supabase
+        .from('customers')
+        .select('id, customer_code, name, phone, phone_normalized, customer_role, property_category')
+        .in('id', ids)
+      if (e) throw e
+      const nextMap = {}
+      ;(data || []).forEach((customer) => {
+        nextMap[customer.id] = customer
+      })
+      setCustomerMap(nextMap)
+    } catch (err) {
+      setError(`연결 고객 정보를 불러오지 못했습니다: ${err.message || err}`)
+      setCustomerMap({})
+    }
+  }, [])
 
   /* ===== 선택 날짜의 메모 로드 ===== */
   const loadMemosForSelected = useCallback(async () => {
@@ -73,6 +110,13 @@ export default function WorkDiary({ onOpenDiary }) {
   useEffect(() => {
     loadMemosForSelected()
   }, [loadMemosForSelected])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadCustomersForMemos(searchMode ? searchResults : memos)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [loadCustomersForMemos, memos, searchMode, searchResults])
 
   /* ===== 표시 중인 달의 메모 있는 날짜 마킹 ===== */
   const loadMonthDots = useCallback(async () => {
@@ -236,6 +280,7 @@ export default function WorkDiary({ onOpenDiary }) {
     }
   }, [loadStickyNotes])
 
+
   /* 포스트잇 해제 (삭제) */
   const handleUnpin = useCallback(async (diaryId) => {
     if (!isSupabaseConfigured) return
@@ -266,19 +311,32 @@ export default function WorkDiary({ onOpenDiary }) {
   /* ===== 검색 ===== */
   useEffect(() => {
     const q = searchQuery.trim()
-    if (!q) {
-      setSearchResults([])
-      return
+    if (!q && !customerFilter?.id) {
+      const timer = setTimeout(() => setSearchResults([]), 0)
+      return () => clearTimeout(timer)
     }
     if (!isSupabaseConfigured) {
-      setSearchResults([])
-      return
+      const timer = setTimeout(() => setSearchResults([]), 0)
+      return () => clearTimeout(timer)
     }
 
     let cancelled = false
     setSearchLoading(true)
     ;(async () => {
       try {
+        if (customerFilter?.id) {
+          const { data, error: e } = await supabase
+            .from(TABLE)
+            .select('*')
+            .eq('customer_id', customerFilter.id)
+            .order('date', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(200)
+          if (e) throw e
+          if (!cancelled) setSearchResults(data || [])
+          return
+        }
+
         const isTagSearch = q.startsWith('#')
         const tagTerm = isTagSearch ? q.slice(1) : q
         // 공백·언더바를 제거한 정규화 쿼리 (헤이 부동산 → 헤이부동산)
@@ -311,7 +369,11 @@ export default function WorkDiary({ onOpenDiary }) {
         if (!cancelled) setSearchResults(data || [])
       } catch (err) {
         if (!cancelled) {
-          setError(`검색 실패: ${err.message || err}`)
+          setError(
+            isMissingCustomerMigrationError(err)
+              ? '고객 연결 기록을 조회하려면 007_link_work_diary_to_customers.sql 마이그레이션 적용이 필요합니다.'
+              : `검색 실패: ${err.message || err}`
+          )
           setSearchResults([])
         }
       } finally {
@@ -322,11 +384,11 @@ export default function WorkDiary({ onOpenDiary }) {
     return () => {
       cancelled = true
     }
-  }, [searchQuery])
+  }, [customerFilter?.id, searchQuery])
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
-    async (content, writer = '주현희', sticker = null, linkKey = '') => {
+    async (content, writer = '주현희', sticker = null, linkKey = '', selectedCustomer = null, recordType = '일반메모') => {
       if (!isSupabaseConfigured) {
         setError('Supabase 연결이 설정되지 않았습니다. .env에 VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY를 추가해주세요.')
         return
@@ -344,6 +406,9 @@ export default function WorkDiary({ onOpenDiary }) {
             writer,
             sticker: sticker || null,
             link_key: linkKey || '',
+            customer_id: selectedCustomer?.id || null,
+            record_type: recordType || '일반메모',
+            priority: '일반',
           })
           .select()
           .single()
@@ -361,9 +426,16 @@ export default function WorkDiary({ onOpenDiary }) {
             prev.includes(linkKey) ? prev : [...prev, linkKey].sort()
           )
         }
+        if (selectedCustomer?.id) {
+          setCustomerMap((prev) => ({ ...prev, [selectedCustomer.id]: selectedCustomer }))
+        }
         setError(null)
       } catch (err) {
-        setError(`저장 실패: ${err.message || err}`)
+        setError(
+          isMissingCustomerMigrationError(err)
+            ? '저장 실패: 고객 연결 컬럼이 아직 DB에 없습니다. 007_link_work_diary_to_customers.sql 마이그레이션을 먼저 적용해주세요.'
+            : `저장 실패: ${err.message || err}`
+        )
         throw err
       }
     },
@@ -648,6 +720,10 @@ export default function WorkDiary({ onOpenDiary }) {
           onNavigate={handleNavigate}
           highlightMemoId={highlightMemoId}
           searchQuery={searchQuery}
+          customerMap={customerMap}
+          onCustomerClick={onOpenCustomer}
+          customerFilter={customerFilter}
+          onClearCustomerFilter={onClearCustomerFilter}
         />
       </main>
 

@@ -21,18 +21,35 @@ function App() {
   const initialNav = loadNav()
   const [page, setPage] = useState(initialNav?.page || 'diary')
   const [diaryOwner, setDiaryOwner] = useState(initialNav?.diaryOwner || '주현희')
+  const [focusedCustomerId, setFocusedCustomerId] = useState(initialNav?.focusedCustomerId || null)
+  const [diaryCustomerFilter, setDiaryCustomerFilter] = useState(initialNav?.diaryCustomerFilter || null)
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(NAV_KEY, JSON.stringify({ page, diaryOwner }))
+      sessionStorage.setItem(NAV_KEY, JSON.stringify({ page, diaryOwner, focusedCustomerId, diaryCustomerFilter }))
     } catch {
       // 무시 — 실패해도 화면 전환 자체는 계속 동작해야 함
     }
-  }, [page, diaryOwner])
+  }, [page, diaryOwner, focusedCustomerId, diaryCustomerFilter])
 
   function openDiary(owner) {
     setDiaryOwner(owner)
     setPage('private-notes')
+  }
+
+  function openCustomer(customerId) {
+    setFocusedCustomerId(customerId || null)
+    setPage('customers')
+  }
+
+  function openDiaryForCustomer(customer, date = null) {
+    setDiaryCustomerFilter(customer ? {
+      id: customer.id,
+      name: customer.name,
+      customer_code: customer.customer_code,
+      date,
+    } : null)
+    setPage('diary')
   }
 
   const nav = (
@@ -81,7 +98,10 @@ function App() {
     return (
       <>
         {nav}
-        <CustomerManager />
+        <CustomerManager
+          initialCustomerId={focusedCustomerId}
+          onOpenDiaryForCustomer={openDiaryForCustomer}
+        />
       </>
     )
   }
@@ -89,7 +109,12 @@ function App() {
   return (
     <>
       {nav}
-      <WorkDiary onOpenDiary={openDiary} />
+      <WorkDiary
+        onOpenDiary={openDiary}
+        onOpenCustomer={openCustomer}
+        customerFilter={diaryCustomerFilter}
+        onClearCustomerFilter={() => setDiaryCustomerFilter(null)}
+      />
     </>
   )
 }
