@@ -105,10 +105,10 @@
 .wd-main {
   flex: 1;
   display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 24px;
+  grid-template-columns: 340px minmax(420px, 1fr) 320px;
+  gap: 18px;
   padding: 24px 28px;
-  max-width: 1440px;
+  max-width: 1520px;
   margin: 0 auto;
   width: 100%;
 }
@@ -119,6 +119,22 @@
   flex-direction: column;
   gap: 20px;
   min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .wd-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1280px) {
+  .wd-main {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+
+  .cw-panel {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 960px) {
@@ -463,6 +479,67 @@
   gap: 10px;
   margin-bottom: 10px;
   align-items: end;
+}
+
+.wd-selected-customer-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(230, 195, 100, 0.28);
+  background: rgba(230, 195, 100, 0.07);
+}
+
+.wd-selected-customer-strip div,
+.wd-selected-customer-strip label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wd-selected-customer-strip span {
+  color: var(--color-on-surface-faint);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.wd-selected-customer-strip strong,
+.wd-selected-customer-strip em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wd-selected-customer-strip strong {
+  color: var(--color-primary);
+  font-size: 13px;
+}
+
+.wd-selected-customer-strip em {
+  color: var(--color-on-surface-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.wd-selected-customer-strip input {
+  width: 100%;
+  height: 32px;
+  min-width: 0;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+  padding: 0 9px;
+  outline: none;
+  font-size: 12px;
+}
+
+.wd-selected-customer-strip input:focus {
+  border-color: var(--color-primary);
 }
 
 .wd-customer-select {
@@ -887,6 +964,12 @@
   color: var(--color-primary);
 }
 
+.wd-record-type.tone-first {
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.1);
+  color: #bbf7d0;
+}
+
 .wd-scheduled-at {
   display: inline-flex;
   width: fit-content;
@@ -1087,6 +1170,7 @@
 .wd-filter-tabs {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
   padding: 0 28px;
   margin-top: 16px;
   margin-bottom: -8px;
@@ -1504,7 +1588,42 @@
 
 /* ===== 모바일: 검색창 전체 폭으로 전환 ===== */
 @media (max-width: 600px) {
+  .wd-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .wd-searchbar {
+    max-width: none;
+    width: 100%;
+  }
+
+  .wd-btn-workcenter {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .wd-filter-tabs {
+    padding: 0 14px;
+  }
+
+  .wd-filter-tab,
+  .wd-btn-personal-diary {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+  }
+
+  .wd-filter-divider {
+    display: none;
+  }
+
   .wd-crm-row {
+    grid-template-columns: 1fr;
+  }
+
+  .wd-selected-customer-strip {
     grid-template-columns: 1fr;
   }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { RECORD_TYPE_META, RECORD_TYPES, normalizePhone } from '../lib/crm'
+import { UnifiedCustomerResults } from './customer/CustomerWorkflow'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -744,7 +745,15 @@ function CustomerSearchBox({ selectedCustomer, onSelect, onClear, disabled }) {
 }
 
 /* ===== 입력창 (Composer) ===== */
-function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
+function Composer({
+  onSubmit,
+  disabled,
+  allLinkKeys,
+  onNavigate,
+  activeCustomer,
+  onSelectCustomer,
+  onClearActiveCustomer,
+}) {
   const initialDraft = useMemo(() => loadComposerDraft(), [])
   const [value, setValue] = useState(initialDraft?.value ?? '')
   const [writer, setWriter] = useState(initialDraft?.writer ?? '주현희')
@@ -752,18 +761,21 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const [linkKey, setLinkKey] = useState(initialDraft?.linkKey ?? '')
   const [selectedCustomer, setSelectedCustomer] = useState(initialDraft?.selectedCustomer ?? null)
   const [recordType, setRecordType] = useState(initialDraft?.recordType ?? '일반메모')
+  const [scheduledAt, setScheduledAt] = useState(initialDraft?.scheduledAt ?? '')
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
+  const effectiveCustomer = activeCustomer || selectedCustomer
+  const effectiveRecordType = effectiveCustomer && recordType === '일반메모' ? '전화상담' : recordType
 
   // 입력값을 sessionStorage에 계속 동기화 — 완전히 빈 상태면 임시저장을 지운다
   useEffect(() => {
-    const isEmpty = !value.trim() && !linkKey.trim() && !sticker && !selectedCustomer && recordType === '일반메모'
+    const isEmpty = !value.trim() && !linkKey.trim() && !sticker && !effectiveCustomer && recordType === '일반메모' && !scheduledAt
     if (isEmpty) {
       clearComposerDraft()
     } else {
-      saveComposerDraft({ value, writer, sticker, linkKey, selectedCustomer, recordType })
+      saveComposerDraft({ value, writer, sticker, linkKey, selectedCustomer: activeCustomer ? null : selectedCustomer, recordType, scheduledAt })
     }
-  }, [value, writer, sticker, linkKey, selectedCustomer, recordType])
+  }, [activeCustomer, effectiveCustomer, value, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt])
 
   // 최초 마운트 시 저장된 값 기준으로 textarea 높이 복원
   useEffect(() => {
@@ -781,12 +793,13 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     if (!trimmed || submitting) return
     setSubmitting(true)
     try {
-      await onSubmit(trimmed, writer, sticker, linkKey.trim(), selectedCustomer, recordType)
+      await onSubmit(trimmed, writer, sticker, linkKey.trim(), effectiveCustomer, effectiveRecordType, scheduledAt)
       setValue('')
       setSticker(null)
       setLinkKey('')
-      setSelectedCustomer(null)
+      if (!activeCustomer) setSelectedCustomer(null)
       setRecordType('일반메모')
+      setScheduledAt('')
       if (composerRef.current) composerRef.current.style.height = '150px'
     } finally {
       setSubmitting(false)
@@ -799,15 +812,21 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     <div className="wd-composer">
       <div className="wd-crm-row">
         <CustomerSearchBox
-          selectedCustomer={selectedCustomer}
-          onSelect={setSelectedCustomer}
-          onClear={() => setSelectedCustomer(null)}
+          selectedCustomer={effectiveCustomer}
+          onSelect={(customer) => {
+            setSelectedCustomer(customer)
+            onSelectCustomer?.(customer)
+          }}
+          onClear={() => {
+            if (activeCustomer) onClearActiveCustomer?.()
+            setSelectedCustomer(null)
+          }}
           disabled={disabled || submitting}
         />
         <label className="wd-record-select">
           <span>기록 종류</span>
           <select
-            value={recordType}
+            value={effectiveRecordType}
             onChange={(event) => setRecordType(event.target.value)}
             disabled={disabled || submitting}
           >
@@ -815,6 +834,24 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
           </select>
         </label>
       </div>
+      {effectiveCustomer && (
+        <div className="wd-selected-customer-strip">
+          <div>
+            <span>선택 고객</span>
+            <strong>{effectiveCustomer.name}</strong>
+            <em>{effectiveCustomer.customer_code}</em>
+          </div>
+          <label>
+            <span>다음 연락일</span>
+            <input
+              type="date"
+              value={scheduledAt}
+              onChange={(event) => setScheduledAt(event.target.value)}
+              disabled={disabled || submitting}
+            />
+          </label>
+        </div>
+      )}
       <div className="wd-composer-tools-row">
         <LinkKeySearchBox
           currentValue={linkKey}
@@ -954,10 +991,16 @@ export default function DiaryList({
   onUnpin,
   onNavigate,
   highlightMemoId,
+  customerResults,
   customerMap,
   onCustomerClick,
+  onSearchCustomerClick,
   customerFilter,
   onClearCustomerFilter,
+  selectedCustomer,
+  onSelectCustomer,
+  onClearSelectedCustomer,
+  recordScope,
 }) {
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
@@ -971,6 +1014,7 @@ export default function DiaryList({
 
   const importantCount = memos.filter((m) => m.status === 'important').length
   const doneCount = memos.filter((m) => m.status === 'done').length
+  const textSearchActive = Boolean(searchQuery?.trim())
 
   return (
     <section className="wd-panel wd-diary" aria-label="메모 목록">
@@ -1012,7 +1056,9 @@ export default function DiaryList({
           </div>
           <span className="wd-search-result-hint">
             {customerFilter?.id
-              ? 'customer_id 기준으로 정확히 연결된 기록만 표시합니다.'
+              ? recordScope === 'customer'
+                ? 'customer_id 기준으로 정확히 연결된 기록만 표시합니다.'
+                : '전체 업무기록 모드입니다.'
               : '검색어를 지우거나 ✕를 누르면 날짜별 일지로 돌아갑니다'}
           </span>
           {customerFilter?.id && (
@@ -1023,17 +1069,27 @@ export default function DiaryList({
         </div>
       )}
 
-      {!searchMode && (
+      {!textSearchActive && (
         <Composer
-          onSubmit={(content, writer, sticker, linkKey, selectedCustomer, recordType) =>
-            onCreate(content, writer, sticker, linkKey, selectedCustomer, recordType)}
+          onSubmit={(content, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt) =>
+            onCreate(content, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt)}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
+          activeCustomer={selectedCustomer}
+          onSelectCustomer={onSelectCustomer}
+          onClearActiveCustomer={onClearSelectedCustomer}
         />
       )}
 
       {error && <div className="wd-error" role="alert">{error}</div>}
+
+      {textSearchActive && (
+        <UnifiedCustomerResults
+          customers={customerResults || []}
+          onSelectCustomer={onSearchCustomerClick}
+        />
+      )}
 
       <div className="wd-list">
         {loading ? (

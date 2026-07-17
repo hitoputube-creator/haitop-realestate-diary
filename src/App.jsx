@@ -59,14 +59,14 @@ function App() {
         className={`app-nav-button ${page === 'diary' ? 'active' : ''}`}
         onClick={() => setPage('diary')}
       >
-        업무일지
+        통합 업무일지
       </button>
       <button
         type="button"
         className={`app-nav-button ${page === 'customers' ? 'active' : ''}`}
         onClick={() => setPage('customers')}
       >
-        고객관리
+        전체 고객보기
       </button>
       <button
         type="button"

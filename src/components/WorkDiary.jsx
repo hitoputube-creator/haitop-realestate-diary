@@ -4,7 +4,13 @@ import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
 import StickyNotes from './StickyNotes'
-import { isMissingCustomerMigrationError } from '../lib/crm'
+import { CustomerWorkPanel } from './customer/CustomerWorkflow'
+import {
+  CUSTOMER_SELECT_FIELDS,
+  buildCustomerSearchParts,
+  isMissingCustomerMigrationError,
+  toDateTimeValue,
+} from '../lib/crm'
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
@@ -27,8 +33,22 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
   const [searchLoading, setSearchLoading] = useState(false)
   const [highlightMemoId, setHighlightMemoId] = useState(null)
   const [customerMap, setCustomerMap] = useState({})
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [recordScope, setRecordScope] = useState(customerFilter?.id ? 'customer' : 'all')
+  const [customerSearchResults, setCustomerSearchResults] = useState([])
+  const [timelineRefreshKey, setTimelineRefreshKey] = useState(0)
 
-  const searchMode = searchQuery.trim().length > 0 || Boolean(customerFilter?.id)
+  const activeCustomerFilter = selectedCustomer
+    ? {
+        id: selectedCustomer.id,
+        name: selectedCustomer.name,
+        customer_code: selectedCustomer.customer_code,
+        date: customerFilter?.date || null,
+      }
+    : customerFilter
+  const effectiveCustomerFilter = recordScope === 'customer' ? activeCustomerFilter : null
+  const textSearchMode = searchQuery.trim().length > 0
+  const searchMode = textSearchMode || Boolean(effectiveCustomerFilter?.id)
   const [filterWriter, setFilterWriter] = useState('all')
 
   useEffect(() => {
@@ -42,6 +62,49 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
     }, 0)
     return () => clearTimeout(timer)
   }, [customerFilter?.date])
+
+  useEffect(() => {
+    if (!customerFilter?.id || !isSupabaseConfigured) return
+    if (selectedCustomer?.id === customerFilter.id) {
+      const timer = setTimeout(() => setRecordScope('customer'), 0)
+      return () => clearTimeout(timer)
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data, error: e } = await supabase
+          .from('customers')
+          .select(CUSTOMER_SELECT_FIELDS)
+          .eq('id', customerFilter.id)
+          .single()
+        if (e) throw e
+        if (!cancelled) {
+          setSelectedCustomer(data)
+          setRecordScope('customer')
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(`선택 고객 정보를 불러오지 못했습니다: ${err.message || err}`)
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [customerFilter?.id, selectedCustomer?.id])
+
+  function handleSelectCustomer(customer) {
+    setSelectedCustomer(customer)
+    setRecordScope('customer')
+    setSearchQuery('')
+    setCustomerSearchResults([])
+  }
+
+  function handleClearSelectedCustomer() {
+    setSelectedCustomer(null)
+    setRecordScope('all')
+    onClearCustomerFilter?.()
+  }
 
   /* ===== 연결고리 ===== */
   const [allLinkKeys, setAllLinkKeys] = useState([])
@@ -68,7 +131,7 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
     try {
       const { data, error: e } = await supabase
         .from('customers')
-        .select('id, customer_code, name, phone, phone_normalized, customer_role, property_category')
+        .select(CUSTOMER_SELECT_FIELDS)
         .in('id', ids)
       if (e) throw e
       const nextMap = {}
@@ -308,15 +371,21 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
     if (memoId) setTimeout(() => setHighlightMemoId(null), 3000)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ===== 검색 ===== */
+  /* ===== 통합 검색 ===== */
   useEffect(() => {
     const q = searchQuery.trim()
-    if (!q && !customerFilter?.id) {
-      const timer = setTimeout(() => setSearchResults([]), 0)
+    if (!q && !effectiveCustomerFilter?.id) {
+      const timer = setTimeout(() => {
+        setSearchResults([])
+        setCustomerSearchResults([])
+      }, 0)
       return () => clearTimeout(timer)
     }
     if (!isSupabaseConfigured) {
-      const timer = setTimeout(() => setSearchResults([]), 0)
+      const timer = setTimeout(() => {
+        setSearchResults([])
+        setCustomerSearchResults([])
+      }, 0)
       return () => clearTimeout(timer)
     }
 
@@ -324,18 +393,29 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
     setSearchLoading(true)
     ;(async () => {
       try {
-        if (customerFilter?.id) {
+        if (effectiveCustomerFilter?.id) {
           const { data, error: e } = await supabase
             .from(TABLE)
             .select('*')
-            .eq('customer_id', customerFilter.id)
+            .eq('customer_id', effectiveCustomerFilter.id)
             .order('date', { ascending: false })
             .order('created_at', { ascending: false })
             .limit(200)
           if (e) throw e
-          if (!cancelled) setSearchResults(data || [])
+          if (!cancelled) {
+            setSearchResults(data || [])
+            setCustomerSearchResults([])
+          }
           return
         }
+
+        const { data: customers, error: customerError } = await supabase
+          .from('customers')
+          .select(CUSTOMER_SELECT_FIELDS)
+          .or(buildCustomerSearchParts(q).join(','))
+          .order('updated_at', { ascending: false })
+          .limit(20)
+        if (customerError) throw customerError
 
         const isTagSearch = q.startsWith('#')
         const tagTerm = isTagSearch ? q.slice(1) : q
@@ -351,6 +431,7 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
             `tags.cs.{${tagTerm}}`,
             `link_key.ilike.%${q}%`,
             `writer.ilike.%${q}%`,
+            `record_type.ilike.%${q}%`,
           ]
           // 정규화 쿼리가 원본과 다를 때 추가 검색
           if (normQ && normQ !== q) {
@@ -366,7 +447,40 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
           .order('created_at', { ascending: false })
           .limit(200)
         if (e) throw e
-        if (!cancelled) setSearchResults(data || [])
+
+        let linkedRows = []
+        const customerIds = (customers || []).map((customer) => customer.id).filter(Boolean)
+        if (customerIds.length > 0) {
+          const { data: linkedData, error: linkedError } = await supabase
+            .from(TABLE)
+            .select('*')
+            .in('customer_id', customerIds)
+            .order('date', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(100)
+          if (linkedError) throw linkedError
+          linkedRows = linkedData || []
+        }
+
+        const merged = new Map()
+        ;[...(data || []), ...linkedRows].forEach((row) => {
+          if (row?.id) merged.set(row.id, row)
+        })
+        const rows = Array.from(merged.values()).sort((a, b) => {
+          const dateDiff = String(b.date || '').localeCompare(String(a.date || ''))
+          if (dateDiff !== 0) return dateDiff
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+        })
+
+        if (!cancelled) {
+          setSearchResults(rows)
+          setCustomerSearchResults(customers || [])
+          const nextMap = {}
+          ;(customers || []).forEach((customer) => {
+            nextMap[customer.id] = customer
+          })
+          setCustomerMap((prev) => ({ ...prev, ...nextMap }))
+        }
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -375,6 +489,7 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
               : `검색 실패: ${err.message || err}`
           )
           setSearchResults([])
+          setCustomerSearchResults([])
         }
       } finally {
         if (!cancelled) setSearchLoading(false)
@@ -384,11 +499,11 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
     return () => {
       cancelled = true
     }
-  }, [customerFilter?.id, searchQuery])
+  }, [effectiveCustomerFilter?.id, searchQuery])
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
-    async (content, writer = '주현희', sticker = null, linkKey = '', selectedCustomer = null, recordType = '일반메모') => {
+    async (content, writer = '주현희', sticker = null, linkKey = '', selectedCustomer = null, recordType = '일반메모', scheduledAt = '') => {
       if (!isSupabaseConfigured) {
         setError('Supabase 연결이 설정되지 않았습니다. .env에 VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY를 추가해주세요.')
         return
@@ -409,11 +524,30 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
             customer_id: selectedCustomer?.id || null,
             record_type: recordType || '일반메모',
             priority: '일반',
+            scheduled_at: toDateTimeValue(scheduledAt),
           })
           .select()
           .single()
         if (e) throw e
+
+        if (selectedCustomer?.id && scheduledAt) {
+          const { data: updatedCustomer, error: updateError } = await supabase
+            .from('customers')
+            .update({ next_contact_at: scheduledAt })
+            .eq('id', selectedCustomer.id)
+            .select(CUSTOMER_SELECT_FIELDS)
+            .single()
+          if (updateError) {
+            setError(`업무기록은 저장됐지만 다음 연락일 갱신에 실패했습니다: ${updateError.message || updateError}`)
+          } else {
+            setSelectedCustomer(updatedCustomer)
+            setCustomerMap((prev) => ({ ...prev, [updatedCustomer.id]: updatedCustomer }))
+            setError(null)
+          }
+        }
+
         setMemos((prev) => [...prev, data])
+        setSearchResults((prev) => (searchMode ? [data, ...prev] : prev))
         setNotedDateKeys((prev) => {
           const next = { ...prev }
           if (!next[dateStr]) next[dateStr] = []
@@ -429,7 +563,8 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
         if (selectedCustomer?.id) {
           setCustomerMap((prev) => ({ ...prev, [selectedCustomer.id]: selectedCustomer }))
         }
-        setError(null)
+        if (!scheduledAt || !selectedCustomer?.id) setError(null)
+        setTimelineRefreshKey((value) => value + 1)
       } catch (err) {
         setError(
           isMissingCustomerMigrationError(err)
@@ -439,7 +574,7 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
         throw err
       }
     },
-    [selectedDate]
+    [searchMode, selectedDate]
   )
 
   const filteredMemos = useMemo(() => {
@@ -720,10 +855,39 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
           onNavigate={handleNavigate}
           highlightMemoId={highlightMemoId}
           searchQuery={searchQuery}
+          customerResults={customerSearchResults}
           customerMap={customerMap}
-          onCustomerClick={onOpenCustomer}
-          customerFilter={customerFilter}
-          onClearCustomerFilter={onClearCustomerFilter}
+          onCustomerClick={(customerId) => {
+            const customer = customerMap?.[customerId]
+            if (customer) handleSelectCustomer(customer)
+            else onOpenCustomer?.(customerId)
+          }}
+          onSearchCustomerClick={handleSelectCustomer}
+          customerFilter={effectiveCustomerFilter}
+          onClearCustomerFilter={handleClearSelectedCustomer}
+          selectedCustomer={selectedCustomer}
+          onSelectCustomer={handleSelectCustomer}
+          onClearSelectedCustomer={handleClearSelectedCustomer}
+          recordScope={recordScope}
+          onRecordScopeChange={setRecordScope}
+        />
+
+        <CustomerWorkPanel
+          selectedCustomer={selectedCustomer}
+          recordScope={recordScope}
+          timelineRefreshKey={timelineRefreshKey}
+          onSelectCustomer={handleSelectCustomer}
+          onClearCustomer={handleClearSelectedCustomer}
+          onCustomerSaved={(customer, record) => {
+            handleSelectCustomer(customer)
+            setCustomerMap((prev) => ({ ...prev, [customer.id]: customer }))
+            if (record) {
+              setSearchResults((prev) => [record, ...prev])
+              setTimelineRefreshKey((value) => value + 1)
+            }
+          }}
+          onOpenCustomerManager={onOpenCustomer}
+          onRecordScopeChange={setRecordScope}
         />
       </main>
 
