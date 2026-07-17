@@ -16,6 +16,7 @@ import {
   normalizePhone,
   toDateTimeValue,
 } from '../../lib/crm'
+import { CustomerAttachments } from '../attachments/AttachmentManager'
 import './CustomerWorkflow.css'
 
 const EMPTY_QUICK_FORM = {
@@ -500,6 +501,12 @@ export function CustomerWorkPanel({
       </section>
 
       <TimelinePreview customer={selectedCustomer} refreshKey={timelineRefreshKey} />
+
+      <CustomerAttachments
+        customer={selectedCustomer}
+        uploadedBy={selectedCustomer?.manager}
+        refreshKey={timelineRefreshKey}
+      />
 
       <button type="button" className="cw-full-list" onClick={() => onOpenCustomerManager?.(selectedCustomer?.id || null)}>
         전체 고객보기

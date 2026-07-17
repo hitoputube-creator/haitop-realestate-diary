@@ -11,6 +11,12 @@ import {
   isMissingCustomerMigrationError,
   toDateTimeValue,
 } from '../lib/crm'
+import {
+  deleteAttachment,
+  isMissingAttachmentSetupError,
+  listAttachmentsForDiaryIds,
+  uploadAttachmentFiles,
+} from '../lib/attachments'
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
@@ -37,6 +43,7 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
   const [recordScope, setRecordScope] = useState(customerFilter?.id ? 'customer' : 'all')
   const [customerSearchResults, setCustomerSearchResults] = useState([])
   const [timelineRefreshKey, setTimelineRefreshKey] = useState(0)
+  const [attachmentsByDiary, setAttachmentsByDiary] = useState({})
 
   const activeCustomerFilter = selectedCustomer
     ? {
@@ -180,6 +187,33 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
     }, 0)
     return () => clearTimeout(timer)
   }, [loadCustomersForMemos, memos, searchMode, searchResults])
+
+  useEffect(() => {
+    let cancelled = false
+    const rows = searchMode ? searchResults : memos
+    const ids = rows.map((memo) => memo.id).filter(Boolean)
+    const timer = setTimeout(async () => {
+      if (!isSupabaseConfigured || ids.length === 0) {
+        if (!cancelled) setAttachmentsByDiary({})
+        return
+      }
+      try {
+        const map = await listAttachmentsForDiaryIds(ids)
+        if (!cancelled) setAttachmentsByDiary(map)
+      } catch (err) {
+        if (!cancelled) {
+          setAttachmentsByDiary({})
+          if (!isMissingAttachmentSetupError(err)) {
+            setError(`첨부파일 조회 실패: ${err.message || err}`)
+          }
+        }
+      }
+    }, 0)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [memos, searchMode, searchResults])
 
   /* ===== 표시 중인 달의 메모 있는 날짜 마킹 ===== */
   const loadMonthDots = useCallback(async () => {
@@ -503,7 +537,7 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
-    async (content, writer = '주현희', sticker = null, linkKey = '', selectedCustomer = null, recordType = '일반메모', scheduledAt = '') => {
+    async (content, writer = '주현희', sticker = null, linkKey = '', selectedCustomer = null, recordType = '일반메모', scheduledAt = '', pendingFiles = []) => {
       if (!isSupabaseConfigured) {
         setError('Supabase 연결이 설정되지 않았습니다. .env에 VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY를 추가해주세요.')
         return
@@ -565,6 +599,25 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
         }
         if (!scheduledAt || !selectedCustomer?.id) setError(null)
         setTimelineRefreshKey((value) => value + 1)
+        let attachmentResults = []
+        if (pendingFiles?.length) {
+          attachmentResults = await uploadAttachmentFiles({
+            files: pendingFiles,
+            customerId: selectedCustomer?.id || null,
+            workDiaryId: data.id,
+            uploadedBy: writer,
+          })
+          const successful = attachmentResults
+            .filter((result) => result.status === 'success')
+            .map((result) => result.attachment)
+          if (successful.length) {
+            setAttachmentsByDiary((prev) => ({
+              ...prev,
+              [data.id]: [...successful, ...(prev[data.id] || [])],
+            }))
+          }
+        }
+        return { memo: data, attachmentResults }
       } catch (err) {
         setError(
           isMissingCustomerMigrationError(err)
@@ -576,6 +629,24 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
     },
     [searchMode, selectedDate]
   )
+
+  function handleExistingAttachmentsUploaded(memo, rows) {
+    if (!rows?.length) return
+    setAttachmentsByDiary((prev) => ({
+      ...prev,
+      [memo.id]: [...rows, ...(prev[memo.id] || [])],
+    }))
+  }
+
+  function handleAttachmentDeleted(attachment) {
+    setAttachmentsByDiary((prev) => {
+      const next = { ...prev }
+      Object.keys(next).forEach((key) => {
+        next[key] = next[key].filter((row) => row.id !== attachment.id)
+      })
+      return next
+    })
+  }
 
   const filteredMemos = useMemo(() => {
     const raw = searchMode ? searchResults : memos
@@ -608,11 +679,45 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
       if (!isSupabaseConfigured) return
       const prevList = memos
       const prevSearch = searchResults
+      const memo = [...memos, ...searchResults].find((item) => item.id === id)
       setMemos((prev) => prev.filter((m) => m.id !== id))
       setSearchResults((prev) => prev.filter((m) => m.id !== id))
       try {
+        const { data: attachmentRows, error: attachmentError } = await supabase
+          .from('crm_attachments')
+          .select('id, customer_id, work_diary_id, storage_bucket, storage_path, original_name')
+          .eq('work_diary_id', id)
+        if (attachmentError && !isMissingAttachmentSetupError(attachmentError)) throw attachmentError
+        const attachments = attachmentRows || []
+        if (attachments.length > 0) {
+          const customerLinked = attachments.filter((row) => row.customer_id)
+          const customerless = attachments.filter((row) => !row.customer_id)
+          if (customerless.length > 0) {
+            const ok = window.confirm(`이 기록에 고객 연결이 없는 첨부파일 ${customerless.length}개가 있습니다. 기록 삭제와 함께 이 파일도 삭제할까요?`)
+            if (!ok) throw new Error('첨부파일이 있어 기록 삭제를 취소했습니다.')
+            for (const attachment of customerless) {
+              await deleteAttachment(attachment)
+            }
+          }
+          if (customerLinked.length > 0) {
+            window.alert(`이 기록에 첨부파일 ${customerLinked.length}개가 있습니다. 업무기록 연결만 해제하고 고객 첨부파일로 유지합니다.`)
+            const { error: updateError } = await supabase
+              .from('crm_attachments')
+              .update({ work_diary_id: null })
+              .eq('work_diary_id', id)
+              .not('customer_id', 'is', null)
+            if (updateError) throw updateError
+          }
+        }
         const { error: e } = await supabase.from(TABLE).delete().eq('id', id)
         if (e) throw e
+        if (memo?.id) {
+          setAttachmentsByDiary((prev) => {
+            const next = { ...prev }
+            delete next[memo.id]
+            return next
+          })
+        }
         // 해당 날짜에 메모가 더 이상 없으면 도트 제거
         loadMonthDots()
       } catch (err) {
@@ -870,6 +975,9 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
           onClearSelectedCustomer={handleClearSelectedCustomer}
           recordScope={recordScope}
           onRecordScopeChange={setRecordScope}
+          attachmentsByDiary={attachmentsByDiary}
+          onExistingAttachmentsUploaded={handleExistingAttachmentsUploaded}
+          onAttachmentDeleted={handleAttachmentDeleted}
         />
 
         <CustomerWorkPanel

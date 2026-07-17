@@ -982,6 +982,35 @@
   font-weight: 700;
 }
 
+.wd-card-attachments {
+  margin-top: 10px;
+}
+
+.wd-composer-attachments {
+  margin-top: 10px;
+}
+
+.wd-attachment-hint,
+.wd-attachment-result {
+  margin-top: 7px;
+  color: var(--color-on-surface-faint);
+  font-size: 11.5px;
+}
+
+.wd-attachment-result {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wd-attachment-result .success {
+  color: #bbf7d0;
+}
+
+.wd-attachment-result .failed {
+  color: #fecaca;
+}
+
 .wd-card.editing .wd-card-content {
   display: none;
 }

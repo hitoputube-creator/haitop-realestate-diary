@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { RECORD_TYPE_META, RECORD_TYPES, normalizePhone } from '../lib/crm'
 import { UnifiedCustomerResults } from './customer/CustomerWorkflow'
+import { AttachmentList, AttachmentUploader, PendingAttachmentPicker } from './attachments/AttachmentManager'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -79,7 +80,26 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, customer, onCustomerClick, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
+function MemoCard({
+  memo,
+  customer,
+  attachments,
+  onCustomerClick,
+  onChangeStatus,
+  onDelete,
+  onUpdateContent,
+  showDate,
+  onLinkKeyClick,
+  onUpdateLinkKey,
+  allLinkKeys,
+  isPinned,
+  onPin,
+  onUnpin,
+  isHighlighted,
+  onNavigate,
+  onExistingAttachmentsUploaded,
+  onAttachmentDeleted,
+}) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const taRef = useRef(null)
@@ -286,6 +306,16 @@ function MemoCard({ memo, customer, onCustomerClick, onChangeStatus, onDelete, o
         </div>
       )}
 
+      {!editing && attachments?.length > 0 && (
+        <div className="wd-card-attachments">
+          <AttachmentList
+            attachments={attachments}
+            compact
+            onDeleted={onAttachmentDeleted}
+          />
+        </div>
+      )}
+
       {editing && (
         <>
           {linkEditing && (
@@ -342,6 +372,13 @@ function MemoCard({ memo, customer, onCustomerClick, onChangeStatus, onDelete, o
             >
               {isPinned ? '📌 포스트잇 해제' : '📌 포스트잇 추가'}
             </button>
+            <AttachmentUploader
+              customerId={memo.customer_id || null}
+              workDiaryId={memo.id}
+              uploadedBy={memo.writer || '주현희'}
+              buttonLabel="파일 추가"
+              onUploaded={(rows) => onExistingAttachmentsUploaded?.(memo, rows)}
+            />
             {!memo.link_key && !linkEditing && (
               <button
                 type="button"
@@ -762,6 +799,8 @@ function Composer({
   const [selectedCustomer, setSelectedCustomer] = useState(initialDraft?.selectedCustomer ?? null)
   const [recordType, setRecordType] = useState(initialDraft?.recordType ?? '일반메모')
   const [scheduledAt, setScheduledAt] = useState(initialDraft?.scheduledAt ?? '')
+  const [pendingFiles, setPendingFiles] = useState([])
+  const [attachmentResults, setAttachmentResults] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
   const effectiveCustomer = activeCustomer || selectedCustomer
@@ -793,13 +832,15 @@ function Composer({
     if (!trimmed || submitting) return
     setSubmitting(true)
     try {
-      await onSubmit(trimmed, writer, sticker, linkKey.trim(), effectiveCustomer, effectiveRecordType, scheduledAt)
+      const result = await onSubmit(trimmed, writer, sticker, linkKey.trim(), effectiveCustomer, effectiveRecordType, scheduledAt, pendingFiles)
+      setAttachmentResults(result?.attachmentResults || [])
       setValue('')
       setSticker(null)
       setLinkKey('')
       if (!activeCustomer) setSelectedCustomer(null)
       setRecordType('일반메모')
       setScheduledAt('')
+      setPendingFiles([])
       if (composerRef.current) composerRef.current.style.height = '150px'
     } finally {
       setSubmitting(false)
@@ -878,6 +919,29 @@ function Composer({
           }}
           disabled={disabled || submitting}
         />
+      </div>
+
+      <div className="wd-composer-attachments">
+        <PendingAttachmentPicker
+          onFilesChange={setPendingFiles}
+          disabled={disabled || submitting}
+        />
+        {pendingFiles.length > 0 && (
+          <div className="wd-attachment-hint">
+            기록 저장 후 첨부파일 {pendingFiles.length}개를 업로드합니다.
+          </div>
+        )}
+        {attachmentResults.length > 0 && (
+          <div className="wd-attachment-result">
+            {attachmentResults.map((result, index) => (
+              <div key={index} className={result.status === 'success' ? 'success' : 'failed'}>
+                {result.status === 'success'
+                  ? `${result.file.name} 첨부 완료`
+                  : `${result.file?.name || '파일'} 첨부 실패: ${result.error}`}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 스티커 선택 */}
@@ -1001,6 +1065,9 @@ export default function DiaryList({
   onSelectCustomer,
   onClearSelectedCustomer,
   recordScope,
+  attachmentsByDiary,
+  onExistingAttachmentsUploaded,
+  onAttachmentDeleted,
 }) {
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
@@ -1071,8 +1138,8 @@ export default function DiaryList({
 
       {!textSearchActive && (
         <Composer
-          onSubmit={(content, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt) =>
-            onCreate(content, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt)}
+          onSubmit={(content, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt, pendingFiles) =>
+            onCreate(content, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt, pendingFiles)}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
@@ -1114,6 +1181,7 @@ export default function DiaryList({
               key={m.id}
               memo={m}
               customer={m.customer_id ? customerMap?.[m.customer_id] : null}
+              attachments={attachmentsByDiary?.[m.id] || []}
               onCustomerClick={onCustomerClick}
               showDate={searchMode}
               onChangeStatus={onChangeStatus}
@@ -1127,6 +1195,8 @@ export default function DiaryList({
               onUnpin={onUnpin}
               isHighlighted={m.id === highlightMemoId}
               onNavigate={searchMode ? onNavigate : undefined}
+              onExistingAttachmentsUploaded={onExistingAttachmentsUploaded}
+              onAttachmentDeleted={onAttachmentDeleted}
             />
           ))
         )}
