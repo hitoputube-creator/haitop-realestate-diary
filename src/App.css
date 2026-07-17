@@ -1,1 +1,48 @@
-/* 모든 스타일은 src/components/WorkDiary.css 에서 관리합니다. */
+.app-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 28px;
+  background: #0a1530;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.app-nav-button {
+  flex: 0 0 auto;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-on-surface-muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-nav-button:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-on-surface);
+}
+
+.app-nav-button.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-bg);
+}
+
+@media (max-width: 600px) {
+  .app-nav {
+    padding: 8px 12px;
+  }
+
+  .app-nav-button {
+    flex: 1 1 calc(50% - 8px);
+    padding: 7px 11px;
+    font-size: 12px;
+  }
+}
