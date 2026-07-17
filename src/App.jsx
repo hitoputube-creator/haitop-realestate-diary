@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import WorkDiary from './components/WorkDiary'
 import PrivateNotes from './components/PrivateNotes'
 import CustomerManager from './components/CustomerManager'
-import LandLotManager from './components/landlots/LandLotManager'
 import './App.css'
 
 /* 현재 보고 있던 화면(업무일지 / 개인일지)을 기억해 두어
@@ -83,13 +82,6 @@ function App() {
       >
         김정현 개인일지
       </button>
-      <button
-        type="button"
-        className={`app-nav-button ${page === 'land-lots' ? 'active' : ''}`}
-        onClick={() => setPage('land-lots')}
-      >
-        운정신도시 택지관리
-      </button>
     </nav>
   )
 
@@ -110,15 +102,6 @@ function App() {
           initialCustomerId={focusedCustomerId}
           onOpenDiaryForCustomer={openDiaryForCustomer}
         />
-      </>
-    )
-  }
-
-  if (page === 'land-lots') {
-    return (
-      <>
-        {nav}
-        <LandLotManager />
       </>
     )
   }

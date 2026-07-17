@@ -38,15 +38,11 @@
 @media (max-width: 600px) {
   .app-nav {
     padding: 8px 12px;
-    gap: 6px;
   }
 
   .app-nav-button {
-    flex: 1 1 calc(50% - 6px);
-    min-width: 0;
+    flex: 1 1 calc(50% - 8px);
     padding: 7px 11px;
     font-size: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 }
