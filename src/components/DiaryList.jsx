@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import { CUSTOMER_SELECT_FIELDS, RECORD_TYPE_META, RECORD_TYPES, buildCustomerSearchParts } from '../lib/crm'
-import { UnifiedCustomerResults } from './customer/CustomerWorkflow'
-import { AttachmentList, AttachmentUploader, PendingAttachmentPicker } from './attachments/AttachmentManager'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -53,13 +50,6 @@ function formatDateLabel(iso, fullFormat = false) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
-function formatCustomerOption(customer) {
-  if (!customer) return ''
-  const details = [customer.phone, customer.customer_code].filter(Boolean).join(' · ')
-  const category = [customer.property_category, customer.customer_role].filter(Boolean).join(' · ')
-  return `${customer.name || '이름 없음'}${details ? ` / ${details}` : ''}${category ? ` / ${category}` : ''}`
-}
-
 /* ===== 상태 배지 ===== */
 const STATUS_META = {
   normal: { label: '일반', icon: null },
@@ -80,26 +70,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({
-  memo,
-  customer,
-  attachments,
-  onCustomerClick,
-  onChangeStatus,
-  onDelete,
-  onUpdateContent,
-  showDate,
-  onLinkKeyClick,
-  onUpdateLinkKey,
-  allLinkKeys,
-  isPinned,
-  onPin,
-  onUnpin,
-  isHighlighted,
-  onNavigate,
-  onExistingAttachmentsUploaded,
-  onAttachmentDeleted,
-}) {
+function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const taRef = useRef(null)
@@ -160,8 +131,6 @@ function MemoCard({
   const tags = memo.tags && memo.tags.length ? memo.tags : extractTags(memo.content)
 
   const stickerMeta = memo.sticker ? STICKER_META[memo.sticker] : null
-  const recordType = memo.record_type || '일반메모'
-  const recordTone = RECORD_TYPE_META[recordType]?.tone || 'memo'
 
   const cls = ['wd-card', `status-${memo.status || 'normal'}`, editing && 'editing', isHighlighted && 'wd-card-highlighted']
     .filter(Boolean)
@@ -189,11 +158,6 @@ function MemoCard({
           {showDate && <span className="wd-card-date">· {formatDateLabel(memo.date, true)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {memo.record_type && (
-            <span className={`wd-record-type tone-${recordTone}`}>
-              {recordType}
-            </span>
-          )}
           {memo.link_key ? (
             <>
               <button
@@ -227,22 +191,6 @@ function MemoCard({
           <StatusBadge status={memo.status || 'normal'} />
         </div>
       </div>
-
-      {memo.customer_id && (
-        <button
-          type="button"
-          className="wd-customer-badge"
-          onClick={(e) => {
-            e.stopPropagation()
-            onCustomerClick?.(memo.customer_id)
-          }}
-          title="고객관리에서 보기"
-        >
-          <span>고객</span>
-          <strong>{customer?.name || '연결 고객 없음'}</strong>
-          <em>{customer?.customer_code || memo.customer_id}</em>
-        </button>
-      )}
 
       {/* 연결태그 인라인 편집 */}
       {linkEditing && (
@@ -300,22 +248,6 @@ function MemoCard({
         {memo.content}
       </div>
 
-      {memo.scheduled_at && !editing && (
-        <div className="wd-scheduled-at">
-          다음 연락: {formatDateLabel(memo.scheduled_at, true)}
-        </div>
-      )}
-
-      {!editing && attachments?.length > 0 && (
-        <div className="wd-card-attachments">
-          <AttachmentList
-            attachments={attachments}
-            compact
-            onDeleted={onAttachmentDeleted}
-          />
-        </div>
-      )}
-
       {editing && (
         <>
           {linkEditing && (
@@ -372,13 +304,6 @@ function MemoCard({
             >
               {isPinned ? '📌 포스트잇 해제' : '📌 포스트잇 추가'}
             </button>
-            <AttachmentUploader
-              customerId={memo.customer_id || null}
-              workDiaryId={memo.id}
-              uploadedBy={memo.writer || '주현희'}
-              buttonLabel="파일 추가"
-              onUploaded={(rows) => onExistingAttachmentsUploaded?.(memo, rows)}
-            />
             {!memo.link_key && !linkEditing && (
               <button
                 type="button"
@@ -478,7 +403,7 @@ function MemoCard({
 
 /* ===== 연결태그 검색박스 ===== */
 // variant: "topright" = textarea 오른쪽 상단 absolute | "inline" = flex 바 내 인라인
-function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'topright', onNavigate, onSelectCustomer }) {
+function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'topright', onNavigate }) {
   const [query, setQuery]       = useState('')
   const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
@@ -518,27 +443,7 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
         .order('created_at', { ascending: false })
         .limit(50)
 
-      const { data: customerRows } = await supabase
-        .from('customers')
-        .select(CUSTOMER_SELECT_FIELDS)
-        .or(buildCustomerSearchParts(trimmed).join(','))
-        .order('updated_at', { ascending: false })
-        .limit(20)
-
-      const customerMemoRows = (customerRows || [])
-        .filter((customer) => (customer.memo || '').trim())
-        .map((customer) => ({
-          id: `customer_initial_memo_${customer.id}`,
-          type: 'customer_initial_memo',
-          customer,
-          content: customer.memo,
-          link_key: customer.name ? `고객-${customer.name}` : customer.customer_code,
-          writer: customer.manager || '',
-          date: customer.created_at,
-          created_at: customer.created_at,
-        }))
-
-      const rows = [...customerMemoRows, ...(diaryRows || [])]
+      const rows = diaryRows || []
       setResults(rows)
       setOpen(rows.length > 0)
     } catch {
@@ -576,11 +481,7 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
     setResults([])
     setOpen(false)
     // onNavigate가 있으면 해당 날짜로 이동 + 하이라이트
-    if (row.type === 'customer_initial_memo') {
-      onSelectCustomer?.(row.customer)
-      const tag = row.link_key || row.customer?.customer_code || row.customer?.name || ''
-      appendTag(tag)
-    } else if (onNavigate && row.date) {
+    if (onNavigate && row.date) {
       onNavigate(row.date, row.id)
     } else {
       // fallback: 기존 link_key 태그 추가 방식
@@ -637,10 +538,7 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
               onMouseDown={(e) => { e.preventDefault(); handleResultClick(row) }}
             >
               <div className="lks-item-top">
-                {row.type === 'customer_initial_memo' && (
-                  <span className="lks-item-tag lks-item-tag--memo">고객 등록 메모</span>
-                )}
-                {row.link_key && row.type !== 'customer_initial_memo' && (
+                {row.link_key && (
                   <span className="lks-item-tag">🔗 {row.link_key}</span>
                 )}
                 <span className="lks-item-meta">
@@ -686,173 +584,30 @@ function clearComposerDraft() {
   }
 }
 
-function CustomerSearchBox({ selectedCustomer, onSelect, onClear, disabled }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [searching, setSearching] = useState(false)
-  const [open, setOpen] = useState(false)
-  const [error, setError] = useState('')
-  const timerRef = useRef(null)
-  const wrapRef = useRef(null)
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (wrapRef.current && !wrapRef.current.contains(event.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const searchCustomers = useCallback(async (value) => {
-    const trimmed = value.trim()
-    if (!trimmed || !isSupabaseConfigured) {
-      setResults([])
-      setOpen(false)
-      return
-    }
-    setSearching(true)
-    setError('')
-    try {
-      const parts = buildCustomerSearchParts(trimmed)
-
-      const { data, error } = await supabase
-        .from('customers')
-        .select(CUSTOMER_SELECT_FIELDS)
-        .or(parts.join(','))
-        .order('updated_at', { ascending: false })
-        .limit(20)
-      if (error) throw error
-      setResults(data || [])
-      setOpen((data || []).length > 0)
-    } catch (error) {
-      setResults([])
-      setOpen(false)
-      setError(`고객 검색 실패: ${error.message || error}`)
-    } finally {
-      setSearching(false)
-    }
-  }, [])
-
-  function handleChange(event) {
-    const next = event.target.value
-    setQuery(next)
-    clearTimeout(timerRef.current)
-    if (!next.trim()) {
-      setResults([])
-      setOpen(false)
-      setError('')
-      return
-    }
-    timerRef.current = setTimeout(() => searchCustomers(next), 300)
-  }
-
-  return (
-    <div className="wd-customer-select" ref={wrapRef}>
-      <div className="wd-customer-select-head">
-        <span>고객 연결</span>
-        {selectedCustomer && (
-          <button type="button" onClick={onClear} disabled={disabled}>
-            선택 해제
-          </button>
-        )}
-      </div>
-      {selectedCustomer ? (
-        <button type="button" className="wd-selected-customer" onClick={() => setOpen(false)} disabled={disabled}>
-          <strong>{selectedCustomer.name}</strong>
-          <span>{selectedCustomer.customer_code}</span>
-        </button>
-      ) : (
-        <div className="wd-customer-search-row">
-          <input
-            type="search"
-            value={query}
-            onChange={handleChange}
-            onFocus={() => results.length > 0 && setOpen(true)}
-            placeholder="고객명, 고객번호, 전화번호 검색"
-            disabled={disabled}
-            autoComplete="off"
-          />
-          {searching && <span>...</span>}
-        </div>
-      )}
-      {error && <div className="wd-customer-search-error">{error}</div>}
-      {open && results.length > 0 && !selectedCustomer && (
-        <ul className="wd-customer-results" role="listbox">
-          {results.map((customer) => (
-            <li key={customer.id} role="option">
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  onSelect(customer)
-                  setQuery('')
-                  setResults([])
-                  setOpen(false)
-                }}
-              >
-                <strong>{customer.name}</strong>
-                <span>{formatCustomerOption(customer)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
 /* ===== 입력창 (Composer) ===== */
-function Composer({
-  onSubmit,
-  disabled,
-  allLinkKeys,
-  onNavigate,
-  activeCustomer,
-  onSelectCustomer,
-  onClearActiveCustomer,
-}) {
+function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const initialDraft = useMemo(() => loadComposerDraft(), [])
   const [value, setValue] = useState(initialDraft?.value ?? '')
   const [writer, setWriter] = useState(initialDraft?.writer ?? '주현희')
   const [sticker, setSticker] = useState(initialDraft?.sticker ?? null)
   const [linkKey, setLinkKey] = useState(initialDraft?.linkKey ?? '')
-  const [selectedCustomer, setSelectedCustomer] = useState(initialDraft?.selectedCustomer ?? null)
-  const [recordType, setRecordType] = useState(initialDraft?.recordType ?? '일반메모')
-  const [scheduledAt, setScheduledAt] = useState(initialDraft?.scheduledAt ?? '')
-  const [pendingFiles, setPendingFiles] = useState([])
-  const [attachmentResults, setAttachmentResults] = useState([])
   const [submitting, setSubmitting] = useState(false)
-  const [crmExpanded, setCrmExpanded] = useState(() =>
-    Boolean(
-      activeCustomer ||
-      initialDraft?.selectedCustomer ||
-      initialDraft?.linkKey ||
-      initialDraft?.scheduledAt ||
-      (initialDraft?.recordType && initialDraft.recordType !== '일반메모')
-    )
-  )
   const composerRef = useRef(null)
-  const effectiveCustomer = activeCustomer || selectedCustomer
-  const effectiveRecordType = effectiveCustomer && recordType === '일반메모' ? '전화상담' : recordType
 
   // 입력값을 sessionStorage에 계속 동기화 — 완전히 빈 상태면 임시저장을 지운다
   useEffect(() => {
-    const isEmpty = !value.trim() && !linkKey.trim() && !sticker && !effectiveCustomer && recordType === '일반메모' && !scheduledAt
+    const isEmpty = !value.trim() && !linkKey.trim() && !sticker
     if (isEmpty) {
       clearComposerDraft()
     } else {
-      saveComposerDraft({ value, writer, sticker, linkKey, selectedCustomer: activeCustomer ? null : selectedCustomer, recordType, scheduledAt })
+      saveComposerDraft({ value, writer, sticker, linkKey })
     }
-  }, [activeCustomer, effectiveCustomer, value, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt])
+  }, [value, writer, sticker, linkKey])
 
   // 최초 마운트 시 저장된 값 기준으로 textarea 높이 복원
   useEffect(() => {
     autoResizeComposer(composerRef.current)
   }, [])
-
-  useEffect(() => {
-    if (activeCustomer) setCrmExpanded(true)
-  }, [activeCustomer])
 
   function autoResizeComposer(el) {
     if (!el) return
@@ -865,16 +620,10 @@ function Composer({
     if (!trimmed || submitting) return
     setSubmitting(true)
     try {
-      const result = await onSubmit(trimmed, writer, sticker, linkKey.trim(), effectiveCustomer, effectiveRecordType, scheduledAt, pendingFiles)
-      setAttachmentResults(result?.attachmentResults || [])
+      await onSubmit(trimmed, writer, sticker, linkKey.trim())
       setValue('')
       setSticker(null)
       setLinkKey('')
-      if (!activeCustomer) setSelectedCustomer(null)
-      setRecordType('일반메모')
-      setScheduledAt('')
-      setPendingFiles([])
-      setCrmExpanded(Boolean(activeCustomer))
       if (composerRef.current) composerRef.current.style.height = '150px'
     } finally {
       setSubmitting(false)
@@ -882,16 +631,17 @@ function Composer({
   }
 
   const previewTags = extractTags(value)
-  const hasConnection = Boolean(effectiveCustomer || linkKey.trim() || scheduledAt || effectiveRecordType !== '일반메모')
-
-  function handleStickerClick(optionValue, isActive) {
-    const nextSticker = isActive && optionValue !== null ? null : optionValue
-    setSticker(nextSticker)
-    if (['계약', '잔금', '약속'].includes(nextSticker)) setCrmExpanded(true)
-  }
 
   return (
     <div className="wd-composer">
+      <div className="wd-composer-tools-row">
+        <LinkKeySearchBox
+          currentValue={linkKey}
+          onSelect={setLinkKey}
+          disabled={disabled || submitting}
+          onNavigate={onNavigate}
+        />
+      </div>
       <div className="wd-composer-input-wrap">
         <textarea
           ref={composerRef}
@@ -912,30 +662,6 @@ function Composer({
         />
       </div>
 
-      {/* 사진 첨부 */}
-      <div className="wd-composer-attachments">
-        <PendingAttachmentPicker
-          onFilesChange={setPendingFiles}
-          disabled={disabled || submitting}
-        />
-        {pendingFiles.length > 0 && (
-          <div className="wd-attachment-hint">
-            기록 저장 후 첨부파일 {pendingFiles.length}개를 업로드합니다.
-          </div>
-        )}
-        {attachmentResults.length > 0 && (
-          <div className="wd-attachment-result">
-            {attachmentResults.map((result, index) => (
-              <div key={index} className={result.status === 'success' ? 'success' : 'failed'}>
-                {result.status === 'success'
-                  ? `${result.file.name} 첨부 완료`
-                  : `${result.file?.name || '파일'} 첨부 실패: ${result.error}`}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* 스티커 선택 */}
       <div className="wd-sticker-bar">
         <span className="wd-sticker-bar-label">스티커</span>
@@ -954,7 +680,7 @@ function Composer({
                     : { borderColor: meta.color + '88', color: meta.color }
                   : {}
               }
-              onClick={() => handleStickerClick(opt.value, isActive)}
+              onClick={() => setSticker(isActive && opt.value !== null ? null : opt.value)}
               disabled={disabled || submitting}
             >
               {opt.label}
@@ -963,113 +689,35 @@ function Composer({
         })}
       </div>
 
-      <section className={`wd-crm-foldout ${crmExpanded ? 'open' : ''}`}>
-        <button
-          type="button"
-          className="wd-crm-toggle"
-          onClick={() => setCrmExpanded((value) => !value)}
-          aria-expanded={crmExpanded}
+      {/* 연결태그 입력 */}
+      <div className="wd-link-bar">
+        <span className="wd-link-bar-label">연결태그</span>
+        <input
+          list="wd-link-key-datalist"
+          className="wd-link-input"
+          placeholder="예: 금승리67-6, 공장손님-김OO"
+          value={linkKey}
+          onChange={(e) => setLinkKey(e.target.value)}
           disabled={disabled || submitting}
-        >
-          <span>🏠 매물·고객 연결</span>
-          {hasConnection && <em>연결 정보 있음</em>}
-          <strong aria-hidden="true">{crmExpanded ? '접기' : '펼치기'}</strong>
-        </button>
-
-        {crmExpanded && (
-          <div className="wd-crm-fields">
-            <div className="wd-crm-row">
-              <CustomerSearchBox
-                selectedCustomer={effectiveCustomer}
-                onSelect={(customer) => {
-                  setSelectedCustomer(customer)
-                  onSelectCustomer?.(customer)
-                }}
-                onClear={() => {
-                  if (activeCustomer) onClearActiveCustomer?.()
-                  setSelectedCustomer(null)
-                }}
-                disabled={disabled || submitting}
-              />
-              <label className="wd-record-select">
-                <span>기록 종류</span>
-                <select
-                  value={effectiveRecordType}
-                  onChange={(event) => setRecordType(event.target.value)}
-                  disabled={disabled || submitting}
-                >
-                  {RECORD_TYPES.map((type) => <option key={type}>{type}</option>)}
-                </select>
-              </label>
-            </div>
-
-            <div className="wd-selected-customer-strip">
-              <div>
-                <span>선택 고객</span>
-                {effectiveCustomer ? (
-                  <>
-                    <strong>{effectiveCustomer.name}</strong>
-                    <em>{effectiveCustomer.customer_code}</em>
-                  </>
-                ) : (
-                  <em>고객을 연결하지 않은 CRM 기록도 저장할 수 있습니다.</em>
-                )}
-              </div>
-              <label>
-                <span>다음 연락일</span>
-                <input
-                  type="date"
-                  value={scheduledAt}
-                  onChange={(event) => setScheduledAt(event.target.value)}
-                  disabled={disabled || submitting}
-                />
-              </label>
-            </div>
-
-            <div className="wd-composer-tools-row">
-              <LinkKeySearchBox
-                currentValue={linkKey}
-                onSelect={setLinkKey}
-                disabled={disabled || submitting}
-                onNavigate={onNavigate}
-                onSelectCustomer={(customer) => {
-                  setSelectedCustomer(customer)
-                  onSelectCustomer?.(customer)
-                }}
-              />
-            </div>
-
-            <div className="wd-link-bar">
-              <span className="wd-link-bar-label">연결태그</span>
-              <input
-                list="wd-link-key-datalist"
-                className="wd-link-input"
-                placeholder="예: 금승리67-6, 공장손님-김OO"
-                value={linkKey}
-                onChange={(e) => setLinkKey(e.target.value)}
-                disabled={disabled || submitting}
-              />
-              <datalist id="wd-link-key-datalist">
-                {(allLinkKeys || []).map((k) => (
-                  <option key={k} value={k} />
-                ))}
-              </datalist>
-              {linkKey && (
-                <button
-                  type="button"
-                  className="wd-link-clear-btn"
-                  onClick={() => setLinkKey('')}
-                  disabled={disabled || submitting}
-                  aria-label="연결태그 초기화"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
-          </div>
+        />
+        <datalist id="wd-link-key-datalist">
+          {(allLinkKeys || []).map((k) => (
+            <option key={k} value={k} />
+          ))}
+        </datalist>
+        {linkKey && (
+          <button
+            type="button"
+            className="wd-link-clear-btn"
+            onClick={() => setLinkKey('')}
+            disabled={disabled || submitting}
+            aria-label="연결태그 초기화"
+          >
+            ✕
+          </button>
         )}
-      </section>
+      </div>
+      <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
 
       <div className="wd-composer-bar">
         <div className="wd-composer-hint">
@@ -1125,19 +773,6 @@ export default function DiaryList({
   onUnpin,
   onNavigate,
   highlightMemoId,
-  customerResults,
-  customerMap,
-  onCustomerClick,
-  onSearchCustomerClick,
-  customerFilter,
-  onClearCustomerFilter,
-  selectedCustomer,
-  onSelectCustomer,
-  onClearSelectedCustomer,
-  recordScope,
-  attachmentsByDiary,
-  onExistingAttachmentsUploaded,
-  onAttachmentDeleted,
 }) {
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
@@ -1151,7 +786,6 @@ export default function DiaryList({
 
   const importantCount = memos.filter((m) => m.status === 'important').length
   const doneCount = memos.filter((m) => m.status === 'done').length
-  const textSearchActive = Boolean(searchQuery?.trim())
 
   return (
     <section className="wd-panel wd-diary" aria-label="메모 목록">
@@ -1176,12 +810,8 @@ export default function DiaryList({
       {searchMode && (
         <div className="wd-search-result-banner">
           <div className="wd-search-result-title">
-            <span className="wd-search-result-label">{customerFilter?.id ? '고객 업무기록' : '검색 결과'}</span>
-            {customerFilter?.id ? (
-              <span className="wd-search-result-keyword">
-                {customerFilter.name || customerFilter.customer_code}
-              </span>
-            ) : searchQuery && (
+            <span className="wd-search-result-label">검색 결과</span>
+            {searchQuery && (
               <span className="wd-search-result-keyword">"{searchQuery.trim()}"</span>
             )}
             <span className="wd-search-result-count-wrap">
@@ -1192,41 +822,21 @@ export default function DiaryList({
             </span>
           </div>
           <span className="wd-search-result-hint">
-            {customerFilter?.id
-              ? recordScope === 'customer'
-                ? 'customer_id 기준으로 정확히 연결된 기록만 표시합니다.'
-                : '전체 업무기록 모드입니다.'
-              : '검색어를 지우거나 ✕를 누르면 날짜별 일지로 돌아갑니다'}
+            검색어를 지우거나 ✕를 누르면 날짜별 일지로 돌아갑니다
           </span>
-          {customerFilter?.id && (
-            <button type="button" className="wd-clear-customer-filter" onClick={onClearCustomerFilter}>
-              고객 필터 해제
-            </button>
-          )}
         </div>
       )}
 
-      {!textSearchActive && (
+      {!searchMode && (
         <Composer
-          onSubmit={(content, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt, pendingFiles) =>
-            onCreate(content, writer, sticker, linkKey, selectedCustomer, recordType, scheduledAt, pendingFiles)}
+          onSubmit={(content, writer, sticker, linkKey) => onCreate(content, writer, sticker, linkKey)}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
-          activeCustomer={selectedCustomer}
-          onSelectCustomer={onSelectCustomer}
-          onClearActiveCustomer={onClearSelectedCustomer}
         />
       )}
 
       {error && <div className="wd-error" role="alert">{error}</div>}
-
-      {textSearchActive && (
-        <UnifiedCustomerResults
-          customers={customerResults || []}
-          onSelectCustomer={onSearchCustomerClick}
-        />
-      )}
 
       <div className="wd-list">
         {loading ? (
@@ -1250,9 +860,6 @@ export default function DiaryList({
             <MemoCard
               key={m.id}
               memo={m}
-              customer={m.customer_id ? customerMap?.[m.customer_id] : null}
-              attachments={attachmentsByDiary?.[m.id] || []}
-              onCustomerClick={onCustomerClick}
               showDate={searchMode}
               onChangeStatus={onChangeStatus}
               onDelete={onDelete}
@@ -1265,8 +872,6 @@ export default function DiaryList({
               onUnpin={onUnpin}
               isHighlighted={m.id === highlightMemoId}
               onNavigate={searchMode ? onNavigate : undefined}
-              onExistingAttachmentsUploaded={onExistingAttachmentsUploaded}
-              onAttachmentDeleted={onAttachmentDeleted}
             />
           ))
         )}

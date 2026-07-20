@@ -739,13 +739,6 @@
     gap: 30px;
     padding: 16px 16px 60px;
   }
-
-  .pn-col-calendar,
-  .pn-col-stickers,
-  .pn-col-editor {
-    min-width: 0;
-    max-width: 100%;
-  }
   
   .pn-col-calendar {
     position: static;
