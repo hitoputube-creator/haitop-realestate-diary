@@ -151,6 +151,7 @@
 .cm-form h2,
 .cm-detail h2,
 .cm-memo-box h3,
+.cm-timeline h3,
 .cm-timeline-placeholder h3 {
   margin: 0;
   font-size: 15px;
@@ -466,6 +467,23 @@
   border-radius: 10px;
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
+}
+
+.cm-timeline-featured {
+  background: linear-gradient(180deg, rgba(230, 195, 100, 0.08), rgba(255, 255, 255, 0.035));
+  border-color: rgba(230, 195, 100, 0.28);
+}
+
+.cm-timeline-featured .cm-timeline-header h3 {
+  color: var(--color-primary);
+}
+
+.cm-timeline-featured .cm-timeline-list {
+  position: relative;
+}
+
+.cm-timeline-featured .cm-timeline-item {
+  border-left-color: var(--color-primary);
 }
 
 .cm-memo-box span {

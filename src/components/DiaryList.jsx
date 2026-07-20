@@ -822,6 +822,15 @@ function Composer({
   const [pendingFiles, setPendingFiles] = useState([])
   const [attachmentResults, setAttachmentResults] = useState([])
   const [submitting, setSubmitting] = useState(false)
+  const [crmExpanded, setCrmExpanded] = useState(() =>
+    Boolean(
+      activeCustomer ||
+      initialDraft?.selectedCustomer ||
+      initialDraft?.linkKey ||
+      initialDraft?.scheduledAt ||
+      (initialDraft?.recordType && initialDraft.recordType !== '일반메모')
+    )
+  )
   const composerRef = useRef(null)
   const effectiveCustomer = activeCustomer || selectedCustomer
   const effectiveRecordType = effectiveCustomer && recordType === '일반메모' ? '전화상담' : recordType
@@ -840,6 +849,10 @@ function Composer({
   useEffect(() => {
     autoResizeComposer(composerRef.current)
   }, [])
+
+  useEffect(() => {
+    if (activeCustomer) setCrmExpanded(true)
+  }, [activeCustomer])
 
   function autoResizeComposer(el) {
     if (!el) return
@@ -861,6 +874,7 @@ function Composer({
       setRecordType('일반메모')
       setScheduledAt('')
       setPendingFiles([])
+      setCrmExpanded(Boolean(activeCustomer))
       if (composerRef.current) composerRef.current.style.height = '150px'
     } finally {
       setSubmitting(false)
@@ -868,63 +882,16 @@ function Composer({
   }
 
   const previewTags = extractTags(value)
+  const hasConnection = Boolean(effectiveCustomer || linkKey.trim() || scheduledAt || effectiveRecordType !== '일반메모')
+
+  function handleStickerClick(optionValue, isActive) {
+    const nextSticker = isActive && optionValue !== null ? null : optionValue
+    setSticker(nextSticker)
+    if (['계약', '잔금', '약속'].includes(nextSticker)) setCrmExpanded(true)
+  }
 
   return (
     <div className="wd-composer">
-      <div className="wd-crm-row">
-        <CustomerSearchBox
-          selectedCustomer={effectiveCustomer}
-          onSelect={(customer) => {
-            setSelectedCustomer(customer)
-            onSelectCustomer?.(customer)
-          }}
-          onClear={() => {
-            if (activeCustomer) onClearActiveCustomer?.()
-            setSelectedCustomer(null)
-          }}
-          disabled={disabled || submitting}
-        />
-        <label className="wd-record-select">
-          <span>기록 종류</span>
-          <select
-            value={effectiveRecordType}
-            onChange={(event) => setRecordType(event.target.value)}
-            disabled={disabled || submitting}
-          >
-            {RECORD_TYPES.map((type) => <option key={type}>{type}</option>)}
-          </select>
-        </label>
-      </div>
-      {effectiveCustomer && (
-        <div className="wd-selected-customer-strip">
-          <div>
-            <span>선택 고객</span>
-            <strong>{effectiveCustomer.name}</strong>
-            <em>{effectiveCustomer.customer_code}</em>
-          </div>
-          <label>
-            <span>다음 연락일</span>
-            <input
-              type="date"
-              value={scheduledAt}
-              onChange={(event) => setScheduledAt(event.target.value)}
-              disabled={disabled || submitting}
-            />
-          </label>
-        </div>
-      )}
-      <div className="wd-composer-tools-row">
-        <LinkKeySearchBox
-          currentValue={linkKey}
-          onSelect={setLinkKey}
-          disabled={disabled || submitting}
-          onNavigate={onNavigate}
-          onSelectCustomer={(customer) => {
-            setSelectedCustomer(customer)
-            onSelectCustomer?.(customer)
-          }}
-        />
-      </div>
       <div className="wd-composer-input-wrap">
         <textarea
           ref={composerRef}
@@ -945,6 +912,7 @@ function Composer({
         />
       </div>
 
+      {/* 사진 첨부 */}
       <div className="wd-composer-attachments">
         <PendingAttachmentPicker
           onFilesChange={setPendingFiles}
@@ -986,7 +954,7 @@ function Composer({
                     : { borderColor: meta.color + '88', color: meta.color }
                   : {}
               }
-              onClick={() => setSticker(isActive && opt.value !== null ? null : opt.value)}
+              onClick={() => handleStickerClick(opt.value, isActive)}
               disabled={disabled || submitting}
             >
               {opt.label}
@@ -995,35 +963,113 @@ function Composer({
         })}
       </div>
 
-      {/* 연결태그 입력 */}
-      <div className="wd-link-bar">
-        <span className="wd-link-bar-label">연결태그</span>
-        <input
-          list="wd-link-key-datalist"
-          className="wd-link-input"
-          placeholder="예: 금승리67-6, 공장손님-김OO"
-          value={linkKey}
-          onChange={(e) => setLinkKey(e.target.value)}
+      <section className={`wd-crm-foldout ${crmExpanded ? 'open' : ''}`}>
+        <button
+          type="button"
+          className="wd-crm-toggle"
+          onClick={() => setCrmExpanded((value) => !value)}
+          aria-expanded={crmExpanded}
           disabled={disabled || submitting}
-        />
-        <datalist id="wd-link-key-datalist">
-          {(allLinkKeys || []).map((k) => (
-            <option key={k} value={k} />
-          ))}
-        </datalist>
-        {linkKey && (
-          <button
-            type="button"
-            className="wd-link-clear-btn"
-            onClick={() => setLinkKey('')}
-            disabled={disabled || submitting}
-            aria-label="연결태그 초기화"
-          >
-            ✕
-          </button>
+        >
+          <span>🏠 매물·고객 연결</span>
+          {hasConnection && <em>연결 정보 있음</em>}
+          <strong aria-hidden="true">{crmExpanded ? '접기' : '펼치기'}</strong>
+        </button>
+
+        {crmExpanded && (
+          <div className="wd-crm-fields">
+            <div className="wd-crm-row">
+              <CustomerSearchBox
+                selectedCustomer={effectiveCustomer}
+                onSelect={(customer) => {
+                  setSelectedCustomer(customer)
+                  onSelectCustomer?.(customer)
+                }}
+                onClear={() => {
+                  if (activeCustomer) onClearActiveCustomer?.()
+                  setSelectedCustomer(null)
+                }}
+                disabled={disabled || submitting}
+              />
+              <label className="wd-record-select">
+                <span>기록 종류</span>
+                <select
+                  value={effectiveRecordType}
+                  onChange={(event) => setRecordType(event.target.value)}
+                  disabled={disabled || submitting}
+                >
+                  {RECORD_TYPES.map((type) => <option key={type}>{type}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <div className="wd-selected-customer-strip">
+              <div>
+                <span>선택 고객</span>
+                {effectiveCustomer ? (
+                  <>
+                    <strong>{effectiveCustomer.name}</strong>
+                    <em>{effectiveCustomer.customer_code}</em>
+                  </>
+                ) : (
+                  <em>고객을 연결하지 않은 CRM 기록도 저장할 수 있습니다.</em>
+                )}
+              </div>
+              <label>
+                <span>다음 연락일</span>
+                <input
+                  type="date"
+                  value={scheduledAt}
+                  onChange={(event) => setScheduledAt(event.target.value)}
+                  disabled={disabled || submitting}
+                />
+              </label>
+            </div>
+
+            <div className="wd-composer-tools-row">
+              <LinkKeySearchBox
+                currentValue={linkKey}
+                onSelect={setLinkKey}
+                disabled={disabled || submitting}
+                onNavigate={onNavigate}
+                onSelectCustomer={(customer) => {
+                  setSelectedCustomer(customer)
+                  onSelectCustomer?.(customer)
+                }}
+              />
+            </div>
+
+            <div className="wd-link-bar">
+              <span className="wd-link-bar-label">연결태그</span>
+              <input
+                list="wd-link-key-datalist"
+                className="wd-link-input"
+                placeholder="예: 금승리67-6, 공장손님-김OO"
+                value={linkKey}
+                onChange={(e) => setLinkKey(e.target.value)}
+                disabled={disabled || submitting}
+              />
+              <datalist id="wd-link-key-datalist">
+                {(allLinkKeys || []).map((k) => (
+                  <option key={k} value={k} />
+                ))}
+              </datalist>
+              {linkKey && (
+                <button
+                  type="button"
+                  className="wd-link-clear-btn"
+                  onClick={() => setLinkKey('')}
+                  disabled={disabled || submitting}
+                  aria-label="연결태그 초기화"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
+          </div>
         )}
-      </div>
-      <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
+      </section>
 
       <div className="wd-composer-bar">
         <div className="wd-composer-hint">

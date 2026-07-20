@@ -11,6 +11,13 @@
   flex-wrap: wrap;
 }
 
+.app-nav-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .app-nav-button {
   flex: 0 0 auto;
   padding: 7px 14px;
@@ -35,14 +42,34 @@
   color: var(--color-bg);
 }
 
+.app-nav-private {
+  margin-left: auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
 @media (max-width: 600px) {
   .app-nav {
     padding: 8px 12px;
+  }
+
+  .app-nav-main {
+    flex: 1 1 auto;
   }
 
   .app-nav-button {
     flex: 1 1 calc(50% - 8px);
     padding: 7px 11px;
     font-size: 12px;
+  }
+
+  .app-nav-private {
+    flex: 0 0 36px;
+    margin-left: 0;
   }
 }

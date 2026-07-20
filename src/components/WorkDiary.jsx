@@ -4,10 +4,11 @@ import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
 import StickyNotes from './StickyNotes'
-import { CustomerWorkPanel } from './customer/CustomerWorkflow'
 import {
   CUSTOMER_SELECT_FIELDS,
   buildCustomerSearchParts,
+  formatCrmDate,
+  isDueTodayOrPast,
   isMissingCustomerMigrationError,
   toDateTimeValue,
 } from '../lib/crm'
@@ -20,8 +21,59 @@ import {
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
+const CLOSED_CUSTOMER_STATUSES = new Set(['완료', '보류'])
 
-export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter, onClearCustomerFilter }) {
+function compareDateValue(value, fallback = 0) {
+  if (!value) return fallback
+  const date = new Date(String(value).includes('T') ? value : `${value}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? fallback : date.getTime()
+}
+
+function ActiveCustomerWidget({ customers, loading, error, onSelect }) {
+  return (
+    <section className="wd-panel wd-active-customer-widget" aria-label="진행중 고객">
+      <div className="wd-panel-header">
+        <div>
+          <div className="wd-panel-title">진행중 고객</div>
+          <div className="wd-panel-sub">연락 흐름을 이어갈 고객</div>
+        </div>
+        <span className="wd-active-customer-count">{customers.length}</span>
+      </div>
+      {loading ? (
+        <div className="wd-active-customer-empty">진행중 고객을 불러오는 중...</div>
+      ) : error ? (
+        <div className="wd-active-customer-empty is-error">{error}</div>
+      ) : customers.length === 0 ? (
+        <div className="wd-active-customer-empty">진행중 고객이 없습니다.</div>
+      ) : (
+        <div className="wd-active-customer-list">
+          {customers.map((customer) => {
+            const due = isDueTodayOrPast(customer.next_contact_at)
+            return (
+              <button
+                key={customer.id}
+                type="button"
+                className={`wd-active-customer-item ${due ? 'is-due' : ''}`}
+                onClick={() => onSelect(customer)}
+              >
+                <span className="wd-active-customer-name">
+                  <strong>{customer.name}</strong>
+                  <em>{customer.status || '진행중'}</em>
+                </span>
+                <span className="wd-active-customer-meta">
+                  <span>마지막 {formatCrmDate(customer.last_contact_at || customer.created_at)}</span>
+                  <span className={due ? 'is-due' : ''}>다음 {formatCrmDate(customer.next_contact_at)}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
+export default function WorkDiary({ onOpenCustomer, customerFilter, onClearCustomerFilter }) {
   const today = useMemo(() => new Date(), [])
 
   const [selectedDate, setSelectedDate] = useState(today)
@@ -42,8 +94,10 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [recordScope, setRecordScope] = useState(customerFilter?.id ? 'customer' : 'all')
   const [customerSearchResults, setCustomerSearchResults] = useState([])
-  const [timelineRefreshKey, setTimelineRefreshKey] = useState(0)
   const [attachmentsByDiary, setAttachmentsByDiary] = useState({})
+  const [activeCustomers, setActiveCustomers] = useState([])
+  const [activeCustomersLoading, setActiveCustomersLoading] = useState(false)
+  const [activeCustomersError, setActiveCustomersError] = useState('')
 
   const activeCustomerFilter = selectedCustomer
     ? {
@@ -107,11 +161,83 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
     setCustomerSearchResults([])
   }
 
+  function handleStartMemoForCustomer(customer) {
+    setSelectedCustomer(customer)
+    setRecordScope('all')
+    setSearchQuery('')
+    setCustomerSearchResults([])
+    setCustomerMap((prev) => ({ ...prev, [customer.id]: customer }))
+    onClearCustomerFilter?.()
+  }
+
   function handleClearSelectedCustomer() {
     setSelectedCustomer(null)
     setRecordScope('all')
     onClearCustomerFilter?.()
   }
+
+  const loadActiveCustomers = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setActiveCustomers([])
+      return
+    }
+    setActiveCustomersLoading(true)
+    setActiveCustomersError('')
+    try {
+      const { data: customerRows, error: customerError } = await supabase
+        .from('customers')
+        .select(CUSTOMER_SELECT_FIELDS)
+        .order('updated_at', { ascending: false })
+        .limit(120)
+      if (customerError) throw customerError
+
+      const activeRows = (customerRows || [])
+        .filter((customer) => !CLOSED_CUSTOMER_STATUSES.has(customer.status))
+      const ids = activeRows.map((customer) => customer.id).filter(Boolean)
+      const lastContactByCustomer = {}
+
+      if (ids.length > 0) {
+        const { data: diaryRows, error: diaryError } = await supabase
+          .from(TABLE)
+          .select('customer_id, date, created_at')
+          .in('customer_id', ids)
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(500)
+        if (diaryError) throw diaryError
+        ;(diaryRows || []).forEach((row) => {
+          if (row.customer_id && !lastContactByCustomer[row.customer_id]) {
+            lastContactByCustomer[row.customer_id] = row.date || row.created_at
+          }
+        })
+      }
+
+      const enriched = activeRows
+        .map((customer) => ({
+          ...customer,
+          last_contact_at: lastContactByCustomer[customer.id] || customer.created_at,
+        }))
+        .sort((a, b) => {
+          const dueA = isDueTodayOrPast(a.next_contact_at) ? 0 : a.next_contact_at ? 1 : 2
+          const dueB = isDueTodayOrPast(b.next_contact_at) ? 0 : b.next_contact_at ? 1 : 2
+          if (dueA !== dueB) return dueA - dueB
+          const nextDiff = compareDateValue(a.next_contact_at, Number.MAX_SAFE_INTEGER) -
+            compareDateValue(b.next_contact_at, Number.MAX_SAFE_INTEGER)
+          if (nextDiff !== 0) return nextDiff
+          return compareDateValue(b.last_contact_at) - compareDateValue(a.last_contact_at)
+        })
+      setActiveCustomers(enriched.slice(0, 8))
+    } catch (err) {
+      setActiveCustomers([])
+      setActiveCustomersError(`진행중 고객 조회 실패: ${err.message || err}`)
+    } finally {
+      setActiveCustomersLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadActiveCustomers()
+  }, [loadActiveCustomers])
 
   /* ===== 연결고리 ===== */
   const [allLinkKeys, setAllLinkKeys] = useState([])
@@ -339,12 +465,12 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
   useEffect(() => { loadStickyNotes() }, [loadStickyNotes])
 
   /* 포스트잇 추가 */
-  const handlePin = useCallback(async (diaryId, color = 'yellow') => {
+  const handlePin = useCallback(async (diaryId) => {
     if (!isSupabaseConfigured) return
     try {
       const { data, error: e } = await supabase
         .from('work_sticky_notes')
-        .insert({ diary_id: diaryId, status: '진행중', color })
+        .insert({ diary_id: diaryId })
         .select()
         .single()
       if (e) throw e
@@ -355,27 +481,6 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
       setError(`포스트잇 추가 실패: ${err.message || err}`)
     }
   }, [memos, searchResults])
-
-  /* 포스트잇 색상 변경 */
-  const handleUpdateStickyColor = useCallback(async (stickyId, color) => {
-    if (!isSupabaseConfigured) return
-    // 낙관적 업데이트
-    setStickyData((prev) =>
-      prev.map((d) =>
-        d.sticky.id === stickyId ? { ...d, sticky: { ...d.sticky, color } } : d
-      )
-    )
-    try {
-      const { error: e } = await supabase
-        .from('work_sticky_notes')
-        .update({ color })
-        .eq('id', stickyId)
-      if (e) throw e
-    } catch (err) {
-      setError(`색상 변경 실패: ${err.message || err}`)
-      loadStickyNotes()
-    }
-  }, [loadStickyNotes])
 
 
   /* 포스트잇 해제 (삭제) */
@@ -598,7 +703,7 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
           setCustomerMap((prev) => ({ ...prev, [selectedCustomer.id]: selectedCustomer }))
         }
         if (!scheduledAt || !selectedCustomer?.id) setError(null)
-        setTimelineRefreshKey((value) => value + 1)
+        loadActiveCustomers()
         let attachmentResults = []
         if (pendingFiles?.length) {
           attachmentResults = await uploadAttachmentFiles({
@@ -627,7 +732,7 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
         throw err
       }
     },
-    [searchMode, selectedDate]
+    [loadActiveCustomers, searchMode, selectedDate]
   )
 
   function handleExistingAttachmentsUploaded(memo, rows) {
@@ -888,23 +993,6 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
         >
           김정현
         </button>
-
-        <div className="wd-filter-divider" />
-
-        <button
-          type="button"
-          className="wd-btn-personal-diary"
-          onClick={() => onOpenDiary?.('주현희')}
-        >
-          📓 주현희 개인일지
-        </button>
-        <button
-          type="button"
-          className="wd-btn-personal-diary"
-          onClick={() => onOpenDiary?.('김정현')}
-        >
-          📓 김정현 개인일지
-        </button>
       </div>
 
       {!isSupabaseConfigured && (
@@ -931,11 +1019,16 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
             onNextMonth={handleNextMonth}
             onJumpToday={handleJumpToday}
           />
+          <ActiveCustomerWidget
+            customers={activeCustomers}
+            loading={activeCustomersLoading}
+            error={activeCustomersError}
+            onSelect={handleStartMemoForCustomer}
+          />
           <StickyNotes
             stickyData={stickyData}
             loading={stickyLoading}
             onUnpin={handleUnpin}
-            onUpdateColor={handleUpdateStickyColor}
             onLinkKeyClick={handleLinkKeyClick}
           />
         </div>
@@ -978,24 +1071,6 @@ export default function WorkDiary({ onOpenDiary, onOpenCustomer, customerFilter,
           attachmentsByDiary={attachmentsByDiary}
           onExistingAttachmentsUploaded={handleExistingAttachmentsUploaded}
           onAttachmentDeleted={handleAttachmentDeleted}
-        />
-
-        <CustomerWorkPanel
-          selectedCustomer={selectedCustomer}
-          recordScope={recordScope}
-          timelineRefreshKey={timelineRefreshKey}
-          onSelectCustomer={handleSelectCustomer}
-          onClearCustomer={handleClearSelectedCustomer}
-          onCustomerSaved={(customer, record) => {
-            handleSelectCustomer(customer)
-            setCustomerMap((prev) => ({ ...prev, [customer.id]: customer }))
-            if (record) {
-              setSearchResults((prev) => [record, ...prev])
-              setTimelineRefreshKey((value) => value + 1)
-            }
-          }}
-          onOpenCustomerManager={onOpenCustomer}
-          onRecordScopeChange={setRecordScope}
         />
       </main>
 

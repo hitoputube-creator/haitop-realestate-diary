@@ -105,10 +105,10 @@
 .wd-main {
   flex: 1;
   display: grid;
-  grid-template-columns: 340px minmax(420px, 1fr) 320px;
+  grid-template-columns: 340px minmax(420px, 1fr);
   gap: 18px;
   padding: 24px 28px;
-  max-width: 1520px;
+  max-width: 1180px;
   margin: 0 auto;
   width: 100%;
 }
@@ -129,7 +129,7 @@
 
 @media (max-width: 1280px) {
   .wd-main {
-    grid-template-columns: 280px minmax(420px, 1fr) 300px;
+    grid-template-columns: 300px minmax(420px, 1fr);
     gap: 14px;
     padding: 18px 18px;
   }
@@ -137,6 +137,116 @@
   .wd-composer {
     padding: 16px 18px;
   }
+}
+
+.wd-active-customer-widget {
+  min-height: 120px;
+}
+
+.wd-active-customer-count {
+  flex-shrink: 0;
+  min-width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.wd-active-customer-empty {
+  padding: 18px 16px;
+  color: var(--color-on-surface-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.wd-active-customer-empty.is-error {
+  color: #fecaca;
+}
+
+.wd-active-customer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px 12px;
+}
+
+.wd-active-customer-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+}
+
+.wd-active-customer-item:hover {
+  background: rgba(230, 195, 100, 0.065);
+  border-color: rgba(230, 195, 100, 0.28);
+}
+
+.wd-active-customer-item:active {
+  transform: translateY(1px);
+}
+
+.wd-active-customer-item.is-due {
+  border-color: rgba(248, 113, 113, 0.32);
+  background: rgba(248, 113, 113, 0.075);
+}
+
+.wd-active-customer-name,
+.wd-active-customer-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wd-active-customer-name strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-on-surface);
+  font-size: 13px;
+}
+
+.wd-active-customer-name em {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.11);
+  color: #bfdbfe;
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.wd-active-customer-meta {
+  color: var(--color-on-surface-faint);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.wd-active-customer-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wd-active-customer-meta .is-due {
+  color: #fca5a5;
+  font-weight: 800;
 }
 
 @media (max-width: 1080px) {
@@ -1013,6 +1123,62 @@
   color: #fecaca;
 }
 
+.wd-crm-foldout {
+  margin-top: 12px;
+  border: 1px solid rgba(230, 195, 100, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: visible;
+}
+
+.wd-crm-foldout.open {
+  background: rgba(230, 195, 100, 0.045);
+  border-color: rgba(230, 195, 100, 0.26);
+}
+
+.wd-crm-toggle {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: var(--color-on-surface);
+  font-size: 12.5px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.wd-crm-toggle span {
+  flex: 1;
+}
+
+.wd-crm-toggle em {
+  color: var(--color-primary);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.wd-crm-toggle strong {
+  color: var(--color-on-surface-faint);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.wd-crm-toggle:hover:not(:disabled) {
+  background: rgba(230, 195, 100, 0.06);
+}
+
+.wd-crm-toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.wd-crm-fields {
+  padding: 0 12px 12px;
+}
+
 .wd-card.editing .wd-card-content {
   display: none;
 }
@@ -1232,35 +1398,6 @@
   background: var(--color-primary);
   color: var(--color-bg);
   border-color: var(--color-primary);
-}
-
-/* ===== 필터탭 구분선 + 개인일지 버튼 ===== */
-.wd-filter-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--color-border);
-  align-self: center;
-  margin: 0 4px;
-  flex-shrink: 0;
-}
-
-.wd-btn-personal-diary {
-  padding: 7px 14px;
-  font-size: 12.5px;
-  font-weight: 600;
-  border-radius: 20px;
-  background: rgba(56, 100, 200, 0.13);
-  border: 1px solid rgba(56, 100, 200, 0.35);
-  color: #93b4f8;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  font-family: inherit;
-}
-.wd-btn-personal-diary:hover {
-  background: rgba(56, 100, 200, 0.25);
-  border-color: rgba(56, 100, 200, 0.65);
-  color: #c7d9ff;
 }
 
 /* ===== Composer 작성자 선택 드롭다운 ===== */
@@ -1646,14 +1783,9 @@
     padding: 0 14px;
   }
 
-  .wd-filter-tab,
-  .wd-btn-personal-diary {
+  .wd-filter-tab {
     flex: 1 1 calc(50% - 8px);
     justify-content: center;
-  }
-
-  .wd-filter-divider {
-    display: none;
   }
 
   .wd-crm-row {
@@ -1662,6 +1794,11 @@
 
   .wd-selected-customer-strip {
     grid-template-columns: 1fr;
+  }
+
+  .wd-crm-toggle {
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
 
   .wd-composer-tools-row .lks-wrap,

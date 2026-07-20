@@ -54,33 +54,30 @@ function App() {
 
   const nav = (
     <nav className="app-nav" aria-label="주요 화면 이동">
+      <div className="app-nav-main">
+        <button
+          type="button"
+          className={`app-nav-button ${page === 'diary' ? 'active' : ''}`}
+          onClick={() => setPage('diary')}
+        >
+          업무일지
+        </button>
+        <button
+          type="button"
+          className={`app-nav-button ${page === 'customers' ? 'active' : ''}`}
+          onClick={() => setPage('customers')}
+        >
+          고객관리(CRM)
+        </button>
+      </div>
       <button
         type="button"
-        className={`app-nav-button ${page === 'diary' ? 'active' : ''}`}
-        onClick={() => setPage('diary')}
-      >
-        통합 업무일지
-      </button>
-      <button
-        type="button"
-        className={`app-nav-button ${page === 'customers' ? 'active' : ''}`}
-        onClick={() => setPage('customers')}
-      >
-        전체 고객보기
-      </button>
-      <button
-        type="button"
-        className={`app-nav-button ${page === 'private-notes' && diaryOwner === '주현희' ? 'active' : ''}`}
+        className={`app-nav-button app-nav-private ${page === 'private-notes' ? 'active' : ''}`}
         onClick={() => openDiary('주현희')}
+        aria-label="주현희 개인일지"
+        title="주현희 개인일지"
       >
-        주현희 개인일지
-      </button>
-      <button
-        type="button"
-        className={`app-nav-button ${page === 'private-notes' && diaryOwner === '김정현' ? 'active' : ''}`}
-        onClick={() => openDiary('김정현')}
-      >
-        김정현 개인일지
+        📓
       </button>
     </nav>
   )
@@ -110,7 +107,6 @@ function App() {
     <>
       {nav}
       <WorkDiary
-        onOpenDiary={openDiary}
         onOpenCustomer={openCustomer}
         customerFilter={diaryCustomerFilter}
         onClearCustomerFilter={() => setDiaryCustomerFilter(null)}

@@ -586,6 +586,79 @@ function CustomerDetail({ customer, onEdit, onRecordCreated, onOpenDiaryForCusto
   }
 
   const telHref = customer.phone_normalized ? `tel:${customer.phone_normalized}` : undefined
+  const TimelineSection = (
+    <section className="cm-timeline cm-timeline-featured">
+      <div className="cm-timeline-header">
+        <div>
+          <h3>고객 타임라인</h3>
+          <p>업무일지에서 이 고객으로 연결된 상담·방문·연락 기록입니다.</p>
+        </div>
+        <div className="cm-timeline-actions">
+          <button type="button" className="cm-ghost-button cm-small-button" onClick={() => onOpenDiaryForCustomer?.(customer)}>
+            업무일지에서 보기
+          </button>
+          <button type="button" className="cm-primary-button cm-small-button" onClick={() => setShowRecordForm(true)}>
+            오늘 기록 추가
+          </button>
+        </div>
+      </div>
+
+      <div className="cm-timeline-summary">
+        <span>전체 {timelineSummary.total}</span>
+        <span>최근 상담 {formatCrmDate(timelineSummary.recentDate)}</span>
+        <span className={isDueTodayOrPast(timelineSummary.nextDate) ? 'cm-due' : ''}>
+          다음 연락 {formatCrmDate(timelineSummary.nextDate)}
+        </span>
+        <span>미완료 {timelineSummary.openCount}</span>
+      </div>
+
+      {showRecordForm && (
+        <AddRecordForm
+          customer={customer}
+          onCancel={() => setShowRecordForm(false)}
+          onSaved={(record, updatedCustomer) => {
+            setShowRecordForm(false)
+            setTimelineMessage('업무기록이 저장되었습니다.')
+            setTimeline((prev) => [record, ...prev].sort((a, b) => {
+              const dateDiff = String(b.date || '').localeCompare(String(a.date || ''))
+              if (dateDiff !== 0) return dateDiff
+              return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+            }))
+            onRecordCreated?.(updatedCustomer)
+          }}
+        />
+      )}
+
+      {timelineMessage && (
+        <div className="cm-record-success" role="status">
+          {timelineMessage}
+          <button type="button" onClick={() => setTimelineMessage('')}>×</button>
+        </div>
+      )}
+
+      {timelineError && <div className="cm-record-error" role="alert">{timelineError}</div>}
+
+      <div className="cm-timeline-list">
+        {timelineLoading ? (
+          <div className="cm-state">고객 업무기록을 불러오는 중...</div>
+        ) : timeline.length === 0 ? (
+          <div className="cm-state">
+            <strong>아직 연결된 업무기록이 없습니다.</strong>
+            <span>위의 추가기록 버튼으로 첫 기록을 남겨보세요.</span>
+          </div>
+        ) : (
+          timeline.map((record) => (
+            <TimelineItem
+              key={record.id}
+              record={record}
+              customer={customer}
+              onOpenDiaryForCustomer={onOpenDiaryForCustomer}
+            />
+          ))
+        )}
+      </div>
+    </section>
+  )
 
   return (
     <aside className="cm-detail">
@@ -616,6 +689,8 @@ function CustomerDetail({ customer, onEdit, onRecordCreated, onOpenDiaryForCusto
         )}
       </div>
 
+      {TimelineSection}
+
       <dl className="cm-detail-grid">
         <div><dt>고객 유형</dt><dd>{customer.customer_role || '-'}</dd></div>
         <div><dt>부동산 종류</dt><dd>{customer.property_category || '-'}</dd></div>
@@ -633,82 +708,6 @@ function CustomerDetail({ customer, onEdit, onRecordCreated, onOpenDiaryForCusto
         <h3>기본메모</h3>
         <span>고객의 고정정보를 기록하세요. 상담·방문 내용은 아래 업무기록에 추가하세요.</span>
         <p>{customer.memo || '등록된 메모가 없습니다.'}</p>
-      </section>
-
-      <section className="cm-timeline">
-        <div className="cm-timeline-header">
-          <div>
-            <h3>고객 업무기록</h3>
-            <p>상담·방문·연락 기록은 업무일지에 customer_id로 연결됩니다.</p>
-          </div>
-          <div className="cm-timeline-actions">
-            <button type="button" className="cm-ghost-button cm-small-button" onClick={() => onOpenDiaryForCustomer?.(customer)}>
-              업무일지에서 보기
-            </button>
-            <button type="button" className="cm-primary-button cm-small-button" onClick={() => setShowRecordForm(true)}>
-              오늘 기록 추가
-            </button>
-          </div>
-        </div>
-
-        <div className="cm-timeline-summary">
-          <span>전체 {timelineSummary.total}</span>
-          <span>최근 상담 {formatCrmDate(timelineSummary.recentDate)}</span>
-          <span className={isDueTodayOrPast(timelineSummary.nextDate) ? 'cm-due' : ''}>
-            다음 연락 {formatCrmDate(timelineSummary.nextDate)}
-          </span>
-          <span>미완료 {timelineSummary.openCount}</span>
-        </div>
-
-        {showRecordForm && (
-          <AddRecordForm
-            customer={customer}
-            onCancel={() => setShowRecordForm(false)}
-            onSaved={(record, updatedCustomer) => {
-              setShowRecordForm(false)
-              setTimelineMessage('업무기록이 저장되었습니다.')
-              setTimeline((prev) => [record, ...prev].sort((a, b) => {
-                const dateDiff = String(b.date || '').localeCompare(String(a.date || ''))
-                if (dateDiff !== 0) return dateDiff
-                return new Date(b.created_at || 0) - new Date(a.created_at || 0)
-              }))
-              onRecordCreated?.(updatedCustomer)
-            }}
-          />
-        )}
-
-        {timelineMessage && (
-          <div className="cm-record-success" role="status">
-            {timelineMessage}
-            <button type="button" onClick={() => setTimelineMessage('')}>×</button>
-          </div>
-        )}
-
-        {timelineError && <div className="cm-record-error" role="alert">{timelineError}</div>}
-
-        <div className="cm-legacy-link-note">
-          기존 link_key 기록은 자동 연결하지 않습니다. 동명이인 위험 때문에 다음 단계에서 사용자가 직접 선택해 customer_id로 연결하는 기능으로 확장하는 것이 안전합니다.
-        </div>
-
-        <div className="cm-timeline-list">
-          {timelineLoading ? (
-            <div className="cm-state">고객 업무기록을 불러오는 중...</div>
-          ) : timeline.length === 0 ? (
-            <div className="cm-state">
-              <strong>아직 연결된 업무기록이 없습니다.</strong>
-              <span>위의 추가기록 버튼으로 첫 기록을 남겨보세요.</span>
-            </div>
-          ) : (
-            timeline.map((record) => (
-              <TimelineItem
-                key={record.id}
-                record={record}
-                customer={customer}
-                onOpenDiaryForCustomer={onOpenDiaryForCustomer}
-              />
-            ))
-          )}
-        </div>
       </section>
     </aside>
   )
