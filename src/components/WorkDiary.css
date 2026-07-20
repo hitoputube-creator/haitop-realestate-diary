@@ -1620,6 +1620,10 @@
   cursor: pointer;
 }
 
+.wd-photo-add-btn span[aria-hidden="true"] {
+  display: none;
+}
+
 .wd-photo-help {
   font-size: 11px;
   color: var(--color-on-surface-faint);
@@ -1811,6 +1815,29 @@
 .wd-photo-nav:disabled {
   opacity: 0.25;
   cursor: default;
+}
+
+.wd-card-photo-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(201, 168, 76, 0.24);
+  border-radius: 10px;
+  background: rgba(5, 14, 39, 0.38);
+}
+
+.wd-card-photo-panel .wd-photo-uploader {
+  margin-top: 0;
+}
+
+.wd-photo-upload-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.wd-photo-card-add-btn {
+  color: #e7cf82;
 }
 
 @media (max-width: 600px) {

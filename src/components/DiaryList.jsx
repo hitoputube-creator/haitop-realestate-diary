@@ -71,9 +71,13 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, photos, onOpenPhotos, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
+function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
+  const [photoAddOpen, setPhotoAddOpen] = useState(false)
+  const [photoFiles, setPhotoFiles] = useState([])
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoError, setPhotoError] = useState('')
   const taRef = useRef(null)
   const cardRef = useRef(null)
 
@@ -146,6 +150,21 @@ function MemoCard({ memo, photos, onOpenPhotos, onChangeStatus, onDelete, onUpda
     }
     onUpdateContent(memo.id, next)
     setEditing(false)
+  }
+
+  async function handleAddPhotos() {
+    if (!photoFiles.length || photoBusy) return
+    setPhotoBusy(true)
+    setPhotoError('')
+    try {
+      await onAddPhotos?.(memo.id, photoFiles, memo.writer)
+      setPhotoFiles([])
+      setPhotoAddOpen(false)
+    } catch (err) {
+      setPhotoError(err.message || String(err))
+    } finally {
+      setPhotoBusy(false)
+    }
   }
 
   return (
@@ -320,6 +339,17 @@ function MemoCard({ memo, photos, onOpenPhotos, onChangeStatus, onDelete, onUpda
             )}
             <button
               type="button"
+              className="wd-action-btn wd-photo-card-add-btn"
+              onClick={() => {
+                setPhotoAddOpen((value) => !value)
+                setPhotoError('')
+              }}
+              disabled={photoBusy}
+            >
+              사진 추가
+            </button>
+            <button
+              type="button"
               className={`wd-action-btn ${memo.status === 'important' ? 'active' : ''}`}
               onClick={() =>
                 onChangeStatus(memo.id, memo.status === 'important' ? 'normal' : 'important')
@@ -402,6 +432,40 @@ function MemoCard({ memo, photos, onOpenPhotos, onChangeStatus, onDelete, onUpda
           </>
         )}
       </div>
+
+      {!editing && photoAddOpen && (
+        <div className="wd-card-photo-panel">
+          <DiaryPhotoUploader
+            files={photoFiles}
+            onChange={setPhotoFiles}
+            disabled={photoBusy}
+            busy={photoBusy}
+          />
+          {photoError && <div className="wd-photo-error" role="alert">{photoError}</div>}
+          <div className="wd-photo-upload-actions">
+            <button
+              type="button"
+              className="wd-action-btn"
+              onClick={() => {
+                setPhotoFiles([])
+                setPhotoError('')
+                setPhotoAddOpen(false)
+              }}
+              disabled={photoBusy}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              className="wd-action-btn active"
+              onClick={handleAddPhotos}
+              disabled={photoBusy || photoFiles.length === 0}
+            >
+              {photoBusy ? '업로드 중...' : '업로드'}
+            </button>
+          </div>
+        </div>
+      )}
     </article>
   )
 }
@@ -781,6 +845,7 @@ export default function DiaryList({
   searchMode,
   searchQuery,
   onCreate,
+  onAddPhotos,
   onChangeStatus,
   onDelete,
   onUpdateContent,
@@ -884,6 +949,7 @@ export default function DiaryList({
               memo={m}
               photos={photoMap?.[m.id] || []}
               onOpenPhotos={(photos, index) => setGallery({ photos, index })}
+              onAddPhotos={onAddPhotos}
               showDate={searchMode}
               onChangeStatus={onChangeStatus}
               onDelete={onDelete}

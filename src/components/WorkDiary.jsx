@@ -61,6 +61,20 @@ export default function WorkDiary({ onOpenDiary }) {
     }
   }, [])
 
+  const handleAddPhotosToMemo = useCallback(async (memoId, photoFiles = [], uploadedBy = '') => {
+    if (!memoId || photoFiles.length === 0) return []
+    const uploadedPhotos = await uploadDiaryPhotos({
+      files: photoFiles,
+      workDiaryId: memoId,
+      uploadedBy,
+    })
+    setPhotoMap((prev) => ({
+      ...prev,
+      [memoId]: [...(prev[memoId] || []), ...uploadedPhotos],
+    }))
+    return uploadedPhotos
+  }, [])
+
   const loadMemosForSelected = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setMemos([])
@@ -671,19 +685,12 @@ export default function WorkDiary({ onOpenDiary }) {
             const createdMemo = await handleCreate(content, writer, sticker, linkKey)
             if (!createdMemo || photoFiles.length === 0) return
             try {
-              const uploadedPhotos = await uploadDiaryPhotos({
-                files: photoFiles,
-                workDiaryId: createdMemo.id,
-                uploadedBy: writer,
-              })
-              setPhotoMap((prev) => ({
-                ...prev,
-                [createdMemo.id]: [...(prev[createdMemo.id] || []), ...uploadedPhotos],
-              }))
+              await handleAddPhotosToMemo(createdMemo.id, photoFiles, writer)
             } catch (photoErr) {
               setError(`메모는 저장됐지만 사진 업로드에 실패했습니다: ${photoErr.message || photoErr}`)
             }
           }}
+          onAddPhotos={handleAddPhotosToMemo}
           onChangeStatus={handleChangeStatus}
           onDelete={handleDelete}
           onUpdateContent={handleUpdateContent}
