@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { DiaryPhotoStrip, DiaryPhotoUploader, PhotoGalleryModal } from './DiaryPhotos'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -70,7 +71,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
+function MemoCard({ memo, photos, onOpenPhotos, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const taRef = useRef(null)
@@ -290,6 +291,10 @@ function MemoCard({ memo, onChangeStatus, onDelete, onUpdateContent, showDate, o
             </span>
           ))}
         </div>
+      )}
+
+      {!editing && (
+        <DiaryPhotoStrip photos={photos} onOpen={onOpenPhotos} />
       )}
 
       <div className="wd-card-actions">
@@ -591,6 +596,8 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const [writer, setWriter] = useState(initialDraft?.writer ?? '주현희')
   const [sticker, setSticker] = useState(initialDraft?.sticker ?? null)
   const [linkKey, setLinkKey] = useState(initialDraft?.linkKey ?? '')
+  const [photoFiles, setPhotoFiles] = useState([])
+  const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
 
@@ -619,12 +626,16 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     const trimmed = value.trim()
     if (!trimmed || submitting) return
     setSubmitting(true)
+    setSubmitError('')
     try {
-      await onSubmit(trimmed, writer, sticker, linkKey.trim())
+      await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles)
       setValue('')
       setSticker(null)
       setLinkKey('')
+      setPhotoFiles([])
       if (composerRef.current) composerRef.current.style.height = '150px'
+    } catch (err) {
+      setSubmitError(err.message || String(err))
     } finally {
       setSubmitting(false)
     }
@@ -719,6 +730,15 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
       </div>
       <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
 
+      <DiaryPhotoUploader
+        files={photoFiles}
+        onChange={setPhotoFiles}
+        disabled={disabled}
+        busy={submitting}
+      />
+
+      {submitError && <div className="wd-photo-error" role="alert">{submitError}</div>}
+
       <div className="wd-composer-bar">
         <div className="wd-composer-hint">
           <code>Cmd/Ctrl + Enter</code> 로 저장
@@ -773,7 +793,9 @@ export default function DiaryList({
   onUnpin,
   onNavigate,
   highlightMemoId,
+  photoMap,
 }) {
+  const [gallery, setGallery] = useState(null)
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
     : ''
@@ -829,7 +851,7 @@ export default function DiaryList({
 
       {!searchMode && (
         <Composer
-          onSubmit={(content, writer, sticker, linkKey) => onCreate(content, writer, sticker, linkKey)}
+          onSubmit={(content, writer, sticker, linkKey, photoFiles) => onCreate(content, writer, sticker, linkKey, photoFiles)}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
@@ -860,6 +882,8 @@ export default function DiaryList({
             <MemoCard
               key={m.id}
               memo={m}
+              photos={photoMap?.[m.id] || []}
+              onOpenPhotos={(photos, index) => setGallery({ photos, index })}
               showDate={searchMode}
               onChangeStatus={onChangeStatus}
               onDelete={onDelete}
@@ -876,6 +900,14 @@ export default function DiaryList({
           ))
         )}
       </div>
+
+      {gallery && (
+        <PhotoGalleryModal
+          photos={gallery.photos}
+          startIndex={gallery.index}
+          onClose={() => setGallery(null)}
+        />
+      )}
     </section>
   )
 }

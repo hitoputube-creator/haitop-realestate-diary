@@ -4,6 +4,8 @@ import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
 import StickyNotes from './StickyNotes'
+import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
+import { listDiaryPhotosForIds, uploadDiaryPhotos } from '../lib/attachments'
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
@@ -38,6 +40,8 @@ export default function WorkDiary({ onOpenDiary }) {
   /* ===== 포스트잇 ===== */
   const [stickyData, setStickyData] = useState([])   // [{sticky, memo}]
   const [stickyLoading, setStickyLoading] = useState(false)
+  const [photoMap, setPhotoMap] = useState({})
+  const [photoGallery, setPhotoGallery] = useState(null)
 
   // 현재 고정된 diary_id Set — MemoCard 버튼 상태 판단용
   const pinnedDiaryIds = useMemo(
@@ -46,6 +50,17 @@ export default function WorkDiary({ onOpenDiary }) {
   )
 
   /* ===== 선택 날짜의 메모 로드 ===== */
+  const loadPhotosForRows = useCallback(async (rows) => {
+    const ids = (rows || []).map((row) => row.id).filter(Boolean)
+    if (!isSupabaseConfigured || ids.length === 0) return
+    try {
+      const nextMap = await listDiaryPhotosForIds(ids)
+      setPhotoMap((prev) => ({ ...prev, ...nextMap }))
+    } catch (err) {
+      console.warn('[DiaryPhotos] load failed:', err.message || err)
+    }
+  }, [])
+
   const loadMemosForSelected = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setMemos([])
@@ -61,14 +76,16 @@ export default function WorkDiary({ onOpenDiary }) {
         .eq('date', dateStr)
         .order('created_at', { ascending: true })
       if (e) throw e
-      setMemos(data || [])
+      const rows = data || []
+      setMemos(rows)
+      loadPhotosForRows(rows)
     } catch (err) {
       setError(`메모를 불러오지 못했습니다: ${err.message || err}`)
       setMemos([])
     } finally {
       setLoading(false)
     }
-  }, [selectedDate])
+  }, [selectedDate, loadPhotosForRows])
 
   useEffect(() => {
     loadMemosForSelected()
@@ -148,14 +165,16 @@ export default function WorkDiary({ onOpenDiary }) {
         .order('date', { ascending: true })
         .order('created_at', { ascending: true })
       if (e) throw e
-      setLinkMemos(data || [])
+      const rows = data || []
+      setLinkMemos(rows)
+      loadPhotosForRows(rows)
     } catch (err) {
       setError(`연결 메모 조회 실패: ${err.message || err}`)
       setLinkMemos([])
     } finally {
       setLinkMemosLoading(false)
     }
-  }, [])
+  }, [loadPhotosForRows])
 
   function handleLinkKeyClick(key) {
     setLinkKeyFilter(key)
@@ -308,7 +327,11 @@ export default function WorkDiary({ onOpenDiary }) {
           .order('created_at', { ascending: false })
           .limit(200)
         if (e) throw e
-        if (!cancelled) setSearchResults(data || [])
+        if (!cancelled) {
+          const rows = data || []
+          setSearchResults(rows)
+          loadPhotosForRows(rows)
+        }
       } catch (err) {
         if (!cancelled) {
           setError(`검색 실패: ${err.message || err}`)
@@ -322,7 +345,7 @@ export default function WorkDiary({ onOpenDiary }) {
     return () => {
       cancelled = true
     }
-  }, [searchQuery])
+  }, [searchQuery, loadPhotosForRows])
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
@@ -362,6 +385,7 @@ export default function WorkDiary({ onOpenDiary }) {
           )
         }
         setError(null)
+        return data
       } catch (err) {
         setError(`저장 실패: ${err.message || err}`)
         throw err
@@ -403,6 +427,11 @@ export default function WorkDiary({ onOpenDiary }) {
       const prevSearch = searchResults
       setMemos((prev) => prev.filter((m) => m.id !== id))
       setSearchResults((prev) => prev.filter((m) => m.id !== id))
+      setPhotoMap((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
       try {
         const { error: e } = await supabase.from(TABLE).delete().eq('id', id)
         if (e) throw e
@@ -517,6 +546,10 @@ export default function WorkDiary({ onOpenDiary }) {
               <div key={m.id} className="wd-link-memo-item">
                 <div className="wd-link-memo-date">{m.date}</div>
                 <div className="wd-link-memo-content">{m.content}</div>
+                <DiaryPhotoStrip
+                  photos={photoMap[m.id] || []}
+                  onOpen={(photos, index) => setPhotoGallery({ photos, index })}
+                />
                 {m.sticker && (
                   <span
                     className="wd-sticker-badge"
@@ -634,7 +667,23 @@ export default function WorkDiary({ onOpenDiary }) {
           loading={searchMode ? searchLoading : loading}
           error={error}
           searchMode={searchMode}
-          onCreate={handleCreate}
+          onCreate={async (content, writer, sticker, linkKey, photoFiles = []) => {
+            const createdMemo = await handleCreate(content, writer, sticker, linkKey)
+            if (!createdMemo || photoFiles.length === 0) return
+            try {
+              const uploadedPhotos = await uploadDiaryPhotos({
+                files: photoFiles,
+                workDiaryId: createdMemo.id,
+                uploadedBy: writer,
+              })
+              setPhotoMap((prev) => ({
+                ...prev,
+                [createdMemo.id]: [...(prev[createdMemo.id] || []), ...uploadedPhotos],
+              }))
+            } catch (photoErr) {
+              setError(`메모는 저장됐지만 사진 업로드에 실패했습니다: ${photoErr.message || photoErr}`)
+            }
+          }}
           onChangeStatus={handleChangeStatus}
           onDelete={handleDelete}
           onUpdateContent={handleUpdateContent}
@@ -648,10 +697,18 @@ export default function WorkDiary({ onOpenDiary }) {
           onNavigate={handleNavigate}
           highlightMemoId={highlightMemoId}
           searchQuery={searchQuery}
+          photoMap={photoMap}
         />
       </main>
 
       {LinkPanel}
+      {photoGallery && (
+        <PhotoGalleryModal
+          photos={photoGallery.photos}
+          startIndex={photoGallery.index}
+          onClose={() => setPhotoGallery(null)}
+        />
+      )}
     </div>
   )
 }
