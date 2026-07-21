@@ -98,7 +98,9 @@ export default function AllMemosPanel({ refreshTrigger }) {
     const map = new Map()
     filtered.forEach((m) => {
       const norm = normalizePhone(m.customer_phone)
-      const key = norm || NO_PHONE_KEY
+      // 연락처가 없으면 이름 기준으로 묶고, 이름도 없을 때만 "미입력" 그룹으로 합친다
+      // (그렇지 않으면 이름은 있고 연락처만 없는 사람이 완전히 무관한 익명 메모들과 뒤섞임)
+      const key = norm || (m.customer_name ? `name:${m.customer_name}` : NO_PHONE_KEY)
       if (!map.has(key)) map.set(key, { key, phone: m.customer_phone || '', names: new Set(), memos: [] })
       const g = map.get(key)
       if (m.customer_name) g.names.add(m.customer_name)
