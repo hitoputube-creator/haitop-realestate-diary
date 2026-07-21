@@ -85,6 +85,7 @@
 
 /* ── 개별 메모 행 ── */
 .amp-row {
+  flex-shrink: 0;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: var(--color-surface-container);
@@ -147,6 +148,7 @@
 
 /* ── 사람별 그룹 ── */
 .amp-group {
+  flex-shrink: 0;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   overflow: hidden;
