@@ -105,7 +105,8 @@
 .wd-main {
   flex: 1;
   display: grid;
-  grid-template-columns: 380px 1fr;
+  grid-template-columns: 380px 1fr 320px;
+  grid-template-areas: "calendar diary panel";
   gap: 24px;
   padding: 24px 28px;
   max-width: 1440px;
@@ -115,15 +116,33 @@
 
 /* ===== 좌측 컬럼 래퍼 (달력 + 포스트잇) ===== */
 .wd-left-col {
+  grid-area: calendar;
   display: flex;
   flex-direction: column;
   gap: 20px;
   min-width: 0;
 }
 
+.wd-diary {
+  grid-area: diary;
+}
+
+@media (max-width: 1300px) {
+  .wd-main {
+    grid-template-columns: 340px 1fr;
+    grid-template-areas:
+      "calendar diary"
+      "panel panel";
+  }
+}
+
 @media (max-width: 960px) {
   .wd-main {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "calendar"
+      "diary"
+      "panel";
   }
 }
 
@@ -679,6 +698,78 @@
 .wd-badge.done {
   background: rgba(74, 222, 128, 0.15);
   color: var(--color-done);
+}
+
+/* ===== 메모 카드 — 이름/연락처/제목 ===== */
+.wd-card-customer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.wd-card-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  margin-right: 4px;
+}
+
+.wd-card-customer-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.wd-card-customer-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.wd-card-customer-input {
+  flex: 1;
+  min-width: 100px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  border-radius: 7px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-deeper);
+  color: var(--color-on-surface);
+  outline: none;
+}
+
+.wd-card-customer-input:focus {
+  border-color: var(--color-primary);
+}
+
+/* ===== 작성창(Composer) — 이름/연락처/제목 ===== */
+.wd-composer-customer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.wd-composer-customer-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 9px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-deeper);
+  color: var(--color-on-surface);
+  outline: none;
+}
+
+.wd-composer-customer-input:focus {
+  border-color: var(--color-primary);
 }
 
 .wd-card-content {

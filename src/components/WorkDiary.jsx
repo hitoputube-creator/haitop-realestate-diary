@@ -4,6 +4,7 @@ import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
 import StickyNotes from './StickyNotes'
+import AllMemosPanel from './AllMemosPanel'
 import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
 import { listDiaryPhotosForIds, uploadDiaryPhotos } from '../lib/attachments'
 import './WorkDiary.css'
@@ -30,6 +31,9 @@ export default function WorkDiary({ onOpenDiary }) {
 
   const searchMode = searchQuery.trim().length > 0
   const [filterWriter, setFilterWriter] = useState('all')
+
+  /* ===== 사이드패널(전체 메모 리스트) 새로고침 트리거 ===== */
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   /* ===== 연결고리 ===== */
   const [allLinkKeys, setAllLinkKeys] = useState([])
@@ -363,7 +367,7 @@ export default function WorkDiary({ onOpenDiary }) {
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
-    async (content, writer = '주현희', sticker = null, linkKey = '') => {
+    async (content, writer = '주현희', sticker = null, linkKey = '', name = '', phone = '', title = '') => {
       if (!isSupabaseConfigured) {
         setError('Supabase 연결이 설정되지 않았습니다. .env에 VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY를 추가해주세요.')
         return
@@ -381,6 +385,9 @@ export default function WorkDiary({ onOpenDiary }) {
             writer,
             sticker: sticker || null,
             link_key: linkKey || '',
+            customer_name: name || null,
+            customer_phone: phone || null,
+            title: title || null,
           })
           .select()
           .single()
@@ -399,6 +406,7 @@ export default function WorkDiary({ onOpenDiary }) {
           )
         }
         setError(null)
+        setRefreshTrigger((t) => t + 1)
         return data
       } catch (err) {
         setError(`저장 실패: ${err.message || err}`)
@@ -451,6 +459,7 @@ export default function WorkDiary({ onOpenDiary }) {
         if (e) throw e
         // 해당 날짜에 메모가 더 이상 없으면 도트 제거
         loadMonthDots()
+        setRefreshTrigger((t) => t + 1)
       } catch (err) {
         setError(`삭제 실패: ${err.message || err}`)
         setMemos(prevList)
@@ -484,21 +493,23 @@ export default function WorkDiary({ onOpenDiary }) {
     }
   }, [loadMemosForSelected])
 
-  const handleUpdateContent = useCallback(async (id, content) => {
+  const handleUpdateContent = useCallback(async (id, content, meta = {}) => {
     if (!isSupabaseConfigured) return
     const tags = extractTags(content)
+    const patch = { content, tags, ...meta }
     setMemos((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, content, tags } : m))
+      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
     )
     setSearchResults((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, content, tags } : m))
+      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
     )
     try {
       const { error: e } = await supabase
         .from(TABLE)
-        .update({ content, tags })
+        .update(patch)
         .eq('id', id)
       if (e) throw e
+      setRefreshTrigger((t) => t + 1)
     } catch (err) {
       setError(`수정 실패: ${err.message || err}`)
       loadMemosForSelected()
@@ -681,8 +692,8 @@ export default function WorkDiary({ onOpenDiary }) {
           loading={searchMode ? searchLoading : loading}
           error={error}
           searchMode={searchMode}
-          onCreate={async (content, writer, sticker, linkKey, photoFiles = []) => {
-            const createdMemo = await handleCreate(content, writer, sticker, linkKey)
+          onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '') => {
+            const createdMemo = await handleCreate(content, writer, sticker, linkKey, name, phone, title)
             if (!createdMemo || photoFiles.length === 0) return
             try {
               await handleAddPhotosToMemo(createdMemo.id, photoFiles, writer)
@@ -706,6 +717,8 @@ export default function WorkDiary({ onOpenDiary }) {
           searchQuery={searchQuery}
           photoMap={photoMap}
         />
+
+        <AllMemosPanel refreshTrigger={refreshTrigger} />
       </main>
 
       {LinkPanel}

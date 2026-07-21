@@ -74,6 +74,9 @@ function StatusBadge({ status }) {
 function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
+  const [draftName, setDraftName] = useState(memo.customer_name || '')
+  const [draftPhone, setDraftPhone] = useState(memo.customer_phone || '')
+  const [draftTitle, setDraftTitle] = useState(memo.title || '')
   const [photoAddOpen, setPhotoAddOpen] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -131,7 +134,10 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
 
   useEffect(() => {
     setDraft(memo.content)
-  }, [memo.content])
+    setDraftName(memo.customer_name || '')
+    setDraftPhone(memo.customer_phone || '')
+    setDraftTitle(memo.title || '')
+  }, [memo.content, memo.customer_name, memo.customer_phone, memo.title])
 
   const tags = memo.tags && memo.tags.length ? memo.tags : extractTags(memo.content)
 
@@ -144,11 +150,23 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
   function saveEdit() {
     const next = draft.trim()
     if (!next) return
-    if (next === memo.content) {
+    const nextName = draftName.trim()
+    const nextPhone = draftPhone.trim()
+    const nextTitle = draftTitle.trim()
+    const changed =
+      next !== memo.content ||
+      nextName !== (memo.customer_name || '') ||
+      nextPhone !== (memo.customer_phone || '') ||
+      nextTitle !== (memo.title || '')
+    if (!changed) {
       setEditing(false)
       return
     }
-    onUpdateContent(memo.id, next)
+    onUpdateContent(memo.id, next, {
+      customer_name: nextName || null,
+      customer_phone: nextPhone || null,
+      title: nextTitle || null,
+    })
     setEditing(false)
   }
 
@@ -211,6 +229,35 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
           <StatusBadge status={memo.status || 'normal'} />
         </div>
       </div>
+
+      {!editing ? (
+        <div className="wd-card-customer">
+          <span className="wd-card-title">{memo.title || '(제목 미입력)'}</span>
+          <span className="wd-card-customer-badge">👤 {memo.customer_name || '미입력'}</span>
+          <span className="wd-card-customer-badge">📞 {memo.customer_phone || '미입력'}</span>
+        </div>
+      ) : (
+        <div className="wd-card-customer-edit">
+          <input
+            className="wd-card-customer-input"
+            placeholder="제목"
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+          />
+          <input
+            className="wd-card-customer-input"
+            placeholder="이름"
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+          />
+          <input
+            className="wd-card-customer-input"
+            placeholder="연락처"
+            value={draftPhone}
+            onChange={(e) => setDraftPhone(e.target.value)}
+          />
+        </div>
+      )}
 
       {/* 연결태그 인라인 편집 */}
       {linkEditing && (
@@ -660,6 +707,9 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const [writer, setWriter] = useState(initialDraft?.writer ?? '주현희')
   const [sticker, setSticker] = useState(initialDraft?.sticker ?? null)
   const [linkKey, setLinkKey] = useState(initialDraft?.linkKey ?? '')
+  const [name, setName] = useState(initialDraft?.name ?? '')
+  const [phone, setPhone] = useState(initialDraft?.phone ?? '')
+  const [title, setTitle] = useState(initialDraft?.title ?? '')
   const [photoFiles, setPhotoFiles] = useState([])
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -667,13 +717,13 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
 
   // 입력값을 sessionStorage에 계속 동기화 — 완전히 빈 상태면 임시저장을 지운다
   useEffect(() => {
-    const isEmpty = !value.trim() && !linkKey.trim() && !sticker
+    const isEmpty = !value.trim() && !linkKey.trim() && !sticker && !name.trim() && !phone.trim() && !title.trim()
     if (isEmpty) {
       clearComposerDraft()
     } else {
-      saveComposerDraft({ value, writer, sticker, linkKey })
+      saveComposerDraft({ value, writer, sticker, linkKey, name, phone, title })
     }
-  }, [value, writer, sticker, linkKey])
+  }, [value, writer, sticker, linkKey, name, phone, title])
 
   // 최초 마운트 시 저장된 값 기준으로 textarea 높이 복원
   useEffect(() => {
@@ -688,15 +738,25 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
 
   async function handleSubmit() {
     const trimmed = value.trim()
+    const trimmedName = name.trim()
+    const trimmedPhone = phone.trim()
+    const trimmedTitle = title.trim()
     if (!trimmed || submitting) return
+    if (!trimmedName || !trimmedPhone || !trimmedTitle) {
+      setSubmitError('이름, 연락처, 제목을 모두 입력해주세요.')
+      return
+    }
     setSubmitting(true)
     setSubmitError('')
     try {
-      await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles)
+      await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles, trimmedName, trimmedPhone, trimmedTitle)
       setValue('')
       setSticker(null)
       setLinkKey('')
       setPhotoFiles([])
+      setName('')
+      setPhone('')
+      setTitle('')
       if (composerRef.current) composerRef.current.style.height = '150px'
     } catch (err) {
       setSubmitError(err.message || String(err))
@@ -709,6 +769,29 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
 
   return (
     <div className="wd-composer">
+      <div className="wd-composer-customer-row">
+        <input
+          className="wd-composer-customer-input"
+          placeholder="제목 *"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          disabled={disabled || submitting}
+        />
+        <input
+          className="wd-composer-customer-input"
+          placeholder="이름 *"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={disabled || submitting}
+        />
+        <input
+          className="wd-composer-customer-input"
+          placeholder="연락처 *"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          disabled={disabled || submitting}
+        />
+      </div>
       <div className="wd-composer-tools-row">
         <LinkKeySearchBox
           currentValue={linkKey}
@@ -826,7 +909,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
             type="button"
             className="wd-btn wd-btn-primary"
             onClick={handleSubmit}
-            disabled={disabled || submitting || !value.trim()}
+            disabled={disabled || submitting || !value.trim() || !name.trim() || !phone.trim() || !title.trim()}
           >
             {submitting ? '저장 중...' : '저장'}
           </button>
@@ -916,7 +999,8 @@ export default function DiaryList({
 
       {!searchMode && (
         <Composer
-          onSubmit={(content, writer, sticker, linkKey, photoFiles) => onCreate(content, writer, sticker, linkKey, photoFiles)}
+          onSubmit={(content, writer, sticker, linkKey, photoFiles, name, phone, title) =>
+            onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title)}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
