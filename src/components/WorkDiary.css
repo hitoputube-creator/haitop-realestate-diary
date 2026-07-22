@@ -1134,6 +1134,18 @@
   color: #ffe8a3;
 }
 
+.wd-btn-storage-usage {
+  background: rgba(20, 184, 166, 0.13);
+  border-color: rgba(20, 184, 166, 0.42);
+  color: #7dd3fc;
+}
+
+.wd-btn-storage-usage:hover {
+  background: rgba(20, 184, 166, 0.24);
+  border-color: rgba(20, 184, 166, 0.68);
+  color: #bae6fd;
+}
+
 /* ===== 비공개 개인노트 버튼 ===== */
 .wd-btn-private-notes {
   flex-shrink: 0;

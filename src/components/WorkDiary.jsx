@@ -12,7 +12,7 @@ import './WorkDiary.css'
 const TABLE = 'work_diary'
 const DAILY_SCHEDULE_KEY = '__daily_schedule__'
 
-export default function WorkDiary({ onOpenDiary }) {
+export default function WorkDiary({ onOpenDiary, onOpenStorageUsage }) {
   const today = useMemo(() => new Date(), [])
 
   const [selectedDate, setSelectedDate] = useState(today)
@@ -694,6 +694,13 @@ export default function WorkDiary({ onOpenDiary }) {
         >
           구글 캘린더
         </a>
+        <button
+          type="button"
+          className="wd-btn-workcenter wd-btn-storage-usage"
+          onClick={() => onOpenStorageUsage?.()}
+        >
+          저장공간 확인
+        </button>
       </header>
 
       <div className="wd-filter-tabs">

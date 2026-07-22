@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import WorkDiary from './components/WorkDiary'
 import PrivateNotes from './components/PrivateNotes'
+import StorageUsage from './components/StorageUsage'
 
 /* 현재 보고 있던 화면(업무일지 / 개인일지)을 기억해 두어
    탭 전환 후 새로고침되어도 작성 중이던 화면으로 그대로 돌아오게 한다 */
@@ -37,7 +38,11 @@ function App() {
     return <PrivateNotes initialOwner={diaryOwner} onBack={() => setPage('diary')} />
   }
 
-  return <WorkDiary onOpenDiary={openDiary} />
+  if (page === 'storage-usage') {
+    return <StorageUsage onBack={() => setPage('diary')} />
+  }
+
+  return <WorkDiary onOpenDiary={openDiary} onOpenStorageUsage={() => setPage('storage-usage')} />
 }
 
 export default App
