@@ -1,0 +1,232 @@
+/* ══════════════════════════════════
+   저장공간 관리 — StorageAdmin.css
+══════════════════════════════════ */
+
+.sa-app {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-on-surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.sa-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(13, 27, 62, 0.93);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.sa-brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 250px;
+}
+
+.sa-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.sa-brand-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.4;
+}
+
+.sa-brand-sub {
+  font-size: 11px;
+  color: var(--color-on-surface-faint);
+  margin-top: 2px;
+}
+
+.sa-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.sa-back-btn {
+  padding: 6px 13px;
+  border-radius: 18px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-on-surface-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.sa-back-btn:hover { background: var(--color-surface-hover); color: var(--color-on-surface); }
+
+.sa-logout-btn {
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  color: #fca5a5;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.sa-logout-btn:hover { background: rgba(248, 113, 113, 0.18); }
+
+.sa-body {
+  flex: 1;
+  padding: 24px;
+  max-width: 780px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sa-loading {
+  color: var(--color-on-surface-faint);
+  font-size: 13px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+.sa-login-form {
+  margin: 40px auto 0;
+  max-width: 320px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.sa-login-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.sa-login-form input {
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-border);
+  color: var(--color-on-surface);
+  font-size: 13px;
+}
+.sa-login-form input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.sa-login-form button[type='submit'] {
+  margin-top: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-bg-deeper);
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+}
+.sa-login-form button[type='submit']:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sa-login-error {
+  color: #fca5a5;
+  font-size: 12px;
+}
+
+.sa-err {
+  padding: 10px 14px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  color: #fca5a5;
+  border-radius: 10px;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sa-err-close {
+  background: none;
+  border: none;
+  color: #fca5a5;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  margin-left: 8px;
+}
+
+.sa-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+.sa-section-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 12px;
+}
+
+.sa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sa-table th,
+.sa-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sa-table th {
+  color: var(--color-on-surface-faint);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.sa-table td:not(:first-child),
+.sa-table th:not(:first-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sa-table tbody tr:last-child td {
+  border-bottom: none;
+}

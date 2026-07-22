@@ -11,7 +11,7 @@ import './WorkDiary.css'
 
 const TABLE = 'work_diary'
 
-export default function WorkDiary({ onOpenDiary }) {
+export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const today = useMemo(() => new Date(), [])
 
   const [selectedDate, setSelectedDate] = useState(today)
@@ -602,6 +602,13 @@ export default function WorkDiary({ onOpenDiary }) {
           </div>
         </div>
         <SearchBar value={searchQuery} onChange={setSearchQuery} loading={searchLoading} />
+        <button
+          type="button"
+          className="wd-btn-workcenter"
+          onClick={() => onOpenStorageAdmin?.()}
+        >
+          💾 저장공간 관리
+        </button>
         <a
           href="https://hitoputube-creator.github.io/hitop-ai-workcenter/"
           target="_blank"
