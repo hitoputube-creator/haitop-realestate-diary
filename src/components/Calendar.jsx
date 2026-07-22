@@ -10,6 +10,8 @@ const STICKER_COLORS = {
   '기타': '#95A5A6',
 }
 
+const SCHEDULE_STICKERS = ['계약', '잔금', '약속']
+
 function pad(n) {
   return String(n).padStart(2, '0')
 }
@@ -144,18 +146,22 @@ export default function Calendar({
               ? entries
               : entries.filter((e) => e.writer === filterWriter)
 
-            // 스티커 라벨 (중복 제거)
-            const stickerLabels = [...new Set(
-              filtered.filter((e) => e.sticker).map((e) => e.sticker)
+            // 일정 스티커는 날짜칸 안에 라벨로 표시한다.
+            const scheduleLabels = [...new Set(
+              filtered
+                .filter((e) => SCHEDULE_STICKERS.includes(e.sticker))
+                .map((e) => e.sticker)
             )]
+            const visibleScheduleLabels = scheduleLabels.slice(0, 2)
+            const extraScheduleCount = Math.max(0, scheduleLabels.length - visibleScheduleLabels.length)
 
-            // 스티커 없는 일반 메모 → 작성자별 도트
-            const hasJooDot = filtered.some((e) => !e.sticker && e.writer === '주현희') &&
+            // 일정 스티커가 아닌 메모는 기존처럼 작성자별 도트로 표시한다.
+            const hasJooDot = filtered.some((e) => (!e.sticker || !SCHEDULE_STICKERS.includes(e.sticker)) && e.writer === '주현희') &&
               (filterWriter === 'all' || filterWriter === '주현희')
-            const hasKimDot = filtered.some((e) => !e.sticker && e.writer === '김정현') &&
+            const hasKimDot = filtered.some((e) => (!e.sticker || !SCHEDULE_STICKERS.includes(e.sticker)) && e.writer === '김정현') &&
               (filterWriter === 'all' || filterWriter === '김정현')
 
-            const hasNote = stickerLabels.length > 0 || hasJooDot || hasKimDot
+            const hasNote = scheduleLabels.length > 0 || hasJooDot || hasKimDot
             const weekday = date.getDay()
 
             const cls = [
@@ -180,9 +186,9 @@ export default function Calendar({
               >
                 <span className="wd-cal-day-num">{date.getDate()}</span>
 
-                {stickerLabels.length > 0 && (
+                {scheduleLabels.length > 0 && (
                   <div className="wd-cal-day-stickers" aria-hidden="true">
-                    {stickerLabels.map((s) => (
+                    {visibleScheduleLabels.map((s) => (
                       <span
                         key={s}
                         className="wd-cal-sticker-label"
@@ -191,6 +197,9 @@ export default function Calendar({
                         {s}
                       </span>
                     ))}
+                    {extraScheduleCount > 0 && (
+                      <span className="wd-cal-sticker-more">+{extraScheduleCount}</span>
+                    )}
                   </div>
                 )}
 

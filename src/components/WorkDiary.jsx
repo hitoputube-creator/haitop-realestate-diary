@@ -4,7 +4,7 @@ import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
 import UpcomingSchedules from './UpcomingSchedules'
-import SchedulePanel from './SchedulePanel'
+import SelectedScheduleMemos from './SelectedScheduleMemos'
 import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
 import { listDiaryPhotosForIds, uploadDiaryPhotos } from '../lib/attachments'
 import './WorkDiary.css'
@@ -395,6 +395,11 @@ export default function WorkDiary({ onOpenDiary }) {
     return raw.filter((m) => (m.writer || '주현희') === filterWriter)
   }, [searchMode, searchResults, memos, filterWriter])
 
+  const selectedDateMemos = useMemo(() => {
+    if (filterWriter === 'all') return memos
+    return memos.filter((m) => (m.writer || '주현희') === filterWriter)
+  }, [memos, filterWriter])
+
   const handleChangeStatus = useCallback(async (id, nextStatus) => {
     if (!isSupabaseConfigured) return
     // 낙관적 업데이트
@@ -697,10 +702,11 @@ export default function WorkDiary({ onOpenDiary }) {
           photoMap={photoMap}
         />
 
-        <SchedulePanel
-          key={toDateKey(selectedDate)}
+        <SelectedScheduleMemos
           selectedDate={selectedDate}
-          disabled={!isSupabaseConfigured}
+          memos={selectedDateMemos}
+          loading={loading}
+          onNavigate={handleNavigate}
         />
       </main>
 
