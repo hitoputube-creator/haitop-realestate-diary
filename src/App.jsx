@@ -16,9 +16,18 @@ function loadNav() {
   }
 }
 
+/* Supabase 비밀번호 재설정 메일 링크는 #type=recovery 해시를 달고 돌아온다.
+   저장했던 마지막 화면과 무관하게 곧장 저장공간 관리(StorageAdmin)로 보내야
+   그 화면의 "새 비밀번호 설정" 폼이 이 해시를 감지할 수 있다. */
+function isPasswordRecoveryUrl() {
+  return typeof window !== 'undefined' && window.location.hash.includes('type=recovery')
+}
+
 function App() {
   const initialNav = loadNav()
-  const [page, setPage] = useState(initialNav?.page || 'diary')
+  const [page, setPage] = useState(
+    isPasswordRecoveryUrl() ? 'storage-admin' : (initialNav?.page || 'diary')
+  )
   const [diaryOwner, setDiaryOwner] = useState(initialNav?.diaryOwner || '주현희')
 
   useEffect(() => {

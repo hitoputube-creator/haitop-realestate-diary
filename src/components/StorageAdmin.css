@@ -166,6 +166,26 @@
   font-size: 12px;
 }
 
+.sa-login-hint {
+  color: var(--color-primary);
+  font-size: 12px;
+}
+
+.sa-link-btn {
+  margin-top: 2px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-on-surface-faint);
+  font-size: 12px;
+  text-decoration: underline;
+  text-align: center;
+  cursor: pointer;
+}
+.sa-link-btn:hover {
+  color: var(--color-on-surface-muted);
+}
+
 .sa-err {
   padding: 10px 14px;
   background: rgba(248, 113, 113, 0.1);
