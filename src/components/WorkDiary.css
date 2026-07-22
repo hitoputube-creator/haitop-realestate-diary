@@ -487,14 +487,14 @@
 
 /* ===== 입력창 ===== */
 .wd-composer {
-  padding: 18px 22px;
+  padding: 16px 22px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-deeper);
 }
 
 .wd-composer-input {
   width: 100%;
-  min-height: 150px;
+  min-height: 120px;
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
   border-radius: 10px;
@@ -535,6 +535,49 @@
   border-radius: 4px;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 10.5px;
+}
+
+.wd-composer-extra,
+.wd-card-edit-extra {
+  margin-top: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.wd-composer-extra summary,
+.wd-card-edit-extra summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-on-surface-muted);
+  user-select: none;
+}
+
+.wd-composer-extra summary::-webkit-details-marker,
+.wd-card-edit-extra summary::-webkit-details-marker {
+  display: none;
+}
+
+.wd-composer-extra summary::before,
+.wd-card-edit-extra summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--color-primary);
+  transition: transform 0.15s ease;
+}
+
+.wd-composer-extra[open] summary::before,
+.wd-card-edit-extra[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.wd-composer-extra-body,
+.wd-card-edit-extra-body {
+  padding: 0 10px 10px;
 }
 
 .wd-btn {
@@ -800,7 +843,7 @@
 
 .wd-card-edit {
   width: 100%;
-  min-height: 150px;
+  min-height: 120px;
   background: var(--color-bg-deeper);
   border: 1px solid var(--color-primary-soft);
   border-radius: 8px;
@@ -1184,6 +1227,10 @@
 .wd-sticker-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.wd-card-sticker-edit {
+  margin-top: 10px;
 }
 
 /* ===== 연결고리 입력 바 (Composer) ===== */

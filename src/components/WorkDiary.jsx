@@ -578,12 +578,19 @@ export default function WorkDiary({ onOpenDiary }) {
         .update(patch)
         .eq('id', id)
       if (e) throw e
+      if (typeof patch.link_key === 'string' && patch.link_key.trim()) {
+        const normalized = patch.link_key.trim()
+        setAllLinkKeys((prev) =>
+          prev.includes(normalized) ? prev : [...prev, normalized].sort()
+        )
+      }
+      loadMonthDots()
       setUpcomingRefreshKey((key) => key + 1)
     } catch (err) {
       setError(`수정 실패: ${err.message || err}`)
       loadMemosForSelected()
     }
-  }, [loadMemosForSelected])
+  }, [loadMemosForSelected, loadMonthDots])
 
   /* ===== 달력 네비게이션 ===== */
   function handlePrevMonth() {

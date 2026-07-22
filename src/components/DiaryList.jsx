@@ -77,6 +77,7 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
   const [draftName, setDraftName] = useState(memo.customer_name || '')
   const [draftPhone, setDraftPhone] = useState(memo.customer_phone || '')
   const [draftTitle, setDraftTitle] = useState(memo.title || '')
+  const [draftSticker, setDraftSticker] = useState(memo.sticker || null)
   const [photoAddOpen, setPhotoAddOpen] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -137,7 +138,9 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
     setDraftName(memo.customer_name || '')
     setDraftPhone(memo.customer_phone || '')
     setDraftTitle(memo.title || '')
-  }, [memo.content, memo.customer_name, memo.customer_phone, memo.title])
+    setDraftSticker(memo.sticker || null)
+    setLinkDraft(memo.link_key || '')
+  }, [memo.content, memo.customer_name, memo.customer_phone, memo.title, memo.sticker, memo.link_key])
 
   const tags = memo.tags && memo.tags.length ? memo.tags : extractTags(memo.content)
 
@@ -153,11 +156,15 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
     const nextName = draftName.trim()
     const nextPhone = draftPhone.trim()
     const nextTitle = draftTitle.trim()
+    const nextLinkKey = linkDraft.trim()
+    const nextSticker = draftSticker || null
     const changed =
       next !== memo.content ||
       nextName !== (memo.customer_name || '') ||
       nextPhone !== (memo.customer_phone || '') ||
-      nextTitle !== (memo.title || '')
+      nextTitle !== (memo.title || '') ||
+      nextLinkKey !== (memo.link_key || '') ||
+      nextSticker !== (memo.sticker || null)
     if (!changed) {
       setEditing(false)
       return
@@ -166,8 +173,19 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
       customer_name: nextName || null,
       customer_phone: nextPhone || null,
       title: nextTitle || null,
+      link_key: nextLinkKey || '',
+      sticker: nextSticker,
     })
     setEditing(false)
+  }
+
+  function resetEditDraft() {
+    setDraft(memo.content)
+    setDraftName(memo.customer_name || '')
+    setDraftPhone(memo.customer_phone || '')
+    setDraftTitle(memo.title || '')
+    setDraftSticker(memo.sticker || null)
+    setLinkDraft(memo.link_key || '')
   }
 
   async function handleAddPhotos() {
@@ -260,7 +278,7 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
       )}
 
       {/* 연결태그 인라인 편집 */}
-      {linkEditing && (
+      {linkEditing && !editing && (
         <div className="wd-link-inline-editor">
           <span className="wd-link-inline-label">연결태그</span>
           <input
@@ -317,15 +335,6 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
 
       {editing && (
         <>
-          {linkEditing && (
-            <div className="wd-composer-tools-row">
-              <LinkKeySearchBox
-                currentValue={linkDraft}
-                onSelect={setLinkDraft}
-                disabled={linkSaving}
-              />
-            </div>
-          )}
           <div className="wd-card-edit-wrap">
             <textarea
               ref={taRef}
@@ -337,7 +346,7 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
-                  setDraft(memo.content)
+                  resetEditDraft()
                   setEditing(false)
                 }
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -346,6 +355,66 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
               }}
             />
           </div>
+          <div className="wd-sticker-bar wd-card-sticker-edit">
+            <span className="wd-sticker-bar-label">스티커</span>
+            {STICKER_OPTIONS.map((opt) => {
+              const isActive = draftSticker === opt.value
+              const meta = opt.value ? STICKER_META[opt.value] : null
+              return (
+                <button
+                  key={opt.value ?? 'none'}
+                  type="button"
+                  className={`wd-sticker-btn ${isActive ? 'active' : ''}`}
+                  style={
+                    meta
+                      ? isActive
+                        ? { background: meta.color, borderColor: meta.color, color: '#fff' }
+                        : { borderColor: `${meta.color}88`, color: meta.color }
+                      : {}
+                  }
+                  onClick={() => setDraftSticker(isActive && opt.value !== null ? null : opt.value)}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+          <details className="wd-card-edit-extra">
+            <summary>연결태그</summary>
+            <div className="wd-card-edit-extra-body">
+              <LinkKeySearchBox
+                currentValue={linkDraft}
+                onSelect={setLinkDraft}
+                disabled={linkSaving}
+                onNavigate={onNavigate}
+              />
+              <div className="wd-link-bar">
+                <span className="wd-link-bar-label">연결태그</span>
+                <input
+                  list={`wd-link-key-datalist-card-edit-${memo.id}`}
+                  className="wd-link-input"
+                  placeholder="예: 금승리67-6, 공장손님-김OO"
+                  value={linkDraft}
+                  onChange={(e) => setLinkDraft(e.target.value)}
+                  disabled={linkSaving}
+                />
+                <datalist id={`wd-link-key-datalist-card-edit-${memo.id}`}>
+                  {(allLinkKeys || []).map((k) => <option key={k} value={k} />)}
+                </datalist>
+                {linkDraft && (
+                  <button
+                    type="button"
+                    className="wd-link-clear-btn"
+                    onClick={() => setLinkDraft('')}
+                    disabled={linkSaving}
+                    aria-label="연결태그 초기화"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          </details>
         </>
       )}
 
@@ -463,7 +532,7 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
               type="button"
               className="wd-action-btn"
               onClick={() => {
-                setDraft(memo.content)
+                resetEditDraft()
                 setEditing(false)
               }}
             >
@@ -733,7 +802,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   function autoResizeComposer(el) {
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.max(150, el.scrollHeight)}px`
+    el.style.height = `${Math.max(120, el.scrollHeight)}px`
   }
 
   async function handleSubmit() {
@@ -753,7 +822,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
       setName('')
       setPhone('')
       setTitle('')
-      if (composerRef.current) composerRef.current.style.height = '150px'
+      if (composerRef.current) composerRef.current.style.height = '120px'
     } catch (err) {
       setSubmitError(err.message || String(err))
     } finally {
@@ -765,37 +834,6 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
 
   return (
     <div className="wd-composer">
-      <div className="wd-composer-customer-row">
-        <input
-          className="wd-composer-customer-input"
-          placeholder="제목"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          disabled={disabled || submitting}
-        />
-        <input
-          className="wd-composer-customer-input"
-          placeholder="이름"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          disabled={disabled || submitting}
-        />
-        <input
-          className="wd-composer-customer-input"
-          placeholder="연락처"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          disabled={disabled || submitting}
-        />
-      </div>
-      <div className="wd-composer-tools-row">
-        <LinkKeySearchBox
-          currentValue={linkKey}
-          onSelect={setLinkKey}
-          disabled={disabled || submitting}
-          onNavigate={onNavigate}
-        />
-      </div>
       <div className="wd-composer-input-wrap">
         <textarea
           ref={composerRef}
@@ -843,42 +881,76 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
         })}
       </div>
 
-      {/* 연결태그 입력 */}
-      <div className="wd-link-bar">
-        <span className="wd-link-bar-label">연결태그</span>
-        <input
-          list="wd-link-key-datalist"
-          className="wd-link-input"
-          placeholder="예: 금승리67-6, 공장손님-김OO"
-          value={linkKey}
-          onChange={(e) => setLinkKey(e.target.value)}
-          disabled={disabled || submitting}
-        />
-        <datalist id="wd-link-key-datalist">
-          {(allLinkKeys || []).map((k) => (
-            <option key={k} value={k} />
-          ))}
-        </datalist>
-        {linkKey && (
-          <button
-            type="button"
-            className="wd-link-clear-btn"
-            onClick={() => setLinkKey('')}
-            disabled={disabled || submitting}
-            aria-label="연결태그 초기화"
-          >
-            ✕
-          </button>
-        )}
-      </div>
-      <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
-
-      <DiaryPhotoUploader
-        files={photoFiles}
-        onChange={setPhotoFiles}
-        disabled={disabled}
-        busy={submitting}
-      />
+      <details className="wd-composer-extra">
+        <summary>세부정보 · 연결태그 · 사진</summary>
+        <div className="wd-composer-extra-body">
+          <div className="wd-composer-customer-row">
+            <input
+              className="wd-composer-customer-input"
+              placeholder="제목"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={disabled || submitting}
+            />
+            <input
+              className="wd-composer-customer-input"
+              placeholder="이름"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={disabled || submitting}
+            />
+            <input
+              className="wd-composer-customer-input"
+              placeholder="연락처"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={disabled || submitting}
+            />
+          </div>
+          <div className="wd-composer-tools-row">
+            <LinkKeySearchBox
+              currentValue={linkKey}
+              onSelect={setLinkKey}
+              disabled={disabled || submitting}
+              onNavigate={onNavigate}
+            />
+          </div>
+          <div className="wd-link-bar">
+            <span className="wd-link-bar-label">연결태그</span>
+            <input
+              list="wd-link-key-datalist"
+              className="wd-link-input"
+              placeholder="예: 금승리67-6, 공장손님-김OO"
+              value={linkKey}
+              onChange={(e) => setLinkKey(e.target.value)}
+              disabled={disabled || submitting}
+            />
+            <datalist id="wd-link-key-datalist">
+              {(allLinkKeys || []).map((k) => (
+                <option key={k} value={k} />
+              ))}
+            </datalist>
+            {linkKey && (
+              <button
+                type="button"
+                className="wd-link-clear-btn"
+                onClick={() => setLinkKey('')}
+                disabled={disabled || submitting}
+                aria-label="연결태그 초기화"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
+          <DiaryPhotoUploader
+            files={photoFiles}
+            onChange={setPhotoFiles}
+            disabled={disabled}
+            busy={submitting}
+          />
+        </div>
+      </details>
 
       {submitError && <div className="wd-photo-error" role="alert">{submitError}</div>}
 
