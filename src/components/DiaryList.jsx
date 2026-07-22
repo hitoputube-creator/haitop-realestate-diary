@@ -20,6 +20,8 @@ const STICKER_OPTIONS = [
   { value: '기타', label: '기타' },
 ]
 
+const PROPERTY_REGISTER_URL = 'https://hitoputube-creator.github.io/haitop-realty-system/register.html'
+
 /* ===== 헬퍼 ===== */
 const TAG_REGEX = /#[\w가-힣]+/g
 
@@ -201,6 +203,30 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
     } finally {
       setPhotoBusy(false)
     }
+  }
+
+  function sendToPropertyRegister() {
+    const params = new URLSearchParams()
+    params.set('memo', memo.content || '')
+    if (memo.title) params.set('title', memo.title)
+    if (memo.customer_name) params.set('customerName', memo.customer_name)
+    if (memo.customer_phone) params.set('customerPhone', memo.customer_phone)
+    if (memo.id) params.set('diaryId', String(memo.id))
+
+    const transferPhotos = (photos || [])
+      .map((photo) => ({
+        id: photo.id || '',
+        url: photo.public_url || '',
+        name: photo.original_name || '업무일지 사진',
+      }))
+      .filter((photo) => photo.url)
+      .slice(0, 5)
+
+    if (transferPhotos.length > 0) {
+      params.set('photos', JSON.stringify(transferPhotos))
+    }
+
+    window.location.href = `${PROPERTY_REGISTER_URL}?${params.toString()}`
   }
 
   return (
@@ -498,10 +524,7 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
             <button
               type="button"
               className="wd-action-btn send-property"
-              onClick={() => {
-                const encoded = encodeURIComponent(memo.content)
-                window.location.href = `https://hitoputube-creator.github.io/haitop-realty-system/?memo=${encoded}`
-              }}
+              onClick={sendToPropertyRegister}
               aria-label="매물관리 프로그램으로 이동"
             >
               <span aria-hidden="true">🏠</span> 매물보내기
