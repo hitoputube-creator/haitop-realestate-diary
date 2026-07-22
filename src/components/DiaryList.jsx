@@ -81,8 +81,6 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
   const [photoFiles, setPhotoFiles] = useState([])
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState('')
-  const [registering, setRegistering] = useState(false)
-  const [registerError, setRegisterError] = useState('')
   const taRef = useRef(null)
   const cardRef = useRef(null)
 
@@ -170,43 +168,6 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
       title: nextTitle || null,
     })
     setEditing(false)
-  }
-
-  async function handleRegisterListing() {
-    if (registering) return
-    setRegistering(true)
-    setRegisterError('')
-    try {
-      const { data, error } = await supabase.functions.invoke('analyze-listing-intake', {
-        body: {
-          diaryId: memo.id,
-          title: memo.title,
-          content: memo.content,
-          customerName: memo.customer_name,
-          customerPhone: memo.customer_phone,
-        },
-      })
-      if (error) {
-        let msg = error.message
-        try {
-          const body = await error.context?.json()
-          if (body?.error) msg = body.error
-        } catch {
-          // 응답 본문을 못 읽으면 기본 에러 메시지 사용
-        }
-        throw new Error(msg)
-      }
-      if (data?.error) throw new Error(data.error)
-      if (!data?.id) throw new Error('분석 결과 ID를 받지 못했습니다.')
-      window.open(
-        `https://hitoputube-creator.github.io/haitop-realty-system/register.html?intake=${data.id}`,
-        '_blank'
-      )
-    } catch (err) {
-      setRegisterError(err.message || String(err))
-    } finally {
-      setRegistering(false)
-    }
   }
 
   async function handleAddPhotos() {
@@ -479,15 +440,6 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
             <button
               type="button"
               className="wd-action-btn"
-              onClick={handleRegisterListing}
-              disabled={registering}
-              aria-label="AI로 매물등록 정보 분석"
-            >
-              {registering ? '🤖 AI가 분석 중입니다...' : '🤖 매물등록'}
-            </button>
-            <button
-              type="button"
-              className="wd-action-btn"
               onClick={() => setEditing(true)}
               aria-label="메모 수정"
             >
@@ -527,10 +479,6 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
           </>
         )}
       </div>
-
-      {!editing && registerError && (
-        <div className="wd-photo-error" role="alert">{registerError}</div>
-      )}
 
       {!editing && photoAddOpen && (
         <div className="wd-card-photo-panel">
