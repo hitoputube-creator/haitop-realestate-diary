@@ -1,0 +1,117 @@
+/* ===================================================
+   다가오는 일정 사이드 위젯
+=================================================== */
+
+.usw-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.usw-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.usw-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  letter-spacing: -0.2px;
+}
+
+.usw-sub {
+  font-size: 10.5px;
+  color: var(--color-on-surface-faint);
+  margin-top: 3px;
+}
+
+.usw-loading,
+.usw-empty {
+  text-align: center;
+  padding: 18px 16px;
+  font-size: 12px;
+  color: var(--color-on-surface-faint);
+}
+
+.usw-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.usw-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.usw-item:hover {
+  background: var(--color-surface-hover);
+  border-color: rgba(230, 195, 100, 0.34);
+}
+
+.usw-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-on-surface-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.usw-sticker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.usw-memo-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.usw-writer {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .usw-list {
+    max-height: none;
+  }
+
+  .usw-item {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+
+  .usw-writer {
+    grid-column: 3;
+    color: var(--color-on-surface-faint);
+  }
+}

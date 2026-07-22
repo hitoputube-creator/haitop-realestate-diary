@@ -20,6 +20,8 @@ const STICKER_OPTIONS = [
   { value: '기타', label: '기타' },
 ]
 
+const PROPERTY_REGISTER_URL = 'https://hitoputube-creator.github.io/haitop-realty-system/register.html'
+
 /* ===== 헬퍼 ===== */
 const TAG_REGEX = /#[\w가-힣]+/g
 
@@ -77,12 +79,11 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
   const [draftName, setDraftName] = useState(memo.customer_name || '')
   const [draftPhone, setDraftPhone] = useState(memo.customer_phone || '')
   const [draftTitle, setDraftTitle] = useState(memo.title || '')
+  const [draftSticker, setDraftSticker] = useState(memo.sticker || null)
   const [photoAddOpen, setPhotoAddOpen] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState('')
-  const [registering, setRegistering] = useState(false)
-  const [registerError, setRegisterError] = useState('')
   const taRef = useRef(null)
   const cardRef = useRef(null)
 
@@ -139,7 +140,9 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
     setDraftName(memo.customer_name || '')
     setDraftPhone(memo.customer_phone || '')
     setDraftTitle(memo.title || '')
-  }, [memo.content, memo.customer_name, memo.customer_phone, memo.title])
+    setDraftSticker(memo.sticker || null)
+    setLinkDraft(memo.link_key || '')
+  }, [memo.content, memo.customer_name, memo.customer_phone, memo.title, memo.sticker, memo.link_key])
 
   const tags = memo.tags && memo.tags.length ? memo.tags : extractTags(memo.content)
 
@@ -155,11 +158,15 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
     const nextName = draftName.trim()
     const nextPhone = draftPhone.trim()
     const nextTitle = draftTitle.trim()
+    const nextLinkKey = linkDraft.trim()
+    const nextSticker = draftSticker || null
     const changed =
       next !== memo.content ||
       nextName !== (memo.customer_name || '') ||
       nextPhone !== (memo.customer_phone || '') ||
-      nextTitle !== (memo.title || '')
+      nextTitle !== (memo.title || '') ||
+      nextLinkKey !== (memo.link_key || '') ||
+      nextSticker !== (memo.sticker || null)
     if (!changed) {
       setEditing(false)
       return
@@ -168,45 +175,19 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
       customer_name: nextName || null,
       customer_phone: nextPhone || null,
       title: nextTitle || null,
+      link_key: nextLinkKey || '',
+      sticker: nextSticker,
     })
     setEditing(false)
   }
 
-  async function handleRegisterListing() {
-    if (registering) return
-    setRegistering(true)
-    setRegisterError('')
-    try {
-      const { data, error } = await supabase.functions.invoke('analyze-listing-intake', {
-        body: {
-          diaryId: memo.id,
-          title: memo.title,
-          content: memo.content,
-          customerName: memo.customer_name,
-          customerPhone: memo.customer_phone,
-        },
-      })
-      if (error) {
-        let msg = error.message
-        try {
-          const body = await error.context?.json()
-          if (body?.error) msg = body.error
-        } catch {
-          // 응답 본문을 못 읽으면 기본 에러 메시지 사용
-        }
-        throw new Error(msg)
-      }
-      if (data?.error) throw new Error(data.error)
-      if (!data?.id) throw new Error('분석 결과 ID를 받지 못했습니다.')
-      window.open(
-        `https://hitoputube-creator.github.io/haitop-realty-system/register.html?intake=${data.id}`,
-        '_blank'
-      )
-    } catch (err) {
-      setRegisterError(err.message || String(err))
-    } finally {
-      setRegistering(false)
-    }
+  function resetEditDraft() {
+    setDraft(memo.content)
+    setDraftName(memo.customer_name || '')
+    setDraftPhone(memo.customer_phone || '')
+    setDraftTitle(memo.title || '')
+    setDraftSticker(memo.sticker || null)
+    setLinkDraft(memo.link_key || '')
   }
 
   async function handleAddPhotos() {
@@ -222,6 +203,30 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
     } finally {
       setPhotoBusy(false)
     }
+  }
+
+  function sendToPropertyRegister() {
+    const params = new URLSearchParams()
+    params.set('memo', memo.content || '')
+    if (memo.title) params.set('title', memo.title)
+    if (memo.customer_name) params.set('customerName', memo.customer_name)
+    if (memo.customer_phone) params.set('customerPhone', memo.customer_phone)
+    if (memo.id) params.set('diaryId', String(memo.id))
+
+    const transferPhotos = (photos || [])
+      .map((photo) => ({
+        id: photo.id || '',
+        url: photo.public_url || '',
+        name: photo.original_name || '업무일지 사진',
+      }))
+      .filter((photo) => photo.url)
+      .slice(0, 5)
+
+    if (transferPhotos.length > 0) {
+      params.set('photos', JSON.stringify(transferPhotos))
+    }
+
+    window.location.href = `${PROPERTY_REGISTER_URL}?${params.toString()}`
   }
 
   return (
@@ -299,7 +304,7 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
       )}
 
       {/* 연결태그 인라인 편집 */}
-      {linkEditing && (
+      {linkEditing && !editing && (
         <div className="wd-link-inline-editor">
           <span className="wd-link-inline-label">연결태그</span>
           <input
@@ -356,15 +361,6 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
 
       {editing && (
         <>
-          {linkEditing && (
-            <div className="wd-composer-tools-row">
-              <LinkKeySearchBox
-                currentValue={linkDraft}
-                onSelect={setLinkDraft}
-                disabled={linkSaving}
-              />
-            </div>
-          )}
           <div className="wd-card-edit-wrap">
             <textarea
               ref={taRef}
@@ -376,7 +372,7 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
-                  setDraft(memo.content)
+                  resetEditDraft()
                   setEditing(false)
                 }
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -385,6 +381,66 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
               }}
             />
           </div>
+          <div className="wd-sticker-bar wd-card-sticker-edit">
+            <span className="wd-sticker-bar-label">스티커</span>
+            {STICKER_OPTIONS.map((opt) => {
+              const isActive = draftSticker === opt.value
+              const meta = opt.value ? STICKER_META[opt.value] : null
+              return (
+                <button
+                  key={opt.value ?? 'none'}
+                  type="button"
+                  className={`wd-sticker-btn ${isActive ? 'active' : ''}`}
+                  style={
+                    meta
+                      ? isActive
+                        ? { background: meta.color, borderColor: meta.color, color: '#fff' }
+                        : { borderColor: `${meta.color}88`, color: meta.color }
+                      : {}
+                  }
+                  onClick={() => setDraftSticker(isActive && opt.value !== null ? null : opt.value)}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+          <details className="wd-card-edit-extra">
+            <summary>연결태그</summary>
+            <div className="wd-card-edit-extra-body">
+              <LinkKeySearchBox
+                currentValue={linkDraft}
+                onSelect={setLinkDraft}
+                disabled={linkSaving}
+                onNavigate={onNavigate}
+              />
+              <div className="wd-link-bar">
+                <span className="wd-link-bar-label">연결태그</span>
+                <input
+                  list={`wd-link-key-datalist-card-edit-${memo.id}`}
+                  className="wd-link-input"
+                  placeholder="예: 금승리67-6, 공장손님-김OO"
+                  value={linkDraft}
+                  onChange={(e) => setLinkDraft(e.target.value)}
+                  disabled={linkSaving}
+                />
+                <datalist id={`wd-link-key-datalist-card-edit-${memo.id}`}>
+                  {(allLinkKeys || []).map((k) => <option key={k} value={k} />)}
+                </datalist>
+                {linkDraft && (
+                  <button
+                    type="button"
+                    className="wd-link-clear-btn"
+                    onClick={() => setLinkDraft('')}
+                    disabled={linkSaving}
+                    aria-label="연결태그 초기화"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          </details>
         </>
       )}
 
@@ -468,22 +524,10 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
             <button
               type="button"
               className="wd-action-btn send-property"
-              onClick={() => {
-                const encoded = encodeURIComponent(memo.content)
-                window.location.href = `https://hitoputube-creator.github.io/haitop-realty-system/?memo=${encoded}`
-              }}
+              onClick={sendToPropertyRegister}
               aria-label="매물관리 프로그램으로 이동"
             >
               <span aria-hidden="true">🏠</span> 매물보내기
-            </button>
-            <button
-              type="button"
-              className="wd-action-btn"
-              onClick={handleRegisterListing}
-              disabled={registering}
-              aria-label="AI로 매물등록 정보 분석"
-            >
-              {registering ? '🤖 AI가 분석 중입니다...' : '🤖 매물등록'}
             </button>
             <button
               type="button"
@@ -511,7 +555,7 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
               type="button"
               className="wd-action-btn"
               onClick={() => {
-                setDraft(memo.content)
+                resetEditDraft()
                 setEditing(false)
               }}
             >
@@ -527,10 +571,6 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
           </>
         )}
       </div>
-
-      {!editing && registerError && (
-        <div className="wd-photo-error" role="alert">{registerError}</div>
-      )}
 
       {!editing && photoAddOpen && (
         <div className="wd-card-photo-panel">
@@ -785,7 +825,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   function autoResizeComposer(el) {
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.max(150, el.scrollHeight)}px`
+    el.style.height = `${Math.max(120, el.scrollHeight)}px`
   }
 
   async function handleSubmit() {
@@ -794,10 +834,6 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     const trimmedPhone = phone.trim()
     const trimmedTitle = title.trim()
     if (!trimmed || submitting) return
-    if (!trimmedName || !trimmedPhone || !trimmedTitle) {
-      setSubmitError('이름, 연락처, 제목을 모두 입력해주세요.')
-      return
-    }
     setSubmitting(true)
     setSubmitError('')
     try {
@@ -809,7 +845,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
       setName('')
       setPhone('')
       setTitle('')
-      if (composerRef.current) composerRef.current.style.height = '150px'
+      if (composerRef.current) composerRef.current.style.height = '120px'
     } catch (err) {
       setSubmitError(err.message || String(err))
     } finally {
@@ -821,37 +857,6 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
 
   return (
     <div className="wd-composer">
-      <div className="wd-composer-customer-row">
-        <input
-          className="wd-composer-customer-input"
-          placeholder="제목 *"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          disabled={disabled || submitting}
-        />
-        <input
-          className="wd-composer-customer-input"
-          placeholder="이름 *"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          disabled={disabled || submitting}
-        />
-        <input
-          className="wd-composer-customer-input"
-          placeholder="연락처 *"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          disabled={disabled || submitting}
-        />
-      </div>
-      <div className="wd-composer-tools-row">
-        <LinkKeySearchBox
-          currentValue={linkKey}
-          onSelect={setLinkKey}
-          disabled={disabled || submitting}
-          onNavigate={onNavigate}
-        />
-      </div>
       <div className="wd-composer-input-wrap">
         <textarea
           ref={composerRef}
@@ -899,42 +904,76 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
         })}
       </div>
 
-      {/* 연결태그 입력 */}
-      <div className="wd-link-bar">
-        <span className="wd-link-bar-label">연결태그</span>
-        <input
-          list="wd-link-key-datalist"
-          className="wd-link-input"
-          placeholder="예: 금승리67-6, 공장손님-김OO"
-          value={linkKey}
-          onChange={(e) => setLinkKey(e.target.value)}
-          disabled={disabled || submitting}
-        />
-        <datalist id="wd-link-key-datalist">
-          {(allLinkKeys || []).map((k) => (
-            <option key={k} value={k} />
-          ))}
-        </datalist>
-        {linkKey && (
-          <button
-            type="button"
-            className="wd-link-clear-btn"
-            onClick={() => setLinkKey('')}
-            disabled={disabled || submitting}
-            aria-label="연결태그 초기화"
-          >
-            ✕
-          </button>
-        )}
-      </div>
-      <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
-
-      <DiaryPhotoUploader
-        files={photoFiles}
-        onChange={setPhotoFiles}
-        disabled={disabled}
-        busy={submitting}
-      />
+      <details className="wd-composer-extra">
+        <summary>세부정보 · 연결태그 · 사진</summary>
+        <div className="wd-composer-extra-body">
+          <div className="wd-composer-customer-row">
+            <input
+              className="wd-composer-customer-input"
+              placeholder="제목"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={disabled || submitting}
+            />
+            <input
+              className="wd-composer-customer-input"
+              placeholder="이름"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={disabled || submitting}
+            />
+            <input
+              className="wd-composer-customer-input"
+              placeholder="연락처"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={disabled || submitting}
+            />
+          </div>
+          <div className="wd-composer-tools-row">
+            <LinkKeySearchBox
+              currentValue={linkKey}
+              onSelect={setLinkKey}
+              disabled={disabled || submitting}
+              onNavigate={onNavigate}
+            />
+          </div>
+          <div className="wd-link-bar">
+            <span className="wd-link-bar-label">연결태그</span>
+            <input
+              list="wd-link-key-datalist"
+              className="wd-link-input"
+              placeholder="예: 금승리67-6, 공장손님-김OO"
+              value={linkKey}
+              onChange={(e) => setLinkKey(e.target.value)}
+              disabled={disabled || submitting}
+            />
+            <datalist id="wd-link-key-datalist">
+              {(allLinkKeys || []).map((k) => (
+                <option key={k} value={k} />
+              ))}
+            </datalist>
+            {linkKey && (
+              <button
+                type="button"
+                className="wd-link-clear-btn"
+                onClick={() => setLinkKey('')}
+                disabled={disabled || submitting}
+                aria-label="연결태그 초기화"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
+          <DiaryPhotoUploader
+            files={photoFiles}
+            onChange={setPhotoFiles}
+            disabled={disabled}
+            busy={submitting}
+          />
+        </div>
+      </details>
 
       {submitError && <div className="wd-photo-error" role="alert">{submitError}</div>}
 
@@ -961,7 +1000,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
             type="button"
             className="wd-btn wd-btn-primary"
             onClick={handleSubmit}
-            disabled={disabled || submitting || !value.trim() || !name.trim() || !phone.trim() || !title.trim()}
+            disabled={disabled || submitting || !value.trim()}
           >
             {submitting ? '저장 중...' : '저장'}
           </button>

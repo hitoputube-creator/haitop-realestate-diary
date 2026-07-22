@@ -3,13 +3,14 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
-import StickyNotes from './StickyNotes'
-import AllMemosPanel from './AllMemosPanel'
+import UpcomingSchedules from './UpcomingSchedules'
+import SelectedScheduleMemos from './SelectedScheduleMemos'
 import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
 import { listDiaryPhotosForIds, uploadDiaryPhotos } from '../lib/attachments'
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
+const DAILY_SCHEDULE_KEY = '__daily_schedule__'
 
 export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const today = useMemo(() => new Date(), [])
@@ -19,7 +20,11 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const [viewMonth, setViewMonth] = useState(today.getMonth())
 
   const [memos, setMemos] = useState([])
+  const [dailyScheduleNotes, setDailyScheduleNotes] = useState([])
   const [loading, setLoading] = useState(false)
+  const [scheduleLoading, setScheduleLoading] = useState(false)
+  const [scheduleSaving, setScheduleSaving] = useState(false)
+  const [scheduleError, setScheduleError] = useState('')
   const [error, setError] = useState(null)
 
   const [notedDateKeys, setNotedDateKeys] = useState({})
@@ -32,20 +37,17 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const searchMode = searchQuery.trim().length > 0
   const [filterWriter, setFilterWriter] = useState('all')
 
-  /* ===== 사이드패널(전체 메모 리스트) 새로고침 트리거 ===== */
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
-
   /* ===== 연결고리 ===== */
   const [allLinkKeys, setAllLinkKeys] = useState([])
   const [linkKeyFilter, setLinkKeyFilter] = useState(null)
   const [linkMemos, setLinkMemos] = useState([])
   const [linkMemosLoading, setLinkMemosLoading] = useState(false)
 
-  /* ===== 포스트잇 ===== */
+  /* ===== 포스트잇 고정 상태 ===== */
   const [stickyData, setStickyData] = useState([])   // [{sticky, memo}]
-  const [stickyLoading, setStickyLoading] = useState(false)
   const [photoMap, setPhotoMap] = useState({})
   const [photoGallery, setPhotoGallery] = useState(null)
+  const [upcomingRefreshKey, setUpcomingRefreshKey] = useState(0)
 
   // 현재 고정된 diary_id Set — MemoCard 버튼 상태 판단용
   const pinnedDiaryIds = useMemo(
@@ -82,10 +84,13 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const loadMemosForSelected = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setMemos([])
+      setDailyScheduleNotes([])
       return
     }
     setLoading(true)
+    setScheduleLoading(true)
     setError(null)
+    setScheduleError('')
     try {
       const dateStr = toDateKey(selectedDate)
       const { data, error: e } = await supabase
@@ -95,13 +100,18 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         .order('created_at', { ascending: true })
       if (e) throw e
       const rows = data || []
-      setMemos(rows)
-      loadPhotosForRows(rows)
+      const scheduleRows = rows.filter((row) => row.link_key === DAILY_SCHEDULE_KEY)
+      const diaryRows = rows.filter((row) => row.link_key !== DAILY_SCHEDULE_KEY)
+      setMemos(diaryRows)
+      setDailyScheduleNotes(scheduleRows)
+      loadPhotosForRows(diaryRows)
     } catch (err) {
       setError(`메모를 불러오지 못했습니다: ${err.message || err}`)
       setMemos([])
+      setDailyScheduleNotes([])
     } finally {
       setLoading(false)
+      setScheduleLoading(false)
     }
   }, [selectedDate, loadPhotosForRows])
 
@@ -122,7 +132,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       const endStr = toDateKey(end)
       const { data, error: e } = await supabase
         .from(TABLE)
-        .select('date, writer, sticker')
+        .select('date, writer, sticker, link_key')
         .gte('date', startStr)
         .lte('date', endStr)
       if (e) throw e
@@ -130,7 +140,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       // { [dateKey]: [{ writer, sticker }] }
       const dotsMap = {}
       if (data) {
-        data.forEach((r) => {
+        data.filter((r) => r.link_key !== DAILY_SCHEDULE_KEY).forEach((r) => {
           const dateKey = r.date
           if (!dotsMap[dateKey]) dotsMap[dateKey] = []
           dotsMap[dateKey].push({
@@ -160,7 +170,9 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         .select('link_key')
         .neq('link_key', '')
       if (e) throw e
-      const unique = Array.from(new Set((data || []).map((r) => r.link_key).filter(Boolean))).sort()
+      const unique = Array.from(new Set((data || []).map((r) => r.link_key).filter(Boolean)))
+        .filter((key) => key !== DAILY_SCHEDULE_KEY)
+        .sort()
       setAllLinkKeys(unique)
     } catch {
       // 실패해도 무시
@@ -202,7 +214,6 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   /* ===== 포스트잇 로드 ===== */
   const loadStickyNotes = useCallback(async () => {
     if (!isSupabaseConfigured) return
-    setStickyLoading(true)
     try {
       const { data: stickies, error: e1 } = await supabase
         .from('work_sticky_notes')
@@ -227,8 +238,6 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       setStickyData(stickies.map((s) => ({ sticky: s, memo: memoMap[s.diary_id] || null })))
     } catch (err) {
       console.warn('[StickyNotes] load failed:', err.message || err)
-    } finally {
-      setStickyLoading(false)
     }
   }, [])
 
@@ -251,27 +260,6 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       setError(`포스트잇 추가 실패: ${err.message || err}`)
     }
   }, [memos, searchResults])
-
-  /* 포스트잇 색상 변경 */
-  const handleUpdateStickyColor = useCallback(async (stickyId, color) => {
-    if (!isSupabaseConfigured) return
-    // 낙관적 업데이트
-    setStickyData((prev) =>
-      prev.map((d) =>
-        d.sticky.id === stickyId ? { ...d, sticky: { ...d.sticky, color } } : d
-      )
-    )
-    try {
-      const { error: e } = await supabase
-        .from('work_sticky_notes')
-        .update({ color })
-        .eq('id', stickyId)
-      if (e) throw e
-    } catch (err) {
-      setError(`색상 변경 실패: ${err.message || err}`)
-      loadStickyNotes()
-    }
-  }, [loadStickyNotes])
 
   /* 포스트잇 해제 (삭제) */
   const handleUnpin = useCallback(async (diaryId) => {
@@ -347,8 +335,9 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         if (e) throw e
         if (!cancelled) {
           const rows = data || []
-          setSearchResults(rows)
-          loadPhotosForRows(rows)
+          const diaryRows = rows.filter((row) => row.link_key !== DAILY_SCHEDULE_KEY)
+          setSearchResults(diaryRows)
+          loadPhotosForRows(diaryRows)
         }
       } catch (err) {
         if (!cancelled) {
@@ -406,7 +395,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           )
         }
         setError(null)
-        setRefreshTrigger((t) => t + 1)
+        setUpcomingRefreshKey((key) => key + 1)
         return data
       } catch (err) {
         setError(`저장 실패: ${err.message || err}`)
@@ -415,6 +404,86 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     },
     [selectedDate]
   )
+
+  const handleCreateDailySchedule = useCallback(async ({ writer = '주현희', content }) => {
+    const text = (content || '').trim()
+    if (!isSupabaseConfigured || !text) return
+
+    setScheduleSaving(true)
+    setScheduleError('')
+    try {
+      const dateStr = toDateKey(selectedDate)
+      const { data, error: e } = await supabase
+        .from(TABLE)
+        .insert({
+          content: text,
+          tags: [],
+          status: 'normal',
+          date: dateStr,
+          writer,
+          sticker: null,
+          link_key: DAILY_SCHEDULE_KEY,
+          customer_name: null,
+          customer_phone: null,
+          title: null,
+        })
+        .select()
+        .single()
+      if (e) throw e
+      setDailyScheduleNotes((prev) => [...prev, data])
+    } catch (err) {
+      setScheduleError(`일정 메모 저장 실패: ${err.message || err}`)
+      throw err
+    } finally {
+      setScheduleSaving(false)
+    }
+  }, [selectedDate])
+
+  const handleUpdateDailySchedule = useCallback(async (id, { writer = '주현희', content }) => {
+    const text = (content || '').trim()
+    if (!isSupabaseConfigured || !id || !text) return
+
+    const patch = { writer, content: text }
+    const prev = dailyScheduleNotes
+    setDailyScheduleNotes((items) =>
+      items.map((item) => (item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item))
+    )
+    setScheduleSaving(true)
+    setScheduleError('')
+    try {
+      const { error: e } = await supabase
+        .from(TABLE)
+        .update(patch)
+        .eq('id', id)
+        .eq('link_key', DAILY_SCHEDULE_KEY)
+      if (e) throw e
+    } catch (err) {
+      setDailyScheduleNotes(prev)
+      setScheduleError(`일정 메모 수정 실패: ${err.message || err}`)
+      throw err
+    } finally {
+      setScheduleSaving(false)
+    }
+  }, [dailyScheduleNotes])
+
+  const handleDeleteDailySchedule = useCallback(async (id) => {
+    if (!isSupabaseConfigured || !id) return
+
+    const prev = dailyScheduleNotes
+    setDailyScheduleNotes((items) => items.filter((item) => item.id !== id))
+    setScheduleError('')
+    try {
+      const { error: e } = await supabase
+        .from(TABLE)
+        .delete()
+        .eq('id', id)
+        .eq('link_key', DAILY_SCHEDULE_KEY)
+      if (e) throw e
+    } catch (err) {
+      setDailyScheduleNotes(prev)
+      setScheduleError(`일정 메모 삭제 실패: ${err.message || err}`)
+    }
+  }, [dailyScheduleNotes])
 
   const filteredMemos = useMemo(() => {
     const raw = searchMode ? searchResults : memos
@@ -459,7 +528,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         if (e) throw e
         // 해당 날짜에 메모가 더 이상 없으면 도트 제거
         loadMonthDots()
-        setRefreshTrigger((t) => t + 1)
+        setUpcomingRefreshKey((key) => key + 1)
       } catch (err) {
         setError(`삭제 실패: ${err.message || err}`)
         setMemos(prevList)
@@ -509,12 +578,19 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         .update(patch)
         .eq('id', id)
       if (e) throw e
-      setRefreshTrigger((t) => t + 1)
+      if (typeof patch.link_key === 'string' && patch.link_key.trim()) {
+        const normalized = patch.link_key.trim()
+        setAllLinkKeys((prev) =>
+          prev.includes(normalized) ? prev : [...prev, normalized].sort()
+        )
+      }
+      loadMonthDots()
+      setUpcomingRefreshKey((key) => key + 1)
     } catch (err) {
       setError(`수정 실패: ${err.message || err}`)
       loadMemosForSelected()
     }
-  }, [loadMemosForSelected])
+  }, [loadMemosForSelected, loadMonthDots])
 
   /* ===== 달력 네비게이션 ===== */
   function handlePrevMonth() {
@@ -617,6 +693,14 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         >
           🏢 하이탑업무센타
         </a>
+        <a
+          href="https://calendar.google.com/calendar/u/0/r"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="wd-btn-workcenter wd-btn-google-calendar"
+        >
+          구글 캘린더
+        </a>
       </header>
 
       <div className="wd-filter-tabs">
@@ -684,12 +768,10 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             onNextMonth={handleNextMonth}
             onJumpToday={handleJumpToday}
           />
-          <StickyNotes
-            stickyData={stickyData}
-            loading={stickyLoading}
-            onUnpin={handleUnpin}
-            onUpdateColor={handleUpdateStickyColor}
-            onLinkKeyClick={handleLinkKeyClick}
+          <UpcomingSchedules
+            filterWriter={filterWriter}
+            refreshKey={upcomingRefreshKey}
+            onNavigate={handleNavigate}
           />
         </div>
 
@@ -725,7 +807,17 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           photoMap={photoMap}
         />
 
-        <AllMemosPanel refreshTrigger={refreshTrigger} />
+        <SelectedScheduleMemos
+          key={toDateKey(selectedDate)}
+          selectedDate={selectedDate}
+          notes={dailyScheduleNotes}
+          loading={scheduleLoading}
+          saving={scheduleSaving}
+          error={scheduleError}
+          onCreate={handleCreateDailySchedule}
+          onUpdate={handleUpdateDailySchedule}
+          onDelete={handleDeleteDailySchedule}
+        />
       </main>
 
       {LinkPanel}

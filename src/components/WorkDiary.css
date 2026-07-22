@@ -338,7 +338,7 @@
 }
 
 .wd-cal-day {
-  min-height: 52px;
+  min-height: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -404,20 +404,34 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
   width: 100%;
+  margin-top: 2px;
 }
 
 .wd-cal-sticker-label {
   display: block;
-  width: calc(100% - 4px);
+  width: calc(100% - 6px);
+  text-align: center;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 0 2px;
+  letter-spacing: 0;
+  line-height: 1.3;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+}
+
+.wd-cal-sticker-more {
+  display: block;
+  width: calc(100% - 6px);
   text-align: center;
   font-size: 9px;
-  font-weight: 700;
-  color: #fff;
-  border-radius: 3px;
-  padding: 1px 0;
-  letter-spacing: 0.2px;
+  font-weight: 800;
+  color: var(--color-primary);
+  border-radius: 4px;
+  background: rgba(230, 195, 100, 0.12);
   line-height: 1.3;
 }
 
@@ -473,14 +487,14 @@
 
 /* ===== 입력창 ===== */
 .wd-composer {
-  padding: 18px 22px;
+  padding: 16px 22px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-deeper);
 }
 
 .wd-composer-input {
   width: 100%;
-  min-height: 150px;
+  min-height: 120px;
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
   border-radius: 10px;
@@ -521,6 +535,49 @@
   border-radius: 4px;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 10.5px;
+}
+
+.wd-composer-extra,
+.wd-card-edit-extra {
+  margin-top: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.wd-composer-extra summary,
+.wd-card-edit-extra summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-on-surface-muted);
+  user-select: none;
+}
+
+.wd-composer-extra summary::-webkit-details-marker,
+.wd-card-edit-extra summary::-webkit-details-marker {
+  display: none;
+}
+
+.wd-composer-extra summary::before,
+.wd-card-edit-extra summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--color-primary);
+  transition: transform 0.15s ease;
+}
+
+.wd-composer-extra[open] summary::before,
+.wd-card-edit-extra[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.wd-composer-extra-body,
+.wd-card-edit-extra-body {
+  padding: 0 10px 10px;
 }
 
 .wd-btn {
@@ -786,7 +843,7 @@
 
 .wd-card-edit {
   width: 100%;
-  min-height: 150px;
+  min-height: 120px;
   background: var(--color-bg-deeper);
   border: 1px solid var(--color-primary-soft);
   border-radius: 8px;
@@ -1065,6 +1122,18 @@
   color: #c7d9ff;
 }
 
+.wd-btn-google-calendar {
+  background: rgba(230, 195, 100, 0.13);
+  border-color: rgba(230, 195, 100, 0.42);
+  color: #f1d985;
+}
+
+.wd-btn-google-calendar:hover {
+  background: rgba(230, 195, 100, 0.24);
+  border-color: rgba(230, 195, 100, 0.68);
+  color: #ffe8a3;
+}
+
 /* ===== 비공개 개인노트 버튼 ===== */
 .wd-btn-private-notes {
   flex-shrink: 0;
@@ -1158,6 +1227,10 @@
 .wd-sticker-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.wd-card-sticker-edit {
+  margin-top: 10px;
 }
 
 /* ===== 연결고리 입력 바 (Composer) ===== */
@@ -1952,6 +2025,10 @@
   .wd-btn-workcenter {
     justify-content: center;
     max-width: 100%;
+  }
+
+  .wd-btn-google-calendar {
+    flex: 1 1 auto;
   }
 
   .wd-filter-tabs {
