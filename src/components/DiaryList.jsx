@@ -742,10 +742,6 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     const trimmedPhone = phone.trim()
     const trimmedTitle = title.trim()
     if (!trimmed || submitting) return
-    if (!trimmedName || !trimmedPhone || !trimmedTitle) {
-      setSubmitError('이름, 연락처, 제목을 모두 입력해주세요.')
-      return
-    }
     setSubmitting(true)
     setSubmitError('')
     try {
@@ -772,21 +768,21 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
       <div className="wd-composer-customer-row">
         <input
           className="wd-composer-customer-input"
-          placeholder="제목 *"
+          placeholder="제목"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           disabled={disabled || submitting}
         />
         <input
           className="wd-composer-customer-input"
-          placeholder="이름 *"
+          placeholder="이름"
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={disabled || submitting}
         />
         <input
           className="wd-composer-customer-input"
-          placeholder="연락처 *"
+          placeholder="연락처"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           disabled={disabled || submitting}
@@ -909,7 +905,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
             type="button"
             className="wd-btn wd-btn-primary"
             onClick={handleSubmit}
-            disabled={disabled || submitting || !value.trim() || !name.trim() || !phone.trim() || !title.trim()}
+            disabled={disabled || submitting || !value.trim()}
           >
             {submitting ? '저장 중...' : '저장'}
           </button>
