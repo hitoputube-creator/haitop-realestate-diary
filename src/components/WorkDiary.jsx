@@ -3,7 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
-import StickyNotes from './StickyNotes'
+import UpcomingSchedules from './UpcomingSchedules'
 import SchedulePanel from './SchedulePanel'
 import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
 import { listDiaryPhotosForIds, uploadDiaryPhotos } from '../lib/attachments'
@@ -38,11 +38,11 @@ export default function WorkDiary({ onOpenDiary }) {
   const [linkMemos, setLinkMemos] = useState([])
   const [linkMemosLoading, setLinkMemosLoading] = useState(false)
 
-  /* ===== 포스트잇 ===== */
+  /* ===== 포스트잇 고정 상태 ===== */
   const [stickyData, setStickyData] = useState([])   // [{sticky, memo}]
-  const [stickyLoading, setStickyLoading] = useState(false)
   const [photoMap, setPhotoMap] = useState({})
   const [photoGallery, setPhotoGallery] = useState(null)
+  const [upcomingRefreshKey, setUpcomingRefreshKey] = useState(0)
 
   // 현재 고정된 diary_id Set — MemoCard 버튼 상태 판단용
   const pinnedDiaryIds = useMemo(
@@ -199,7 +199,6 @@ export default function WorkDiary({ onOpenDiary }) {
   /* ===== 포스트잇 로드 ===== */
   const loadStickyNotes = useCallback(async () => {
     if (!isSupabaseConfigured) return
-    setStickyLoading(true)
     try {
       const { data: stickies, error: e1 } = await supabase
         .from('work_sticky_notes')
@@ -224,8 +223,6 @@ export default function WorkDiary({ onOpenDiary }) {
       setStickyData(stickies.map((s) => ({ sticky: s, memo: memoMap[s.diary_id] || null })))
     } catch (err) {
       console.warn('[StickyNotes] load failed:', err.message || err)
-    } finally {
-      setStickyLoading(false)
     }
   }, [])
 
@@ -248,27 +245,6 @@ export default function WorkDiary({ onOpenDiary }) {
       setError(`포스트잇 추가 실패: ${err.message || err}`)
     }
   }, [memos, searchResults])
-
-  /* 포스트잇 색상 변경 */
-  const handleUpdateStickyColor = useCallback(async (stickyId, color) => {
-    if (!isSupabaseConfigured) return
-    // 낙관적 업데이트
-    setStickyData((prev) =>
-      prev.map((d) =>
-        d.sticky.id === stickyId ? { ...d, sticky: { ...d.sticky, color } } : d
-      )
-    )
-    try {
-      const { error: e } = await supabase
-        .from('work_sticky_notes')
-        .update({ color })
-        .eq('id', stickyId)
-      if (e) throw e
-    } catch (err) {
-      setError(`색상 변경 실패: ${err.message || err}`)
-      loadStickyNotes()
-    }
-  }, [loadStickyNotes])
 
   /* 포스트잇 해제 (삭제) */
   const handleUnpin = useCallback(async (diaryId) => {
@@ -403,6 +379,7 @@ export default function WorkDiary({ onOpenDiary }) {
           )
         }
         setError(null)
+        setUpcomingRefreshKey((key) => key + 1)
         return data
       } catch (err) {
         setError(`저장 실패: ${err.message || err}`)
@@ -455,6 +432,7 @@ export default function WorkDiary({ onOpenDiary }) {
         if (e) throw e
         // 해당 날짜에 메모가 더 이상 없으면 도트 제거
         loadMonthDots()
+        setUpcomingRefreshKey((key) => key + 1)
       } catch (err) {
         setError(`삭제 실패: ${err.message || err}`)
         setMemos(prevList)
@@ -504,6 +482,7 @@ export default function WorkDiary({ onOpenDiary }) {
         .update(patch)
         .eq('id', id)
       if (e) throw e
+      setUpcomingRefreshKey((key) => key + 1)
     } catch (err) {
       setError(`수정 실패: ${err.message || err}`)
       loadMemosForSelected()
@@ -679,12 +658,10 @@ export default function WorkDiary({ onOpenDiary }) {
             onNextMonth={handleNextMonth}
             onJumpToday={handleJumpToday}
           />
-          <StickyNotes
-            stickyData={stickyData}
-            loading={stickyLoading}
-            onUnpin={handleUnpin}
-            onUpdateColor={handleUpdateStickyColor}
-            onLinkKeyClick={handleLinkKeyClick}
+          <UpcomingSchedules
+            filterWriter={filterWriter}
+            refreshKey={upcomingRefreshKey}
+            onNavigate={handleNavigate}
           />
         </div>
 
