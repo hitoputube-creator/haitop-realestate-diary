@@ -1065,6 +1065,18 @@
   color: #c7d9ff;
 }
 
+.wd-btn-google-calendar {
+  background: rgba(230, 195, 100, 0.13);
+  border-color: rgba(230, 195, 100, 0.42);
+  color: #f1d985;
+}
+
+.wd-btn-google-calendar:hover {
+  background: rgba(230, 195, 100, 0.24);
+  border-color: rgba(230, 195, 100, 0.68);
+  color: #ffe8a3;
+}
+
 /* ===== 비공개 개인노트 버튼 ===== */
 .wd-btn-private-notes {
   flex-shrink: 0;
@@ -1952,6 +1964,10 @@
   .wd-btn-workcenter {
     justify-content: center;
     max-width: 100%;
+  }
+
+  .wd-btn-google-calendar {
+    flex: 1 1 auto;
   }
 
   .wd-filter-tabs {

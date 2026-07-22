@@ -4,7 +4,7 @@ import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
 import StickyNotes from './StickyNotes'
-import AllMemosPanel from './AllMemosPanel'
+import SchedulePanel from './SchedulePanel'
 import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
 import { listDiaryPhotosForIds, uploadDiaryPhotos } from '../lib/attachments'
 import './WorkDiary.css'
@@ -31,9 +31,6 @@ export default function WorkDiary({ onOpenDiary }) {
 
   const searchMode = searchQuery.trim().length > 0
   const [filterWriter, setFilterWriter] = useState('all')
-
-  /* ===== 사이드패널(전체 메모 리스트) 새로고침 트리거 ===== */
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   /* ===== 연결고리 ===== */
   const [allLinkKeys, setAllLinkKeys] = useState([])
@@ -406,7 +403,6 @@ export default function WorkDiary({ onOpenDiary }) {
           )
         }
         setError(null)
-        setRefreshTrigger((t) => t + 1)
         return data
       } catch (err) {
         setError(`저장 실패: ${err.message || err}`)
@@ -459,7 +455,6 @@ export default function WorkDiary({ onOpenDiary }) {
         if (e) throw e
         // 해당 날짜에 메모가 더 이상 없으면 도트 제거
         loadMonthDots()
-        setRefreshTrigger((t) => t + 1)
       } catch (err) {
         setError(`삭제 실패: ${err.message || err}`)
         setMemos(prevList)
@@ -509,7 +504,6 @@ export default function WorkDiary({ onOpenDiary }) {
         .update(patch)
         .eq('id', id)
       if (e) throw e
-      setRefreshTrigger((t) => t + 1)
     } catch (err) {
       setError(`수정 실패: ${err.message || err}`)
       loadMemosForSelected()
@@ -609,6 +603,14 @@ export default function WorkDiary({ onOpenDiary }) {
           className="wd-btn-workcenter"
         >
           🏢 하이탑업무센타
+        </a>
+        <a
+          href="https://calendar.google.com/calendar/u/0/r"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="wd-btn-workcenter wd-btn-google-calendar"
+        >
+          구글 캘린더
         </a>
       </header>
 
@@ -718,7 +720,11 @@ export default function WorkDiary({ onOpenDiary }) {
           photoMap={photoMap}
         />
 
-        <AllMemosPanel refreshTrigger={refreshTrigger} />
+        <SchedulePanel
+          key={toDateKey(selectedDate)}
+          selectedDate={selectedDate}
+          disabled={!isSupabaseConfigured}
+        />
       </main>
 
       {LinkPanel}
