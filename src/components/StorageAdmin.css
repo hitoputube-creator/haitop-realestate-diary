@@ -81,20 +81,6 @@
 }
 .sa-back-btn:hover { background: var(--color-surface-hover); color: var(--color-on-surface); }
 
-.sa-logout-btn {
-  padding: 5px 10px;
-  border-radius: 7px;
-  font-size: 11.5px;
-  font-weight: 600;
-  background: rgba(248, 113, 113, 0.1);
-  border: 1px solid rgba(248, 113, 113, 0.28);
-  color: #fca5a5;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-.sa-logout-btn:hover { background: rgba(248, 113, 113, 0.18); }
-
 .sa-body {
   flex: 1;
   padding: 24px;
@@ -111,79 +97,6 @@
   font-size: 13px;
   padding: 20px 0;
   text-align: center;
-}
-
-.sa-login-form {
-  margin: 40px auto 0;
-  max-width: 320px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 24px;
-}
-
-.sa-login-title {
-  font-size: 15px;
-  font-weight: 700;
-  margin-bottom: 6px;
-  text-align: center;
-}
-
-.sa-login-form input {
-  padding: 9px 12px;
-  border-radius: 8px;
-  background: var(--color-surface-container);
-  border: 1px solid var(--color-border);
-  color: var(--color-on-surface);
-  font-size: 13px;
-}
-.sa-login-form input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.sa-login-form button[type='submit'] {
-  margin-top: 4px;
-  padding: 10px;
-  border-radius: 8px;
-  background: var(--color-primary);
-  color: var(--color-bg-deeper);
-  font-weight: 700;
-  font-size: 13px;
-  text-align: center;
-}
-.sa-login-form button[type='submit']:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.sa-login-error {
-  color: #fca5a5;
-  font-size: 12px;
-}
-
-.sa-login-hint {
-  color: var(--color-primary);
-  font-size: 12px;
-}
-
-.sa-link-btn {
-  margin-top: 2px;
-  padding: 0;
-  background: none;
-  border: none;
-  color: var(--color-on-surface-faint);
-  font-size: 12px;
-  text-decoration: underline;
-  text-align: center;
-  cursor: pointer;
-}
-.sa-link-btn:hover {
-  color: var(--color-on-surface-muted);
 }
 
 .sa-err {
