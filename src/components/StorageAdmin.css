@@ -163,3 +163,129 @@
 .sa-table tbody tr:last-child td {
   border-bottom: none;
 }
+
+/* ── 요약 카드 ── */
+.sa-stat-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.sa-stat-card {
+  flex: 1;
+  min-width: 150px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 16px 20px;
+}
+
+.sa-stat-label {
+  font-size: 12px;
+  color: var(--color-on-surface-faint);
+  margin-bottom: 6px;
+}
+
+.sa-stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.4px;
+}
+
+.sa-stat-unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-on-surface-muted);
+  margin-left: 3px;
+}
+
+/* ── 버킷 도넛 차트 + 범례 ── */
+.sa-donut-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.sa-donut-wrap {
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+  margin: 0 auto;
+}
+
+.sa-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.sa-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.sa-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.sa-legend-name {
+  color: var(--color-on-surface);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.sa-legend-meta {
+  color: var(--color-on-surface-faint);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  padding-left: 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .sa-donut-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sa-legend-meta {
+    margin-left: 0;
+    text-align: left;
+  }
+}
+
+/* ── DB 테이블 막대 그래프 ── */
+.sa-bar-wrap {
+  width: 100%;
+}
+
+.sa-more-btn {
+  margin-top: 14px;
+  padding: 7px 14px;
+  border-radius: 18px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-border);
+  color: var(--color-on-surface-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sa-more-btn:hover { background: var(--color-surface-hover); color: var(--color-on-surface); }
+
+.sa-table-more {
+  margin-top: 14px;
+}
