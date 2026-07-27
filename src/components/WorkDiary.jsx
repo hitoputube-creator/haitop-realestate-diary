@@ -6,7 +6,7 @@ import SearchBar from './SearchBar'
 import UpcomingSchedules from './UpcomingSchedules'
 import SelectedScheduleMemos from './SelectedScheduleMemos'
 import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
-import { listDiaryPhotosForIds, uploadDiaryPhotos } from '../lib/attachments'
+import { listDiaryPhotosForIds, uploadDiaryPhotos, listDiaryFilesForIds, uploadDiaryFiles } from '../lib/attachments'
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
@@ -46,6 +46,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   /* ===== 포스트잇 고정 상태 ===== */
   const [stickyData, setStickyData] = useState([])   // [{sticky, memo}]
   const [photoMap, setPhotoMap] = useState({})
+  const [fileMap, setFileMap] = useState({})
   const [photoGallery, setPhotoGallery] = useState(null)
   const [upcomingRefreshKey, setUpcomingRefreshKey] = useState(0)
 
@@ -81,6 +82,31 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     return uploadedPhotos
   }, [])
 
+  const loadFilesForRows = useCallback(async (rows) => {
+    const ids = (rows || []).map((row) => row.id).filter(Boolean)
+    if (!isSupabaseConfigured || ids.length === 0) return
+    try {
+      const nextMap = await listDiaryFilesForIds(ids)
+      setFileMap((prev) => ({ ...prev, ...nextMap }))
+    } catch (err) {
+      console.warn('[DiaryFiles] load failed:', err.message || err)
+    }
+  }, [])
+
+  const handleAddFilesToMemo = useCallback(async (memoId, files = [], uploadedBy = '') => {
+    if (!memoId || files.length === 0) return []
+    const uploadedFiles = await uploadDiaryFiles({
+      files,
+      workDiaryId: memoId,
+      uploadedBy,
+    })
+    setFileMap((prev) => ({
+      ...prev,
+      [memoId]: [...(prev[memoId] || []), ...uploadedFiles],
+    }))
+    return uploadedFiles
+  }, [])
+
   const loadMemosForSelected = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setMemos([])
@@ -105,6 +131,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       setMemos(diaryRows)
       setDailyScheduleNotes(scheduleRows)
       loadPhotosForRows(diaryRows)
+      loadFilesForRows(diaryRows)
     } catch (err) {
       setError(`메모를 불러오지 못했습니다: ${err.message || err}`)
       setMemos([])
@@ -113,7 +140,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       setLoading(false)
       setScheduleLoading(false)
     }
-  }, [selectedDate, loadPhotosForRows])
+  }, [selectedDate, loadPhotosForRows, loadFilesForRows])
 
   useEffect(() => {
     loadMemosForSelected()
@@ -198,13 +225,14 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       const rows = data || []
       setLinkMemos(rows)
       loadPhotosForRows(rows)
+      loadFilesForRows(rows)
     } catch (err) {
       setError(`연결 메모 조회 실패: ${err.message || err}`)
       setLinkMemos([])
     } finally {
       setLinkMemosLoading(false)
     }
-  }, [loadPhotosForRows])
+  }, [loadPhotosForRows, loadFilesForRows])
 
   function handleLinkKeyClick(key) {
     setLinkKeyFilter(key)
@@ -338,6 +366,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           const diaryRows = rows.filter((row) => row.link_key !== DAILY_SCHEDULE_KEY)
           setSearchResults(diaryRows)
           loadPhotosForRows(diaryRows)
+          loadFilesForRows(diaryRows)
         }
       } catch (err) {
         if (!cancelled) {
@@ -352,7 +381,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     return () => {
       cancelled = true
     }
-  }, [searchQuery, loadPhotosForRows])
+  }, [searchQuery, loadPhotosForRows, loadFilesForRows])
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
@@ -519,6 +548,11 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       setMemos((prev) => prev.filter((m) => m.id !== id))
       setSearchResults((prev) => prev.filter((m) => m.id !== id))
       setPhotoMap((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+      setFileMap((prev) => {
         const next = { ...prev }
         delete next[id]
         return next
@@ -781,16 +815,26 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           loading={searchMode ? searchLoading : loading}
           error={error}
           searchMode={searchMode}
-          onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '') => {
+          onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '', diaryFiles = []) => {
             const createdMemo = await handleCreate(content, writer, sticker, linkKey, name, phone, title)
-            if (!createdMemo || photoFiles.length === 0) return
-            try {
-              await handleAddPhotosToMemo(createdMemo.id, photoFiles, writer)
-            } catch (photoErr) {
-              setError(`메모는 저장됐지만 사진 업로드에 실패했습니다: ${photoErr.message || photoErr}`)
+            if (!createdMemo) return
+            if (photoFiles.length > 0) {
+              try {
+                await handleAddPhotosToMemo(createdMemo.id, photoFiles, writer)
+              } catch (photoErr) {
+                setError(`메모는 저장됐지만 사진 업로드에 실패했습니다: ${photoErr.message || photoErr}`)
+              }
+            }
+            if (diaryFiles.length > 0) {
+              try {
+                await handleAddFilesToMemo(createdMemo.id, diaryFiles, writer)
+              } catch (fileErr) {
+                setError(`메모는 저장됐지만 파일 업로드에 실패했습니다: ${fileErr.message || fileErr}`)
+              }
             }
           }}
           onAddPhotos={handleAddPhotosToMemo}
+          onAddFiles={handleAddFilesToMemo}
           onChangeStatus={handleChangeStatus}
           onDelete={handleDelete}
           onUpdateContent={handleUpdateContent}
@@ -805,6 +849,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           highlightMemoId={highlightMemoId}
           searchQuery={searchQuery}
           photoMap={photoMap}
+          fileMap={fileMap}
         />
 
         <SelectedScheduleMemos

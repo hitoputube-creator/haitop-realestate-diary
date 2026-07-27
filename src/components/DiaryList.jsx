@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { DiaryPhotoStrip, DiaryPhotoUploader, PhotoGalleryModal } from './DiaryPhotos'
+import { DiaryFileUploader, DiaryFileList } from './DiaryFiles'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -73,7 +74,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
+function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const [draftName, setDraftName] = useState(memo.customer_name || '')
@@ -84,6 +85,10 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
   const [photoFiles, setPhotoFiles] = useState([])
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState('')
+  const [fileAddOpen, setFileAddOpen] = useState(false)
+  const [diaryFiles, setDiaryFiles] = useState([])
+  const [fileBusy, setFileBusy] = useState(false)
+  const [fileError, setFileError] = useState('')
   const taRef = useRef(null)
   const cardRef = useRef(null)
 
@@ -202,6 +207,21 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
       setPhotoError(err.message || String(err))
     } finally {
       setPhotoBusy(false)
+    }
+  }
+
+  async function handleAddFiles() {
+    if (!diaryFiles.length || fileBusy) return
+    setFileBusy(true)
+    setFileError('')
+    try {
+      await onAddFiles?.(memo.id, diaryFiles, memo.writer)
+      setDiaryFiles([])
+      setFileAddOpen(false)
+    } catch (err) {
+      setFileError(err.message || String(err))
+    } finally {
+      setFileBusy(false)
     }
   }
 
@@ -457,6 +477,7 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
       {!editing && (
         <DiaryPhotoStrip photos={photos} onOpen={onOpenPhotos} />
       )}
+      {!editing && <DiaryFileList files={files} />}
 
       <div className="wd-card-actions">
         {!editing ? (
@@ -489,6 +510,17 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
               disabled={photoBusy}
             >
               사진 추가
+            </button>
+            <button
+              type="button"
+              className="wd-action-btn wd-file-card-add-btn"
+              onClick={() => {
+                setFileAddOpen((value) => !value)
+                setFileError('')
+              }}
+              disabled={fileBusy}
+            >
+              파일 추가
             </button>
             <button
               type="button"
@@ -601,6 +633,40 @@ function MemoCard({ memo, photos, onOpenPhotos, onAddPhotos, onChangeStatus, onD
               disabled={photoBusy || photoFiles.length === 0}
             >
               {photoBusy ? '업로드 중...' : '업로드'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!editing && fileAddOpen && (
+        <div className="wd-card-file-panel">
+          <DiaryFileUploader
+            files={diaryFiles}
+            onChange={setDiaryFiles}
+            disabled={fileBusy}
+            busy={fileBusy}
+          />
+          {fileError && <div className="wd-photo-error" role="alert">{fileError}</div>}
+          <div className="wd-photo-upload-actions">
+            <button
+              type="button"
+              className="wd-action-btn"
+              onClick={() => {
+                setDiaryFiles([])
+                setFileError('')
+                setFileAddOpen(false)
+              }}
+              disabled={fileBusy}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              className="wd-action-btn active"
+              onClick={handleAddFiles}
+              disabled={fileBusy || diaryFiles.length === 0}
+            >
+              {fileBusy ? '업로드 중...' : '업로드'}
             </button>
           </div>
         </div>
@@ -803,6 +869,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const [phone, setPhone] = useState(initialDraft?.phone ?? '')
   const [title, setTitle] = useState(initialDraft?.title ?? '')
   const [photoFiles, setPhotoFiles] = useState([])
+  const [diaryFiles, setDiaryFiles] = useState([])
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
@@ -837,11 +904,12 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     setSubmitting(true)
     setSubmitError('')
     try {
-      await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles, trimmedName, trimmedPhone, trimmedTitle)
+      await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles, trimmedName, trimmedPhone, trimmedTitle, diaryFiles)
       setValue('')
       setSticker(null)
       setLinkKey('')
       setPhotoFiles([])
+      setDiaryFiles([])
       setName('')
       setPhone('')
       setTitle('')
@@ -966,12 +1034,20 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
             )}
           </div>
           <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
-          <DiaryPhotoUploader
-            files={photoFiles}
-            onChange={setPhotoFiles}
-            disabled={disabled}
-            busy={submitting}
-          />
+          <div className="wd-attach-row">
+            <DiaryPhotoUploader
+              files={photoFiles}
+              onChange={setPhotoFiles}
+              disabled={disabled}
+              busy={submitting}
+            />
+            <DiaryFileUploader
+              files={diaryFiles}
+              onChange={setDiaryFiles}
+              disabled={disabled}
+              busy={submitting}
+            />
+          </div>
         </div>
       </details>
 
@@ -1020,6 +1096,7 @@ export default function DiaryList({
   searchQuery,
   onCreate,
   onAddPhotos,
+  onAddFiles,
   onChangeStatus,
   onDelete,
   onUpdateContent,
@@ -1033,6 +1110,7 @@ export default function DiaryList({
   onNavigate,
   highlightMemoId,
   photoMap,
+  fileMap,
 }) {
   const [gallery, setGallery] = useState(null)
   const dateLabel = selectedDate
@@ -1090,8 +1168,8 @@ export default function DiaryList({
 
       {!searchMode && (
         <Composer
-          onSubmit={(content, writer, sticker, linkKey, photoFiles, name, phone, title) =>
-            onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title)}
+          onSubmit={(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles) =>
+            onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles)}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
@@ -1123,8 +1201,10 @@ export default function DiaryList({
               key={m.id}
               memo={m}
               photos={photoMap?.[m.id] || []}
+              files={fileMap?.[m.id] || []}
               onOpenPhotos={(photos, index) => setGallery({ photos, index })}
               onAddPhotos={onAddPhotos}
+              onAddFiles={onAddFiles}
               showDate={searchMode}
               onChangeStatus={onChangeStatus}
               onDelete={onDelete}

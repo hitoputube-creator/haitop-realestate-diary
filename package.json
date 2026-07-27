@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/install-file-attachments.mjs && vite",
-    "build": "node scripts/install-file-attachments.mjs && vite build",
-    "lint": "node scripts/install-file-attachments.mjs && eslint .",
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {

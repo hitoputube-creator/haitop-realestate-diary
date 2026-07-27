@@ -2004,7 +2004,182 @@
   color: #e7cf82;
 }
 
+/* ===== 파일 첨부 (사진과 분리된 일반 파일 업로더) ===== */
+
+.wd-attach-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.wd-attach-row .wd-photo-uploader,
+.wd-attach-row .wd-file-uploader {
+  margin-top: 0;
+  flex: 1 1 220px;
+  min-width: 220px;
+}
+
+.wd-file-uploader {
+  margin-top: 12px;
+}
+
+.wd-file-uploader-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.wd-file-add-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  border-radius: 8px;
+  color: #93c5fd;
+  background: rgba(96, 165, 250, 0.1);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wd-file-add-btn input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.wd-file-add-btn span[aria-hidden="true"] {
+  display: none;
+}
+
+.wd-file-help {
+  font-size: 11px;
+  color: var(--color-on-surface-faint);
+}
+
+.wd-file-preview-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.wd-file-preview {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface-container);
+  min-width: 0;
+}
+
+.wd-file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 7px;
+  background: rgba(96, 165, 250, 0.14);
+  color: #93c5fd;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.wd-file-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--color-on-surface-faint);
+}
+
+.wd-file-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-on-surface-muted);
+  font-size: 12px;
+}
+
+.wd-file-preview button {
+  color: #fca5a5;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.wd-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.wd-file-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  border-radius: 8px;
+  background: rgba(96, 165, 250, 0.06);
+  min-width: 0;
+  text-decoration: none;
+}
+
+.wd-file-item:hover {
+  background: rgba(96, 165, 250, 0.12);
+}
+
+.wd-file-item .wd-file-icon {
+  width: 34px;
+  height: 34px;
+  font-size: 8.5px;
+}
+
+.wd-file-item .wd-file-meta strong {
+  color: #cfe2ff;
+}
+
+.wd-card-file-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 10px;
+  background: rgba(5, 14, 39, 0.38);
+}
+
+.wd-card-file-panel .wd-file-uploader {
+  margin-top: 0;
+}
+
+.wd-file-card-add-btn {
+  color: #93c5fd;
+}
+
 @media (max-width: 600px) {
+  .wd-attach-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+
   .wd-header {
     align-items: stretch;
     flex-wrap: wrap;

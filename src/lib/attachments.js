@@ -137,3 +137,136 @@ export async function uploadDiaryPhotos({ files, workDiaryId, uploadedBy = '' })
 
   return uploaded
 }
+
+// --- Generic file attachments (documents/archives, separate from photos) ---
+
+export const FILE_BUCKET = PHOTO_BUCKET
+export const MAX_DIARY_FILES = 10
+export const MAX_DIARY_FILE_BYTES = 50 * 1024 * 1024
+export const FILE_ACCEPT = '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.7z'
+
+const FILE_EXTENSION_MIME = {
+  pdf: 'application/pdf',
+  hwp: 'application/x-hwp',
+  hwpx: 'application/haansofthwpx',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  csv: 'text/csv',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  txt: 'text/plain',
+  zip: 'application/zip',
+  '7z': 'application/x-7z-compressed',
+}
+
+function normalizeFile(row) {
+  const bucket = row.storage_bucket || FILE_BUCKET
+  const { data } = supabase.storage.from(bucket).getPublicUrl(row.storage_path)
+  return {
+    ...row,
+    public_url: data?.publicUrl || '',
+  }
+}
+
+export function validateDiaryFiles(files) {
+  const list = Array.from(files || [])
+  const errors = []
+  const validFiles = []
+
+  if (list.length > MAX_DIARY_FILES) {
+    errors.push(`한 번에 최대 ${MAX_DIARY_FILES}개까지 첨부할 수 있습니다.`)
+  }
+
+  list.slice(0, MAX_DIARY_FILES).forEach((file) => {
+    const ext = getExtension(file.name)
+    if (!FILE_EXTENSION_MIME[ext]) {
+      errors.push(`${file.name}: 지원하지 않는 파일 형식입니다.`)
+      return
+    }
+    if (file.size > MAX_DIARY_FILE_BYTES) {
+      errors.push(`${file.name}: 파일 1개 최대 용량은 ${formatPhotoSize(MAX_DIARY_FILE_BYTES)}입니다.`)
+      return
+    }
+    validFiles.push(file)
+  })
+
+  return { validFiles, errors }
+}
+
+export async function listDiaryFilesForIds(workDiaryIds) {
+  const ids = Array.from(new Set((workDiaryIds || []).filter(Boolean)))
+  if (!isSupabaseConfigured || ids.length === 0) return {}
+
+  const { data, error } = await supabase
+    .from('crm_attachments')
+    .select('id, customer_id, work_diary_id, storage_bucket, storage_path, original_name, mime_type, file_size, uploaded_by, created_at')
+    .in('work_diary_id', ids)
+    .order('created_at', { ascending: true })
+
+  if (error) throw error
+
+  const map = {}
+  ;(data || [])
+    .filter((row) => !String(row.mime_type || '').startsWith('image/'))
+    .map(normalizeFile)
+    .forEach((row) => {
+      if (!map[row.work_diary_id]) map[row.work_diary_id] = []
+      map[row.work_diary_id].push(row)
+    })
+  return map
+}
+
+function makeFilePath({ workDiaryId, file }) {
+  const ext = getExtension(file.name) || 'bin'
+  const uuid = makeClientId()
+  return `work-diary/${workDiaryId}/${uuid}.${ext}`
+}
+
+export async function uploadDiaryFiles({ files, workDiaryId, uploadedBy = '' }) {
+  if (!isSupabaseConfigured || !workDiaryId) return []
+
+  const { validFiles, errors } = validateDiaryFiles(files)
+  if (errors.length > 0) {
+    throw new Error(errors.join('\n'))
+  }
+
+  const uploaded = []
+  for (const file of validFiles) {
+    const ext = getExtension(file.name)
+    const contentType = FILE_EXTENSION_MIME[ext] || 'application/octet-stream'
+    const storagePath = makeFilePath({ workDiaryId, file })
+    const { error: uploadError } = await supabase
+      .storage
+      .from(FILE_BUCKET)
+      .upload(storagePath, file, {
+        contentType,
+        upsert: false,
+      })
+    if (uploadError) throw uploadError
+
+    const { data, error: insertError } = await supabase
+      .from('crm_attachments')
+      .insert({
+        customer_id: null,
+        work_diary_id: workDiaryId,
+        storage_bucket: FILE_BUCKET,
+        storage_path: storagePath,
+        original_name: file.name,
+        mime_type: contentType,
+        file_size: file.size,
+        uploaded_by: uploadedBy || null,
+      })
+      .select()
+      .single()
+
+    if (insertError) {
+      await supabase.storage.from(FILE_BUCKET).remove([storagePath])
+      throw insertError
+    }
+    uploaded.push(normalizeFile(data))
+  }
+
+  return uploaded
+}
