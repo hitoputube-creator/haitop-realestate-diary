@@ -972,32 +972,33 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
         })}
       </div>
 
+      <div className="wd-composer-customer-row">
+        <input
+          className="wd-composer-customer-input"
+          placeholder="제목"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          disabled={disabled || submitting}
+        />
+        <input
+          className="wd-composer-customer-input"
+          placeholder="이름"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={disabled || submitting}
+        />
+        <input
+          className="wd-composer-customer-input"
+          placeholder="연락처"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          disabled={disabled || submitting}
+        />
+      </div>
+
       <details className="wd-composer-extra">
         <summary>세부정보 · 연결태그 · 사진</summary>
         <div className="wd-composer-extra-body">
-          <div className="wd-composer-customer-row">
-            <input
-              className="wd-composer-customer-input"
-              placeholder="제목"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              disabled={disabled || submitting}
-            />
-            <input
-              className="wd-composer-customer-input"
-              placeholder="이름"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={disabled || submitting}
-            />
-            <input
-              className="wd-composer-customer-input"
-              placeholder="연락처"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              disabled={disabled || submitting}
-            />
-          </div>
           <div className="wd-composer-tools-row">
             <LinkKeySearchBox
               currentValue={linkKey}
