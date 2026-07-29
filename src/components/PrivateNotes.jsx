@@ -3,17 +3,12 @@ import { supabase } from '../lib/supabase'
 import './PrivateNotes.css'
 
 /* ── 상수 ── */
-const CAT_OPTIONS = ['유튜브', '블로그', 'AI공부', '수익화', '개인생각', '아이디어', '기타']
+const CAT_OPTIONS = ['개인적인기록', '업무기록']
 const CAT_ALL     = ['전체', ...CAT_OPTIONS]
 
 const CAT_COLOR = {
-  유튜브:   '#ef4444',
-  블로그:   '#22c55e',
-  AI공부:   '#a855f7',
-  수익화:   '#f59e0b',
-  개인생각: '#3b82f6',
-  아이디어: '#6b7280',
-  기타:     '#9ca3af',
+  개인적인기록: '#3b82f6',
+  업무기록:     '#f59e0b',
 }
 
 const WEEK_NAMES = ['일', '월', '화', '수', '목', '금', '토']
@@ -33,7 +28,7 @@ function fmtKo(dateStr) {
 
 function todayStr() { return isoToDate(new Date().toISOString()) }
 
-const EMPTY_FORM = { title: '', category: '유튜브', memo: '', memo_date: todayStr() }
+const EMPTY_FORM = { category: CAT_OPTIONS[0], memo: '', memo_date: todayStr() }
 
 /* ── 작성 중인 폼 임시저장 (탭 전환/새로고침에도 유지) ── */
 function draftKey(owner) { return `pn_draft_${owner}` }
@@ -93,12 +88,12 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
   const [form,     setForm]     = useState(initialDraft?.form || { ...EMPTY_FORM, memo_date: todayStr() })
   const [editId,   setEditId]   = useState(initialDraft?.editId ?? null)
   const [saveBusy, setSaveBusy] = useState(false)
-  const formTitleRef = useRef(null)
+  const formMemoRef = useRef(null)
 
-  /* 작성 중인 폼을 sessionStorage에 계속 동기화 — 제목/내용이 비어있고 편집중도
+  /* 작성 중인 폼을 sessionStorage에 계속 동기화 — 내용이 비어있고 편집중도
      아니면(=사실상 빈 폼) 임시저장을 지워서 다음 진입 시 불필요한 복원을 막는다 */
   useEffect(() => {
-    const isEmpty = !form.title.trim() && !form.memo.trim() && !editId
+    const isEmpty = !form.memo.trim() && !editId
     if (isEmpty) {
       clearDraft(owner)
     } else {
@@ -135,7 +130,7 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
     setEditId(null)
     setForm({ ...EMPTY_FORM, memo_date: calSelDate || todayStr() })
     setTimeout(() => {
-      formTitleRef.current?.focus()
+      formMemoRef.current?.focus()
     }, 50)
   }
 
@@ -143,8 +138,7 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
   function openEditForm(note) {
     setEditId(note.id)
     setForm({
-      title:     note.title     || '',
-      category:  note.category  || '유튜브',
+      category:  note.category  || CAT_OPTIONS[0],
       memo:      note.memo      || '',
       memo_date: note.due_date  || isoToDate(note.created_at) || todayStr(),
     })
@@ -155,20 +149,18 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
       setCalMonth(Number(m) - 1)
     }
     setTimeout(() => {
-      formTitleRef.current?.focus()
-      formTitleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      formMemoRef.current?.focus()
+      formMemoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 50)
   }
 
-  /* ── 저장 ── */
-  async function saveNote(e) {
-    e.preventDefault()
-    if (!form.title.trim()) return
+  /* ── 저장 (항목명을 그대로 title로 저장 — 제목 입력칸은 없음) ── */
+  async function persistNote(category, targetEditId) {
     setSaveBusy(true)
     try {
       const payload = {
-        title:       form.title.trim(),
-        category:    form.category,
+        title:       category,
+        category,
         memo:        form.memo.trim() || null,
         updated_at:  new Date().toISOString(),
         due_date:    form.memo_date || null,
@@ -176,8 +168,8 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
         priority:    '보통',
         next_action: null,
       }
-      if (editId) {
-        const { error } = await supabase.from('private_notes').update(payload).eq('id', editId)
+      if (targetEditId) {
+        const { error } = await supabase.from('private_notes').update(payload).eq('id', targetEditId)
         if (error) throw error
       } else {
         payload.writer_name = owner   // 현재 선택된 작성자로 저장
@@ -197,6 +189,19 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
     } finally {
       setSaveBusy(false)
     }
+  }
+
+  /* 수정 모드에서 "수정 저장" 버튼용 */
+  function saveNote(e) {
+    e.preventDefault()
+    persistNote(form.category, editId)
+  }
+
+  /* 새 메모 작성 중 항목(개인적인기록/업무기록)을 선택하면 바로 저장 */
+  function handleCategoryPick(cat) {
+    setForm(f => ({ ...f, category: cat }))
+    if (editId) return   // 편집 중에는 선택만 반영, 저장은 "수정 저장" 버튼으로
+    persistNote(cat, null)
   }
 
   /* ── 삭제 ── */
@@ -398,30 +403,31 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
                 />
               </div>
 
-              <div className="pn-form-top-row">
-                <input
-                  ref={formTitleRef}
-                  className="pn-title-input"
-                  type="text"
-                  placeholder="제목을 입력해주세요"
-                  value={form.title}
-                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  required
-                />
-                <select
-                  className="pn-cat-select"
-                  value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {CAT_OPTIONS.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-
               <textarea
+                ref={formMemoRef}
                 className="pn-memo-input"
-                placeholder="유튜브 아이디어, 블로그 초안, AI 공부 메모, 수익화 구상, 개인 생각 등을 자유롭게 적어주세요."
+                placeholder="개인적인 기록이나 업무 관련 메모를 자유롭게 적어주세요."
                 value={form.memo}
                 onChange={e => setForm(f => ({ ...f, memo: e.target.value }))}
               />
+
+              <div className="pn-cat-choice-row">
+                {CAT_OPTIONS.map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`pn-cat-choice-btn${form.category === cat ? ' active' : ''}`}
+                    style={{ '--cat-c': CAT_COLOR[cat] }}
+                    disabled={saveBusy}
+                    onClick={() => handleCategoryPick(cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              {!editId && (
+                <div className="pn-cat-choice-hint">항목을 선택하면 바로 저장됩니다.</div>
+              )}
 
               <div className="pn-form-foot">
                 {editId && (
@@ -431,9 +437,11 @@ export default function PrivateNotes({ onBack, initialOwner = '주현희' }) {
                 )}
                 <div style={{ flex: 1 }}></div>
                 <button type="button" className="pn-cancel-btn" onClick={resetForm}>초기화</button>
-                <button type="submit" className="pn-save-btn" disabled={saveBusy}>
-                  {saveBusy ? '저장 중...' : (editId ? '💾 수정 저장' : '💾 새 메모 저장')}
-                </button>
+                {editId && (
+                  <button type="submit" className="pn-save-btn" disabled={saveBusy}>
+                    {saveBusy ? '저장 중...' : '💾 수정 저장'}
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -462,10 +470,12 @@ function StickerCard({ note, isActive, onEdit, onDelete }) {
           <button type="button" className="pn-s-act del" onClick={onDelete}>🗑</button>
         </div>
       </div>
-      <div className="pn-sticker-title">{note.title}</div>
+      {note.title && note.title !== note.category && (
+        <div className="pn-sticker-title">{note.title}</div>
+      )}
       {note.memo && (
         <div className="pn-sticker-body">
-          {note.memo.length > 80 ? note.memo.slice(0, 80) + '...' : note.memo}
+          {note.memo.length > 160 ? note.memo.slice(0, 160) + '...' : note.memo}
         </div>
       )}
       <div className="pn-sticker-foot">
