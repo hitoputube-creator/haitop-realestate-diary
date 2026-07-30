@@ -6,7 +6,17 @@ import './AddCustomerMemoModal.css'
  * 고객은 항상 부모(WorkDiary)에서 확정되어 전달됨 — 이 컴포넌트 안에서
  * 고객을 바꾸지 않으므로 "고객 선택 없이 메모 저장" 상황이 생기지 않는다.
  */
-export default function AddCustomerMemoModal({ customer, defaultDate, defaultWriter = '주현희', onClose, onSave }) {
+export default function AddCustomerMemoModal({
+  customerId,
+  sourceDiaryId,
+  sourceTitle = '',
+  sourceCustomerName = '',
+  sourcePhone = '',
+  defaultDate,
+  defaultWriter = '주현희',
+  onClose,
+  onSave,
+}) {
   const [content, setContent] = useState('')
   const [date, setDate] = useState(defaultDate || '')
   const [writer, setWriter] = useState(defaultWriter)
@@ -26,7 +36,7 @@ export default function AddCustomerMemoModal({ customer, defaultDate, defaultWri
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [submitting, onClose])
 
-  if (!customer?.id) return null
+  if (!customerId) return null
 
   async function handleSave() {
     const trimmed = content.trim()
@@ -34,7 +44,18 @@ export default function AddCustomerMemoModal({ customer, defaultDate, defaultWri
     setSubmitting(true)
     setError('')
     try {
-      await onSave({ customer, date, content: trimmed, writer })
+      // title/customerName/phone은 원본 카드(또는 선택한 고객)에서 그대로 넘어온 값을 그대로 저장한다.
+      // 여기서 서로 대신 채우거나 뒤바꾸지 않는다.
+      await onSave({
+        customerId,
+        sourceDiaryId,
+        title: sourceTitle,
+        customerName: sourceCustomerName,
+        phone: sourcePhone,
+        date,
+        content: trimmed,
+        writer,
+      })
       onClose?.()
     } catch (err) {
       setError(err.message || String(err))
@@ -50,9 +71,23 @@ export default function AddCustomerMemoModal({ customer, defaultDate, defaultWri
         <div className="acm-header">
           <div>
             <div className="acm-title">✏️ 메모 추가</div>
-            <div className="acm-customer-line">
-              <span className="acm-customer-name">{customer.name || '(이름 미입력)'}</span>
-              {customer.phone && <span className="acm-customer-phone">📞 {customer.phone}</span>}
+            <div className="acm-source-info">
+              {sourceTitle && (
+                <div className="acm-source-row">
+                  <span className="acm-source-label">제목</span>
+                  <span className="acm-source-value">{sourceTitle}</span>
+                </div>
+              )}
+              <div className="acm-source-row">
+                <span className="acm-source-label">고객명</span>
+                <span className="acm-source-value">{sourceCustomerName || '미입력'}</span>
+              </div>
+              {sourcePhone && (
+                <div className="acm-source-row">
+                  <span className="acm-source-label">연락처</span>
+                  <span className="acm-source-value">{sourcePhone}</span>
+                </div>
+              )}
             </div>
           </div>
           <button type="button" className="acm-close" onClick={() => !submitting && onClose?.()} aria-label="닫기">✕</button>

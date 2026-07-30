@@ -668,16 +668,19 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
   /* ===== 고객별 메모 타임라인 ===== */
 
-  // 카드에 customer_id가 없으면 이름/연락처로 고객을 찾거나 새로 만들어 그 자리에서 연결
+  // 카드에 customer_id가 없으면 고객을 찾거나 새로 만들어 그 자리에서 연결한다.
+  // 반환값은 오직 customer_id뿐 — title/customer_name/phone은 절대 이 함수가 정하지 않는다.
+  // (검색/생성용 이름이 필요하면 호출부에서 customerLookupName을 따로 만들어 넘긴다)
   const ensureCustomerLinked = useCallback(async (memo) => {
     if (memo.customer_id) {
-      return { id: memo.customer_id, name: memo.customer_name || memo.title || '', phone: memo.customer_phone || '' }
+      return { id: memo.customer_id }
     }
-    if (!memo.customer_name && !memo.customer_phone) return null
-    // customer_name이 비어있고 제목에 업체명/고객명이 적혀있는 경우가 있어 폴백으로 사용
-    const nameGuess = memo.customer_name || memo.title || ''
+    // customers 조회/생성에만 쓰는 내부용 이름 — customer_name이 비어있을 때만 title을 폴백으로 사용
+    const customerLookupName = (memo.customer_name || '').trim() || (memo.title || '').trim()
+    if (!customerLookupName && !memo.customer_phone) return null
+
     const customer = await resolveOrCreateCustomer({
-      name: nameGuess,
+      name: customerLookupName,
       phone: memo.customer_phone,
       manager: memo.writer,
     })
@@ -691,21 +694,25 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     } catch (err) {
       console.warn('[WorkDiary] customer_id backfill failed:', err.message || err)
     }
-    return {
-      id: customer.id,
-      name: customer.name || nameGuess || '',
-      phone: customer.phone || memo.customer_phone || '',
-    }
+    return { id: customer.id }
   }, [])
 
+  // 기존 카드에서 "메모 추가" — 새 메모의 title/customer_name/phone은 원본 카드 그대로 복사한다.
   const handleOpenAddMemoForMemo = useCallback(async (memo) => {
     try {
-      const customer = await ensureCustomerLinked(memo)
-      if (!customer) {
+      const linked = await ensureCustomerLinked(memo)
+      if (!linked) {
         setError('고객 이름 또는 연락처가 없어 메모를 연결할 수 없습니다.')
         return
       }
-      setAddMemoTarget({ customer, defaultDate: memo.date || toDateKey(selectedDate) })
+      setAddMemoTarget({
+        customerId: linked.id,
+        sourceDiaryId: memo.id,
+        sourceTitle: memo.title || '',
+        sourceCustomerName: memo.customer_name || '',
+        sourcePhone: memo.customer_phone || '',
+        defaultDate: memo.date || toDateKey(selectedDate),
+      })
     } catch (err) {
       setError(`고객 연결 실패: ${err.message || err}`)
     }
@@ -713,20 +720,25 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
   const handleOpenTimelineForMemo = useCallback(async (memo) => {
     try {
-      const customer = await ensureCustomerLinked(memo)
-      if (!customer) {
+      const linked = await ensureCustomerLinked(memo)
+      if (!linked) {
         setError('고객 이름 또는 연락처가 없어 전체 메모를 볼 수 없습니다.')
         return
       }
-      setTimelineCustomerId(customer.id)
+      setTimelineCustomerId(linked.id)
     } catch (err) {
       setError(`고객 연결 실패: ${err.message || err}`)
     }
   }, [ensureCustomerLinked])
 
+  // 고객 검색 결과에서 "메모 추가" — 원본 카드가 없으므로 title 없이 선택한 고객의 이름/연락처만 사용
   const handleSearchAddMemo = useCallback((customerRow) => {
     setAddMemoTarget({
-      customer: { id: customerRow.id, name: customerRow.name, phone: customerRow.phone },
+      customerId: customerRow.id,
+      sourceDiaryId: null,
+      sourceTitle: '',
+      sourceCustomerName: customerRow.name || '',
+      sourcePhone: customerRow.phone || '',
       defaultDate: toDateKey(selectedDate),
     })
   }, [selectedDate])
@@ -737,9 +749,9 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
   // 고객에게 특정 날짜로 메모를 저장 — 같은 레코드가 선택 날짜의 업무일지 목록과
   // 고객 타임라인 양쪽에서 동시에 보이도록 work_diary에 customer_id + date로 저장
-  const handleCreateForCustomer = useCallback(async ({ customer, date, content, writer }) => {
+  const handleCreateForCustomer = useCallback(async ({ customerId, title, customerName, phone, date, content, writer }) => {
     if (!isSupabaseConfigured) throw new Error('Supabase 연결이 설정되지 않았습니다.')
-    if (!customer?.id) throw new Error('고객 정보를 찾을 수 없습니다. 다시 검색해주세요.')
+    if (!customerId) throw new Error('고객 정보를 찾을 수 없습니다. 다시 검색해주세요.')
     if (!date) throw new Error('기록 날짜를 선택해주세요.')
 
     const tags = extractTags(content)
@@ -751,10 +763,10 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       writer,
       sticker: null,
       link_key: '',
-      customer_name: customer.name || null,
-      customer_phone: customer.phone || null,
-      title: null,
-      customer_id: customer.id,
+      title: title || null,
+      customer_name: customerName || null,
+      customer_phone: phone || null,
+      customer_id: customerId,
     }
     // created_at/updated_at은 지정하지 않고 DB 기본값(now())을 그대로 사용한다
 
@@ -1048,7 +1060,14 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             handleNavigate(dateStr, memoId)
           }}
           onAddMemoRequested={(customer) =>
-            setAddMemoTarget({ customer, defaultDate: toDateKey(selectedDate) })
+            setAddMemoTarget({
+              customerId: customer.id,
+              sourceDiaryId: null,
+              sourceTitle: '',
+              sourceCustomerName: customer.name || '',
+              sourcePhone: customer.phone || '',
+              defaultDate: toDateKey(selectedDate),
+            })
           }
           onUpdateMemo={handleTimelineUpdateMemo}
           onDeleteMemo={handleDelete}
@@ -1057,7 +1076,11 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
       {addMemoTarget && (
         <AddCustomerMemoModal
-          customer={addMemoTarget.customer}
+          customerId={addMemoTarget.customerId}
+          sourceDiaryId={addMemoTarget.sourceDiaryId}
+          sourceTitle={addMemoTarget.sourceTitle}
+          sourceCustomerName={addMemoTarget.sourceCustomerName}
+          sourcePhone={addMemoTarget.sourcePhone}
           defaultDate={addMemoTarget.defaultDate}
           defaultWriter={filterWriter !== 'all' ? filterWriter : '주현희'}
           onClose={() => setAddMemoTarget(null)}

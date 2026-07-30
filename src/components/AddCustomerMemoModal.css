@@ -40,23 +40,35 @@
   color: var(--color-on-surface);
 }
 
-.acm-customer-line {
+.acm-source-info {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.acm-source-row {
+  display: flex;
+  align-items: baseline;
   gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
+  font-size: 13px;
 }
 
-.acm-customer-name {
-  font-size: 13.5px;
+.acm-source-label {
+  flex-shrink: 0;
+  min-width: 42px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--color-on-surface-faint);
 }
 
-.acm-customer-phone {
-  font-size: 12px;
-  color: var(--color-on-surface-muted);
+.acm-source-value {
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.acm-source-row:first-child .acm-source-value {
+  color: var(--color-primary);
 }
 
 .acm-close {
