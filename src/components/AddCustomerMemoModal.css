@@ -83,7 +83,7 @@
 
 .acm-textarea {
   width: 100%;
-  min-height: 130px;
+  min-height: 220px;
   background: var(--color-bg-deeper);
   border: 1px solid var(--color-border);
   border-radius: 10px;
@@ -184,6 +184,9 @@
     border-radius: 16px 16px 0 0;
     max-width: 100%;
     max-height: 92vh;
+  }
+  .acm-textarea {
+    min-height: 180px;
   }
   .acm-row {
     flex-direction: column;

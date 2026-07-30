@@ -12,17 +12,6 @@ function formatDateFull(dateStr) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${weekday})`
 }
 
-function formatTime(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const h = d.getHours()
-  const m = String(d.getMinutes()).padStart(2, '0')
-  const ampm = h < 12 ? '오전' : '오후'
-  const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${ampm} ${h12}:${m}`
-}
-
 /*
  * 고객별 전체 메모 타임라인 모달.
  * customerId 하나로만 조회하므로 다른 고객의 메모가 섞일 수 없음.
@@ -184,7 +173,6 @@ export default function CustomerTimelineModal({
               >
                 <div className="ctm-entry-head">
                   <span className="ctm-entry-date">{formatDateFull(entry.date)}</span>
-                  {entry.createdAt && <span className="ctm-entry-time">{formatTime(entry.createdAt)}</span>}
                   {entry.kind === 'registration' && (
                     <span className="ctm-reg-badge">고객 등록 시 작성한 기본 메모</span>
                   )}

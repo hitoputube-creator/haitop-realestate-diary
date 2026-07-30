@@ -167,11 +167,6 @@
   color: var(--color-primary);
 }
 
-.ctm-entry-time {
-  font-size: 11px;
-  color: var(--color-on-surface-faint);
-}
-
 .ctm-entry-writer {
   font-size: 11px;
   color: var(--color-on-surface-muted);

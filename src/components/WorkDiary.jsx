@@ -737,7 +737,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
   // 고객에게 특정 날짜로 메모를 저장 — 같은 레코드가 선택 날짜의 업무일지 목록과
   // 고객 타임라인 양쪽에서 동시에 보이도록 work_diary에 customer_id + date로 저장
-  const handleCreateForCustomer = useCallback(async ({ customer, date, time, content, writer }) => {
+  const handleCreateForCustomer = useCallback(async ({ customer, date, content, writer }) => {
     if (!isSupabaseConfigured) throw new Error('Supabase 연결이 설정되지 않았습니다.')
     if (!customer?.id) throw new Error('고객 정보를 찾을 수 없습니다. 다시 검색해주세요.')
     if (!date) throw new Error('기록 날짜를 선택해주세요.')
@@ -756,14 +756,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       title: null,
       customer_id: customer.id,
     }
-
-    if (time) {
-      const ts = new Date(`${date}T${time}:00`)
-      if (!Number.isNaN(ts.getTime())) {
-        insertPayload.created_at = ts.toISOString()
-        insertPayload.updated_at = ts.toISOString()
-      }
-    }
+    // created_at/updated_at은 지정하지 않고 DB 기본값(now())을 그대로 사용한다
 
     const { data, error: e } = await supabase.from(TABLE).insert(insertPayload).select().single()
     if (e) throw e

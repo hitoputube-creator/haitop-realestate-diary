@@ -9,7 +9,6 @@ import './AddCustomerMemoModal.css'
 export default function AddCustomerMemoModal({ customer, defaultDate, defaultWriter = '주현희', onClose, onSave }) {
   const [content, setContent] = useState('')
   const [date, setDate] = useState(defaultDate || '')
-  const [time, setTime] = useState('')
   const [writer, setWriter] = useState(defaultWriter)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -35,11 +34,11 @@ export default function AddCustomerMemoModal({ customer, defaultDate, defaultWri
     setSubmitting(true)
     setError('')
     try {
-      await onSave({ customer, date, time: time || null, content: trimmed, writer })
+      await onSave({ customer, date, content: trimmed, writer })
       onClose?.()
     } catch (err) {
       setError(err.message || String(err))
-      // 실패 시 입력 내용은 그대로 유지 (content/date/time 초기화하지 않음)
+      // 실패 시 입력 내용은 그대로 유지 (content/date 초기화하지 않음)
     } finally {
       setSubmitting(false)
     }
@@ -77,16 +76,6 @@ export default function AddCustomerMemoModal({ customer, defaultDate, defaultWri
                 className="acm-input"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                disabled={submitting}
-              />
-            </label>
-            <label className="acm-label">
-              시간 <span className="acm-optional">(선택)</span>
-              <input
-                type="time"
-                className="acm-input"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
                 disabled={submitting}
               />
             </label>
