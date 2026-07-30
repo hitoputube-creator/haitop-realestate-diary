@@ -6,6 +6,7 @@ import {
   validatePhotoFiles,
   getAttachmentSignedUrl,
   downloadAttachment,
+  downloadAttachmentsAsZip,
 } from '../lib/attachments'
 
 export function DiaryPhotoUploader({ files, onChange, disabled, busy }) {
@@ -79,7 +80,7 @@ export function DiaryPhotoUploader({ files, onChange, disabled, busy }) {
 
 /* 썸네일 1장 — 비공개 버킷이므로 마운트 시점에 signed URL을 새로 받아온다.
    HEIC 등 브라우저가 못 그리는 형식이거나 발급 실패 시 안내 아이콘으로 대체. */
-function PhotoThumb({ photo, photos, index, onOpen }) {
+function PhotoThumb({ photo, photos, index, onOpen, selectMode, selected, onToggleSelect }) {
   const [src, setSrc] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | error
 
@@ -104,9 +105,10 @@ function PhotoThumb({ photo, photos, index, onOpen }) {
   return (
     <button
       type="button"
-      className="wd-photo-thumb"
-      onClick={() => onOpen?.(photos, index)}
+      className={`wd-photo-thumb${selectMode ? ' selectable' : ''}${selected ? ' selected' : ''}`}
+      onClick={() => (selectMode ? onToggleSelect?.() : onOpen?.(photos, index))}
       title={photo.original_name || '첨부 사진'}
+      aria-pressed={selectMode ? selected : undefined}
     >
       {status === 'ready' && (
         <img
@@ -118,29 +120,119 @@ function PhotoThumb({ photo, photos, index, onOpen }) {
       )}
       {status === 'loading' && <span className="wd-photo-thumb-loading" aria-hidden="true" />}
       {status === 'error' && <span className="wd-photo-thumb-fallback" aria-hidden="true">🖼️</span>}
+      {selectMode && (
+        <span className={`wd-photo-thumb-check${selected ? ' checked' : ''}`} aria-hidden="true">
+          {selected ? '✓' : ''}
+        </span>
+      )}
     </button>
   )
 }
 
 export function DiaryPhotoStrip({ photos, onOpen }) {
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState(() => new Set())
+  const [downloading, setDownloading] = useState(false)
+  const [progress, setProgress] = useState(null) // { done, total } | null
+  const [error, setError] = useState('')
+
   if (!photos?.length) return null
 
+  const keyOf = (photo) => photo.id || photo.storage_path
+
+  function exitSelectMode() {
+    setSelectMode(false)
+    setSelected(new Set())
+    setError('')
+  }
+
+  function toggleSelected(key) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) => (prev.size === photos.length ? new Set() : new Set(photos.map(keyOf))))
+  }
+
+  async function handleDownloadSelected() {
+    const targets = photos.filter((p) => selected.has(keyOf(p)))
+    if (!targets.length || downloading) return
+    setDownloading(true)
+    setError('')
+    setProgress({ done: 0, total: targets.length })
+    try {
+      if (targets.length === 1) {
+        await downloadAttachment(targets[0])
+      } else {
+        await downloadAttachmentsAsZip(targets, {
+          zipName: `업무일지사진_${targets.length}장.zip`,
+          onProgress: (done, total) => setProgress({ done, total }),
+        })
+      }
+      exitSelectMode()
+    } catch (err) {
+      setError(err.message || String(err))
+    } finally {
+      setDownloading(false)
+      setProgress(null)
+    }
+  }
+
   return (
-    <div className="wd-photo-strip" aria-label="첨부 사진">
-      {photos.slice(0, 6).map((photo, index) => (
-        <PhotoThumb
-          key={photo.id || photo.storage_path}
-          photo={photo}
-          photos={photos}
-          index={index}
-          onOpen={onOpen}
-        />
-      ))}
-      {photos.length > 6 && (
-        <button type="button" className="wd-photo-more" onClick={() => onOpen?.(photos, 6)}>
-          +{photos.length - 6}
-        </button>
-      )}
+    <div className="wd-photo-strip-wrap">
+      <div className="wd-photo-strip" aria-label="첨부 사진">
+        {(selectMode ? photos : photos.slice(0, 6)).map((photo, index) => (
+          <PhotoThumb
+            key={keyOf(photo)}
+            photo={photo}
+            photos={photos}
+            index={index}
+            onOpen={onOpen}
+            selectMode={selectMode}
+            selected={selected.has(keyOf(photo))}
+            onToggleSelect={() => toggleSelected(keyOf(photo))}
+          />
+        ))}
+        {!selectMode && photos.length > 6 && (
+          <button type="button" className="wd-photo-more" onClick={() => onOpen?.(photos, 6)}>
+            +{photos.length - 6}
+          </button>
+        )}
+      </div>
+
+      <div className="wd-photo-strip-actions">
+        {!selectMode ? (
+          <button type="button" className="wd-photo-select-toggle" onClick={() => setSelectMode(true)}>
+            선택
+          </button>
+        ) : (
+          <>
+            <button type="button" className="wd-photo-select-all" onClick={toggleSelectAll} disabled={downloading}>
+              {selected.size === photos.length ? '전체 해제' : '전체 선택'}
+            </button>
+            <span className="wd-photo-select-count">{selected.size}장 선택됨</span>
+            <button
+              type="button"
+              className="wd-photo-download-selected"
+              onClick={handleDownloadSelected}
+              disabled={!selected.size || downloading}
+            >
+              {downloading
+                ? (progress && progress.total > 1 ? `압축 중... (${progress.done}/${progress.total})` : '다운로드 중...')
+                : '⬇ 선택 다운로드'}
+            </button>
+            <button type="button" className="wd-photo-select-cancel" onClick={exitSelectMode} disabled={downloading}>
+              취소
+            </button>
+          </>
+        )}
+      </div>
+      {error && <div className="wd-photo-strip-error" role="alert">{error}</div>}
     </div>
   )
 }

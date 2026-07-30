@@ -1902,11 +1902,14 @@
   background: rgba(248, 113, 113, 0.08);
 }
 
+.wd-photo-strip-wrap {
+  margin-top: 10px;
+}
+
 .wd-photo-strip {
   display: flex;
   gap: 7px;
   flex-wrap: wrap;
-  margin-top: 10px;
 }
 
 .wd-photo-thumb,
@@ -1918,6 +1921,107 @@
   border: 1px solid rgba(201, 168, 76, 0.35);
   background: var(--color-bg-deeper);
   cursor: pointer;
+  position: relative;
+}
+
+.wd-photo-thumb.selectable {
+  border-color: rgba(230, 195, 100, 0.5);
+}
+
+.wd-photo-thumb.selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(230, 195, 100, 0.35) inset;
+}
+
+.wd-photo-thumb.selected img {
+  opacity: 0.75;
+}
+
+.wd-photo-thumb-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  background: rgba(3, 8, 24, 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.wd-photo-thumb-check.checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.wd-photo-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.wd-photo-select-toggle,
+.wd-photo-select-all,
+.wd-photo-select-cancel {
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-bg-deeper);
+  color: var(--color-on-surface-muted);
+  border: 1px solid var(--color-border);
+}
+
+.wd-photo-select-toggle:hover,
+.wd-photo-select-all:hover:not(:disabled),
+.wd-photo-select-cancel:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-on-surface);
+}
+
+.wd-photo-select-count {
+  font-size: 11px;
+  color: var(--color-on-surface-faint);
+}
+
+.wd-photo-download-selected {
+  padding: 5px 12px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.wd-photo-download-selected:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.wd-photo-download-selected:disabled,
+.wd-photo-select-all:disabled,
+.wd-photo-select-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wd-photo-strip-error {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  color: #fca5a5;
+  border-radius: 7px;
+  font-size: 11px;
 }
 
 .wd-photo-thumb img {

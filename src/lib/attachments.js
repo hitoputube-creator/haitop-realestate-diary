@@ -117,25 +117,22 @@ export function resolveDownloadFilename(row) {
   return 'attachment'
 }
 
-// PC 브라우저에서 cross-origin 첨부파일을 확실하게 저장하기 위한 다운로드 함수.
+// 첨부파일 1개의 실제 바이트(Blob)를 받아온다.
 // 1) Storage SDK의 download()로 직접 Blob을 받아온다 (가장 안정적)
 // 2) 실패하면 signed URL을 새로 발급해 fetch로 받아온다
 // 둘 다 실패하면 사용자에게 보여줄 에러 메시지를 담아 throw한다.
-export async function downloadAttachment(row) {
+export async function fetchAttachmentBlob(row) {
   const path = extractStoragePath(row)
   const bucket = attachmentBucket(row)
-  const filename = resolveDownloadFilename(row)
 
   if (!path) {
     throw new Error('이 첨부파일은 원본 경로가 없어 다운로드할 수 없습니다.')
   }
 
-  let blob
-
   try {
     const { data, error } = await supabase.storage.from(bucket).download(path)
     if (error) throw error
-    blob = data
+    return data
   } catch (downloadErr) {
     console.warn('[attachments] storage.download 실패, signed URL로 재시도:', { bucket, path, message: downloadErr.message || downloadErr })
     try {
@@ -144,13 +141,15 @@ export async function downloadAttachment(row) {
       if (!response.ok) {
         throw new Error(`파일 다운로드 실패: ${response.status}`, { cause: downloadErr })
       }
-      blob = await response.blob()
+      return await response.blob()
     } catch (fetchErr) {
       console.error('[attachments] 다운로드 최종 실패:', { bucket, path, message: fetchErr.message || fetchErr })
       throw new Error('파일을 다운로드하지 못했습니다. 잠시 후 다시 시도해주세요.', { cause: fetchErr })
     }
   }
+}
 
+function triggerBlobDownload(blob, filename) {
   const objectUrl = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = objectUrl
@@ -159,6 +158,53 @@ export async function downloadAttachment(row) {
   anchor.click()
   anchor.remove()
   URL.revokeObjectURL(objectUrl)
+}
+
+// PC 브라우저에서 cross-origin 첨부파일 1개를 확실하게 저장한다.
+export async function downloadAttachment(row) {
+  const blob = await fetchAttachmentBlob(row)
+  triggerBlobDownload(blob, resolveDownloadFilename(row))
+}
+
+// 이름 충돌 시 "파일(2).jpg" 형태로 겹치지 않게 만든다.
+function dedupeZipName(name, usedNames) {
+  if (!usedNames.has(name)) {
+    usedNames.add(name)
+    return name
+  }
+  const dot = name.lastIndexOf('.')
+  const base = dot > 0 ? name.slice(0, dot) : name
+  const ext = dot > 0 ? name.slice(dot) : ''
+  let n = 2
+  let candidate = `${base}(${n})${ext}`
+  while (usedNames.has(candidate)) {
+    n += 1
+    candidate = `${base}(${n})${ext}`
+  }
+  usedNames.add(candidate)
+  return candidate
+}
+
+// 선택한 첨부파일 여러 개를 zip 하나로 묶어 한 번에 다운로드한다.
+// (브라우저는 스크립트가 여러 파일을 연속으로 다운로드하려 하면 막거나 확인창을
+// 띄우므로, 여러 장을 선택했을 때는 파일을 여러 개 내려받는 대신 zip 하나로 합친다)
+export async function downloadAttachmentsAsZip(rows, { zipName, onProgress } = {}) {
+  const list = (rows || []).filter(Boolean)
+  if (!list.length) return
+
+  const { default: JSZip } = await import('jszip')
+  const zip = new JSZip()
+  const usedNames = new Set()
+
+  for (let i = 0; i < list.length; i += 1) {
+    const blob = await fetchAttachmentBlob(list[i])
+    const name = dedupeZipName(resolveDownloadFilename(list[i]), usedNames)
+    zip.file(name, blob)
+    onProgress?.(i + 1, list.length)
+  }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' })
+  triggerBlobDownload(zipBlob, zipName || `첨부사진_${list.length}장.zip`)
 }
 
 /* ══════════════════════════════════════════════
