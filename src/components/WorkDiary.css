@@ -805,6 +805,53 @@
   border-color: var(--color-primary);
 }
 
+/* ===== 메모 카드 — 고객 연결 도구 (전화/메모 추가/전체 메모 보기) ===== */
+.wd-card-customer-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.wd-card-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wd-card-call-btn {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--color-done);
+}
+.wd-card-call-btn:hover {
+  background: rgba(74, 222, 128, 0.22);
+}
+
+.wd-card-addmemo-btn {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.wd-card-addmemo-btn:hover {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.wd-card-timeline-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-on-surface-muted);
+}
+.wd-card-timeline-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-on-surface);
+}
+
 /* ===== 작성창(Composer) — 이름/연락처/제목 ===== */
 .wd-composer-customer-row {
   display: flex;

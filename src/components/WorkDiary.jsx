@@ -7,6 +7,10 @@ import UpcomingSchedules from './UpcomingSchedules'
 import SelectedScheduleMemos from './SelectedScheduleMemos'
 import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
 import { listDiaryPhotosForIds, uploadDiaryPhotos, listDiaryFilesForIds, uploadDiaryFiles } from '../lib/attachments'
+import { resolveOrCreateCustomer } from '../lib/customers'
+import CustomerSearchPanel from './CustomerSearchPanel'
+import AddCustomerMemoModal from './AddCustomerMemoModal'
+import CustomerTimelineModal from './CustomerTimelineModal'
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
@@ -49,6 +53,11 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const [fileMap, setFileMap] = useState({})
   const [photoGallery, setPhotoGallery] = useState(null)
   const [upcomingRefreshKey, setUpcomingRefreshKey] = useState(0)
+
+  /* ===== 고객별 메모 타임라인 ===== */
+  const [addMemoTarget, setAddMemoTarget] = useState(null) // { customer: {id,name,phone}, defaultDate }
+  const [timelineCustomerId, setTimelineCustomerId] = useState(null)
+  const [timelineReloadKey, setTimelineReloadKey] = useState(0)
 
   // 현재 고정된 diary_id Set — MemoCard 버튼 상태 판단용
   const pinnedDiaryIds = useMemo(
@@ -393,6 +402,19 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       try {
         const tags = extractTags(content)
         const dateStr = toDateKey(selectedDate)
+
+        // 이름/연락처가 있으면 고객을 찾거나 새로 만들어 customer_id로 연결
+        // (실패해도 메모 저장 자체는 막지 않는다)
+        let customerId = null
+        if (name.trim() || phone.trim()) {
+          try {
+            const customer = await resolveOrCreateCustomer({ name, phone, manager: writer })
+            customerId = customer?.id || null
+          } catch (custErr) {
+            console.warn('[WorkDiary] customer resolve failed:', custErr.message || custErr)
+          }
+        }
+
         const { data, error: e } = await supabase
           .from(TABLE)
           .insert({
@@ -406,6 +428,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             customer_name: name || null,
             customer_phone: phone || null,
             title: title || null,
+            customer_id: customerId,
           })
           .select()
           .single()
@@ -599,7 +622,24 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const handleUpdateContent = useCallback(async (id, content, meta = {}) => {
     if (!isSupabaseConfigured) return
     const tags = extractTags(content)
-    const patch = { content, tags, ...meta }
+    let patch = { content, tags, ...meta }
+
+    // 아직 customer_id가 없는데 이름/연락처가 입력되면 고객을 찾거나 새로 만들어 연결
+    if (!('customer_id' in meta)) {
+      const existing = memos.find((m) => m.id === id) || searchResults.find((m) => m.id === id)
+      const alreadyLinked = existing?.customer_id
+      const nextName = 'customer_name' in meta ? meta.customer_name : existing?.customer_name
+      const nextPhone = 'customer_phone' in meta ? meta.customer_phone : existing?.customer_phone
+      if (!alreadyLinked && (nextName || nextPhone)) {
+        try {
+          const customer = await resolveOrCreateCustomer({ name: nextName, phone: nextPhone, manager: existing?.writer })
+          if (customer?.id) patch = { ...patch, customer_id: customer.id }
+        } catch (custErr) {
+          console.warn('[WorkDiary] customer resolve failed:', custErr.message || custErr)
+        }
+      }
+    }
+
     setMemos((prev) =>
       prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
     )
@@ -624,7 +664,132 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       setError(`수정 실패: ${err.message || err}`)
       loadMemosForSelected()
     }
-  }, [loadMemosForSelected, loadMonthDots])
+  }, [loadMemosForSelected, loadMonthDots, memos, searchResults])
+
+  /* ===== 고객별 메모 타임라인 ===== */
+
+  // 카드에 customer_id가 없으면 이름/연락처로 고객을 찾거나 새로 만들어 그 자리에서 연결
+  const ensureCustomerLinked = useCallback(async (memo) => {
+    if (memo.customer_id) {
+      return { id: memo.customer_id, name: memo.customer_name || memo.title || '', phone: memo.customer_phone || '' }
+    }
+    if (!memo.customer_name && !memo.customer_phone) return null
+    // customer_name이 비어있고 제목에 업체명/고객명이 적혀있는 경우가 있어 폴백으로 사용
+    const nameGuess = memo.customer_name || memo.title || ''
+    const customer = await resolveOrCreateCustomer({
+      name: nameGuess,
+      phone: memo.customer_phone,
+      manager: memo.writer,
+    })
+    if (!customer?.id) return null
+
+    setMemos((prev) => prev.map((m) => (m.id === memo.id ? { ...m, customer_id: customer.id } : m)))
+    setSearchResults((prev) => prev.map((m) => (m.id === memo.id ? { ...m, customer_id: customer.id } : m)))
+    try {
+      const { error: e } = await supabase.from(TABLE).update({ customer_id: customer.id }).eq('id', memo.id)
+      if (e) throw e
+    } catch (err) {
+      console.warn('[WorkDiary] customer_id backfill failed:', err.message || err)
+    }
+    return {
+      id: customer.id,
+      name: customer.name || nameGuess || '',
+      phone: customer.phone || memo.customer_phone || '',
+    }
+  }, [])
+
+  const handleOpenAddMemoForMemo = useCallback(async (memo) => {
+    try {
+      const customer = await ensureCustomerLinked(memo)
+      if (!customer) {
+        setError('고객 이름 또는 연락처가 없어 메모를 연결할 수 없습니다.')
+        return
+      }
+      setAddMemoTarget({ customer, defaultDate: memo.date || toDateKey(selectedDate) })
+    } catch (err) {
+      setError(`고객 연결 실패: ${err.message || err}`)
+    }
+  }, [ensureCustomerLinked, selectedDate])
+
+  const handleOpenTimelineForMemo = useCallback(async (memo) => {
+    try {
+      const customer = await ensureCustomerLinked(memo)
+      if (!customer) {
+        setError('고객 이름 또는 연락처가 없어 전체 메모를 볼 수 없습니다.')
+        return
+      }
+      setTimelineCustomerId(customer.id)
+    } catch (err) {
+      setError(`고객 연결 실패: ${err.message || err}`)
+    }
+  }, [ensureCustomerLinked])
+
+  const handleSearchAddMemo = useCallback((customerRow) => {
+    setAddMemoTarget({
+      customer: { id: customerRow.id, name: customerRow.name, phone: customerRow.phone },
+      defaultDate: toDateKey(selectedDate),
+    })
+  }, [selectedDate])
+
+  const handleSearchViewTimeline = useCallback((customerId) => {
+    setTimelineCustomerId(customerId)
+  }, [])
+
+  // 고객에게 특정 날짜로 메모를 저장 — 같은 레코드가 선택 날짜의 업무일지 목록과
+  // 고객 타임라인 양쪽에서 동시에 보이도록 work_diary에 customer_id + date로 저장
+  const handleCreateForCustomer = useCallback(async ({ customer, date, time, content, writer }) => {
+    if (!isSupabaseConfigured) throw new Error('Supabase 연결이 설정되지 않았습니다.')
+    if (!customer?.id) throw new Error('고객 정보를 찾을 수 없습니다. 다시 검색해주세요.')
+    if (!date) throw new Error('기록 날짜를 선택해주세요.')
+
+    const tags = extractTags(content)
+    const insertPayload = {
+      content,
+      tags,
+      status: 'normal',
+      date,
+      writer,
+      sticker: null,
+      link_key: '',
+      customer_name: customer.name || null,
+      customer_phone: customer.phone || null,
+      title: null,
+      customer_id: customer.id,
+    }
+
+    if (time) {
+      const ts = new Date(`${date}T${time}:00`)
+      if (!Number.isNaN(ts.getTime())) {
+        insertPayload.created_at = ts.toISOString()
+        insertPayload.updated_at = ts.toISOString()
+      }
+    }
+
+    const { data, error: e } = await supabase.from(TABLE).insert(insertPayload).select().single()
+    if (e) throw e
+
+    if (date === toDateKey(selectedDate)) {
+      setMemos((prev) => [...prev, data])
+      loadPhotosForRows([data])
+      loadFilesForRows([data])
+    }
+    setNotedDateKeys((prev) => {
+      const next = { ...prev }
+      if (!next[date]) next[date] = []
+      next[date] = [...next[date], { writer, sticker: null }]
+      return next
+    })
+    setUpcomingRefreshKey((key) => key + 1)
+    setTimelineReloadKey((key) => key + 1)
+    return data
+  }, [selectedDate, loadPhotosForRows, loadFilesForRows])
+
+  // 고객 타임라인 모달에서 메모를 수정할 때 — 날짜가 바뀔 수 있으므로 오늘 목록/도트도 재동기화
+  const handleTimelineUpdateMemo = useCallback(async (id, patch) => {
+    await handleUpdateContent(id, patch.content, { date: patch.date })
+    loadMemosForSelected()
+    loadMonthDots()
+  }, [handleUpdateContent, loadMemosForSelected, loadMonthDots])
 
   /* ===== 달력 네비게이션 ===== */
   function handlePrevMonth() {
@@ -802,6 +967,10 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             onNextMonth={handleNextMonth}
             onJumpToday={handleJumpToday}
           />
+          <CustomerSearchPanel
+            onAddMemo={handleSearchAddMemo}
+            onViewTimeline={handleSearchViewTimeline}
+          />
           <UpcomingSchedules
             filterWriter={filterWriter}
             refreshKey={upcomingRefreshKey}
@@ -839,6 +1008,8 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           onDelete={handleDelete}
           onUpdateContent={handleUpdateContent}
           onUpdateLinkKey={handleUpdateLinkKey}
+          onOpenAddMemoForMemo={handleOpenAddMemoForMemo}
+          onOpenTimelineForMemo={handleOpenTimelineForMemo}
           composerDisabled={!isSupabaseConfigured}
           allLinkKeys={allLinkKeys}
           onLinkKeyClick={handleLinkKeyClick}
@@ -871,6 +1042,33 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           photos={photoGallery.photos}
           startIndex={photoGallery.index}
           onClose={() => setPhotoGallery(null)}
+        />
+      )}
+
+      {timelineCustomerId && (
+        <CustomerTimelineModal
+          customerId={timelineCustomerId}
+          reloadSignal={timelineReloadKey}
+          onClose={() => setTimelineCustomerId(null)}
+          onNavigate={(dateStr, memoId) => {
+            setTimelineCustomerId(null)
+            handleNavigate(dateStr, memoId)
+          }}
+          onAddMemoRequested={(customer) =>
+            setAddMemoTarget({ customer, defaultDate: toDateKey(selectedDate) })
+          }
+          onUpdateMemo={handleTimelineUpdateMemo}
+          onDeleteMemo={handleDelete}
+        />
+      )}
+
+      {addMemoTarget && (
+        <AddCustomerMemoModal
+          customer={addMemoTarget.customer}
+          defaultDate={addMemoTarget.defaultDate}
+          defaultWriter={filterWriter !== 'all' ? filterWriter : '주현희'}
+          onClose={() => setAddMemoTarget(null)}
+          onSave={handleCreateForCustomer}
         />
       )}
     </div>

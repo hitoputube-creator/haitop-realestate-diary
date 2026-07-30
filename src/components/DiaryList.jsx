@@ -74,7 +74,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate }) {
+function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate, onOpenAddMemoForMemo, onOpenTimelineForMemo }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const [draftName, setDraftName] = useState(memo.customer_name || '')
@@ -320,6 +320,34 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             value={draftPhone}
             onChange={(e) => setDraftPhone(e.target.value)}
           />
+        </div>
+      )}
+
+      {!editing && (memo.customer_name || memo.customer_phone) && (
+        <div className="wd-card-customer-tools">
+          {memo.customer_phone && (
+            <a
+              className="wd-card-tool-btn wd-card-call-btn"
+              href={`tel:${memo.customer_phone}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              📞 전화
+            </a>
+          )}
+          <button
+            type="button"
+            className="wd-card-tool-btn wd-card-addmemo-btn"
+            onClick={() => onOpenAddMemoForMemo && onOpenAddMemoForMemo(memo)}
+          >
+            ✏️ 메모 추가
+          </button>
+          <button
+            type="button"
+            className="wd-card-tool-btn wd-card-timeline-btn"
+            onClick={() => onOpenTimelineForMemo && onOpenTimelineForMemo(memo)}
+          >
+            📚 전체 메모 보기
+          </button>
         </div>
       )}
 
@@ -1102,6 +1130,8 @@ export default function DiaryList({
   onDelete,
   onUpdateContent,
   onUpdateLinkKey,
+  onOpenAddMemoForMemo,
+  onOpenTimelineForMemo,
   composerDisabled,
   allLinkKeys,
   onLinkKeyClick,
@@ -1212,6 +1242,8 @@ export default function DiaryList({
               onUpdateContent={onUpdateContent}
               onLinkKeyClick={onLinkKeyClick}
               onUpdateLinkKey={onUpdateLinkKey}
+              onOpenAddMemoForMemo={onOpenAddMemoForMemo}
+              onOpenTimelineForMemo={onOpenTimelineForMemo}
               allLinkKeys={allLinkKeys}
               isPinned={pinnedDiaryIds?.has(m.id) ?? false}
               onPin={onPin}
