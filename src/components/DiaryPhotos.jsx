@@ -237,6 +237,10 @@ export function DiaryPhotoStrip({ photos, onOpen }) {
   )
 }
 
+const ZOOM_MIN = 1
+const ZOOM_MAX = 4
+const ZOOM_STEP = 0.4
+
 export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
   const [index, setIndex] = useState(startIndex)
   const current = photos?.[index]
@@ -246,9 +250,22 @@ export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState('')
 
+  // PC용 확대/이동 — 모바일은 브라우저 자체 핀치줌을 그대로 쓰고,
+  // 여기서는 마우스 휠/더블클릭/버튼/드래그로 데스크톱에서도 확대해서 볼 수 있게 한다.
+  const [zoom, setZoom] = useState(ZOOM_MIN)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const bodyRef = useRef(null)
+  const dragOrigin = useRef(null)
+
   useEffect(() => {
     setIndex(startIndex)
   }, [startIndex, photos])
+
+  useEffect(() => {
+    setZoom(ZOOM_MIN)
+    setPan({ x: 0, y: 0 })
+  }, [index])
 
   useEffect(() => {
     if (!current) return
@@ -280,7 +297,68 @@ export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose, photos?.length])
 
+  // 휠로 확대/축소 — React의 합성 wheel 이벤트는 passive라 preventDefault가
+  // 안 먹을 수 있어서 네이티브 리스너로 직접 등록한다.
+  useEffect(() => {
+    const el = bodyRef.current
+    if (!el) return
+    function onWheel(event) {
+      if (imgStatus !== 'ready') return
+      event.preventDefault()
+      zoomTo(zoom + (event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom, imgStatus])
+
   if (!current) return null
+
+  function clampPan(nextPan, z) {
+    const bounds = bodyRef.current?.getBoundingClientRect()
+    if (!bounds || z <= ZOOM_MIN) return { x: 0, y: 0 }
+    const maxX = (bounds.width * (z - 1)) / 2
+    const maxY = (bounds.height * (z - 1)) / 2
+    return {
+      x: Math.min(maxX, Math.max(-maxX, nextPan.x)),
+      y: Math.min(maxY, Math.max(-maxY, nextPan.y)),
+    }
+  }
+
+  function zoomTo(nextZoomRaw) {
+    const nextZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(nextZoomRaw * 100) / 100))
+    setZoom(nextZoom)
+    setPan((prevPan) => clampPan(prevPan, nextZoom))
+  }
+
+  function resetZoom() {
+    setZoom(ZOOM_MIN)
+    setPan({ x: 0, y: 0 })
+  }
+
+  function handleDoubleClick() {
+    if (zoom > ZOOM_MIN) resetZoom()
+    else zoomTo(2)
+  }
+
+  function handlePointerDown(event) {
+    if (zoom <= ZOOM_MIN) return
+    setIsPanning(true)
+    dragOrigin.current = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  function handlePointerMove(event) {
+    if (!dragOrigin.current) return
+    const dx = event.clientX - dragOrigin.current.x
+    const dy = event.clientY - dragOrigin.current.y
+    setPan(clampPan({ x: dragOrigin.current.panX + dx, y: dragOrigin.current.panY + dy }, zoom))
+  }
+
+  function handlePointerUp() {
+    dragOrigin.current = null
+    setIsPanning(false)
+  }
 
   async function handleDownload() {
     if (downloading) return
@@ -302,6 +380,32 @@ export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
         <div className="wd-photo-modal-head">
           <strong>{current.original_name || '첨부 사진'}</strong>
           <div className="wd-photo-modal-head-actions">
+            {imgStatus === 'ready' && (
+              <div className="wd-photo-zoom-controls">
+                <button
+                  type="button"
+                  onClick={() => zoomTo(zoom - ZOOM_STEP)}
+                  disabled={zoom <= ZOOM_MIN}
+                  aria-label="축소"
+                >
+                  －
+                </button>
+                <span className="wd-photo-zoom-level">{Math.round(zoom * 100)}%</span>
+                <button
+                  type="button"
+                  onClick={() => zoomTo(zoom + ZOOM_STEP)}
+                  disabled={zoom >= ZOOM_MAX}
+                  aria-label="확대"
+                >
+                  ＋
+                </button>
+                {zoom > ZOOM_MIN && (
+                  <button type="button" className="wd-photo-zoom-reset" onClick={resetZoom}>
+                    원본 크기
+                  </button>
+                )}
+              </div>
+            )}
             <span>{index + 1} / {photos.length}</span>
             <button
               type="button"
@@ -314,7 +418,7 @@ export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
             <button type="button" onClick={onClose}>닫기</button>
           </div>
         </div>
-        <div className="wd-photo-modal-body">
+        <div className="wd-photo-modal-body" ref={bodyRef}>
           {photos.length > 1 && (
             <button
               type="button"
@@ -330,7 +434,19 @@ export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
             <img
               src={src}
               alt={current.original_name || '첨부 사진'}
+              draggable={false}
               onError={() => setImgStatus('error')}
+              onDoubleClick={handleDoubleClick}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+              className={zoom > ZOOM_MIN ? 'wd-photo-zoomed' : ''}
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transition: isPanning ? 'none' : 'transform 0.12s ease',
+                cursor: zoom > ZOOM_MIN ? (isPanning ? 'grabbing' : 'grab') : 'zoom-in',
+              }}
             />
           )}
           {imgStatus === 'loading' && (
