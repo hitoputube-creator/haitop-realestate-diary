@@ -4,6 +4,7 @@ import {
   MAX_DIARY_FILES,
   formatPhotoSize,
   validateDiaryFiles,
+  downloadAttachment,
 } from '../lib/attachments'
 
 function getExtension(name = '') {
@@ -75,27 +76,52 @@ export function DiaryFileUploader({ files, onChange, disabled, busy }) {
   )
 }
 
+// 첨부파일 1개 — 비공개 버킷이므로 클릭할 때마다 새 signed URL을 받아 fetch+blob으로 저장한다.
+// cross-origin <a download>는 브라우저가 무시할 수 있어 쓰지 않는다.
+function FileDownloadItem({ file }) {
+  const [downloading, setDownloading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleClick() {
+    if (downloading) return
+    setDownloading(true)
+    setError('')
+    try {
+      await downloadAttachment(file)
+    } catch (err) {
+      setError(err.message || String(err))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <div className="wd-file-item-wrap">
+      <button
+        type="button"
+        className="wd-file-item"
+        onClick={handleClick}
+        disabled={downloading}
+        title={`${file.original_name || '첨부 파일'} 다운로드`}
+      >
+        <span className="wd-file-icon" aria-hidden="true">{getExtension(file.original_name)}</span>
+        <span className="wd-file-meta">
+          <strong>{file.original_name || '첨부 파일'}</strong>
+          <span>{formatPhotoSize(file.file_size)} · {downloading ? '다운로드 중...' : '다운로드'}</span>
+        </span>
+      </button>
+      {error && <div className="wd-file-item-error" role="alert">{error}</div>}
+    </div>
+  )
+}
+
 export function DiaryFileList({ files }) {
   if (!files?.length) return null
 
   return (
     <div className="wd-file-list" aria-label="첨부 파일">
       {files.map((file) => (
-        <a
-          className="wd-file-item"
-          href={file.public_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          download={file.original_name || undefined}
-          key={file.id || file.storage_path}
-          title={`${file.original_name || '첨부 파일'} 열기`}
-        >
-          <span className="wd-file-icon" aria-hidden="true">{getExtension(file.original_name)}</span>
-          <span className="wd-file-meta">
-            <strong>{file.original_name || '첨부 파일'}</strong>
-            <span>{formatPhotoSize(file.file_size)} · 열기/다운로드</span>
-          </span>
-        </a>
+        <FileDownloadItem key={file.id || file.storage_path} file={file} />
       ))}
     </div>
   )

@@ -4,6 +4,8 @@ import {
   MAX_PHOTO_FILES,
   PHOTO_ACCEPT,
   validatePhotoFiles,
+  getAttachmentSignedUrl,
+  downloadAttachment,
 } from '../lib/attachments'
 
 export function DiaryPhotoUploader({ files, onChange, disabled, busy }) {
@@ -45,7 +47,7 @@ export function DiaryPhotoUploader({ files, onChange, disabled, busy }) {
           />
         </label>
         <span className="wd-photo-help">
-          jpg/png/webp, 최대 {MAX_PHOTO_FILES}장
+          jpg/png/webp/heic/heif, 최대 {MAX_PHOTO_FILES}장
         </span>
       </div>
 
@@ -75,21 +77,64 @@ export function DiaryPhotoUploader({ files, onChange, disabled, busy }) {
   )
 }
 
+/* 썸네일 1장 — 비공개 버킷이므로 마운트 시점에 signed URL을 새로 받아온다.
+   HEIC 등 브라우저가 못 그리는 형식이거나 발급 실패 시 안내 아이콘으로 대체. */
+function PhotoThumb({ photo, photos, index, onOpen }) {
+  const [src, setSrc] = useState(null)
+  const [status, setStatus] = useState('loading') // loading | ready | error
+
+  useEffect(() => {
+    let cancelled = false
+    setStatus('loading')
+    setSrc(null)
+    getAttachmentSignedUrl(photo)
+      .then((url) => {
+        if (cancelled) return
+        setSrc(url)
+        setStatus('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.warn('[DiaryPhotos] 썸네일 signed URL 실패:', photo.storage_path, err.message || err)
+        setStatus('error')
+      })
+    return () => { cancelled = true }
+  }, [photo.id, photo.storage_path])
+
+  return (
+    <button
+      type="button"
+      className="wd-photo-thumb"
+      onClick={() => onOpen?.(photos, index)}
+      title={photo.original_name || '첨부 사진'}
+    >
+      {status === 'ready' && (
+        <img
+          src={src}
+          alt={photo.original_name || '첨부 사진'}
+          loading="lazy"
+          onError={() => setStatus('error')}
+        />
+      )}
+      {status === 'loading' && <span className="wd-photo-thumb-loading" aria-hidden="true" />}
+      {status === 'error' && <span className="wd-photo-thumb-fallback" aria-hidden="true">🖼️</span>}
+    </button>
+  )
+}
+
 export function DiaryPhotoStrip({ photos, onOpen }) {
   if (!photos?.length) return null
 
   return (
     <div className="wd-photo-strip" aria-label="첨부 사진">
       {photos.slice(0, 6).map((photo, index) => (
-        <button
-          type="button"
-          className="wd-photo-thumb"
+        <PhotoThumb
           key={photo.id || photo.storage_path}
-          onClick={() => onOpen?.(photos, index)}
-          title={photo.original_name || '첨부 사진'}
-        >
-          <img src={photo.public_url} alt={photo.original_name || '첨부 사진'} loading="lazy" />
-        </button>
+          photo={photo}
+          photos={photos}
+          index={index}
+          onOpen={onOpen}
+        />
       ))}
       {photos.length > 6 && (
         <button type="button" className="wd-photo-more" onClick={() => onOpen?.(photos, 6)}>
@@ -104,9 +149,34 @@ export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
   const [index, setIndex] = useState(startIndex)
   const current = photos?.[index]
 
+  const [src, setSrc] = useState(null)
+  const [imgStatus, setImgStatus] = useState('loading') // loading | ready | error
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState('')
+
   useEffect(() => {
     setIndex(startIndex)
   }, [startIndex, photos])
+
+  useEffect(() => {
+    if (!current) return
+    let cancelled = false
+    setImgStatus('loading')
+    setSrc(null)
+    setDownloadError('')
+    getAttachmentSignedUrl(current)
+      .then((url) => {
+        if (cancelled) return
+        setSrc(url)
+        setImgStatus('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.warn('[DiaryPhotos] 원본 signed URL 실패:', current.storage_path, err.message || err)
+        setImgStatus('error')
+      })
+    return () => { cancelled = true }
+  }, [current?.id, current?.storage_path])
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -120,14 +190,37 @@ export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
 
   if (!current) return null
 
+  async function handleDownload() {
+    if (downloading) return
+    setDownloading(true)
+    setDownloadError('')
+    try {
+      await downloadAttachment(current)
+    } catch (err) {
+      setDownloadError(err.message || String(err))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <div className="wd-photo-modal" role="dialog" aria-modal="true" aria-label="첨부 사진 크게 보기">
       <button type="button" className="wd-photo-modal-backdrop" onClick={onClose} aria-label="닫기" />
       <div className="wd-photo-modal-panel">
         <div className="wd-photo-modal-head">
           <strong>{current.original_name || '첨부 사진'}</strong>
-          <span>{index + 1} / {photos.length}</span>
-          <button type="button" onClick={onClose}>닫기</button>
+          <div className="wd-photo-modal-head-actions">
+            <span>{index + 1} / {photos.length}</span>
+            <button
+              type="button"
+              className="wd-photo-download-btn"
+              onClick={handleDownload}
+              disabled={downloading}
+            >
+              {downloading ? '다운로드 중...' : '⬇ 다운로드'}
+            </button>
+            <button type="button" onClick={onClose}>닫기</button>
+          </div>
         </div>
         <div className="wd-photo-modal-body">
           {photos.length > 1 && (
@@ -141,7 +234,23 @@ export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
               ‹
             </button>
           )}
-          <img src={current.public_url} alt={current.original_name || '첨부 사진'} />
+          {imgStatus === 'ready' && (
+            <img
+              src={src}
+              alt={current.original_name || '첨부 사진'}
+              onError={() => setImgStatus('error')}
+            />
+          )}
+          {imgStatus === 'loading' && (
+            <div className="wd-photo-modal-loading">불러오는 중...</div>
+          )}
+          {imgStatus === 'error' && (
+            <div className="wd-photo-modal-fallback">
+              <div className="wd-photo-modal-fallback-icon" aria-hidden="true">🖼️</div>
+              <div>이 형식은 미리보기를 지원하지 않습니다.</div>
+              <div>다운로드 버튼으로 원본을 받아 확인해주세요.</div>
+            </div>
+          )}
           {photos.length > 1 && (
             <button
               type="button"
@@ -154,6 +263,9 @@ export function PhotoGalleryModal({ photos, startIndex = 0, onClose }) {
             </button>
           )}
         </div>
+        {downloadError && (
+          <div className="wd-photo-modal-error" role="alert">{downloadError}</div>
+        )}
       </div>
     </div>
   )

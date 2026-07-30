@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { DiaryPhotoStrip, DiaryPhotoUploader, PhotoGalleryModal } from './DiaryPhotos'
 import { DiaryFileUploader, DiaryFileList } from './DiaryFiles'
+import { getAttachmentSignedUrl } from '../lib/attachments'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -225,7 +226,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
     }
   }
 
-  function sendToPropertyRegister() {
+  async function sendToPropertyRegister() {
     const params = new URLSearchParams()
     params.set('memo', memo.content || '')
     if (memo.title) params.set('title', memo.title)
@@ -233,14 +234,20 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
     if (memo.customer_phone) params.set('customerPhone', memo.customer_phone)
     if (memo.id) params.set('diaryId', String(memo.id))
 
-    const transferPhotos = (photos || [])
-      .map((photo) => ({
-        id: photo.id || '',
-        url: photo.public_url || '',
-        name: photo.original_name || '업무일지 사진',
-      }))
-      .filter((photo) => photo.url)
-      .slice(0, 5)
+    // crm-attachments는 비공개 버킷이라 영구 URL이 없다 — 매물등록 사이트로
+    // 넘어가서 확인/등록하는 동안 만료되지 않도록 넉넉한(1시간) signed URL을 발급한다.
+    const candidates = (photos || []).slice(0, 5)
+    const resolved = await Promise.all(
+      candidates.map(async (photo) => {
+        try {
+          const url = await getAttachmentSignedUrl(photo, { expiresIn: 3600 })
+          return { id: photo.id || '', url, name: photo.original_name || '업무일지 사진' }
+        } catch {
+          return null
+        }
+      })
+    )
+    const transferPhotos = resolved.filter(Boolean)
 
     if (transferPhotos.length > 0) {
       params.set('photos', JSON.stringify(transferPhotos))
