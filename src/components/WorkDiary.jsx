@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
@@ -11,17 +11,28 @@ import { resolveOrCreateCustomer } from '../lib/customers'
 import CustomerSearchPanel from './CustomerSearchPanel'
 import AddCustomerMemoModal from './AddCustomerMemoModal'
 import CustomerTimelineModal from './CustomerTimelineModal'
+import { readLocalJSON, patchLocalJSON } from '../lib/uiState'
 import './WorkDiary.css'
 
 const TABLE = 'work_diary'
 const DAILY_SCHEDULE_KEY = '__daily_schedule__'
+const UI_STATE_KEY = 'wd_ui_state_v1'
+
+function parseDateKey(dateKey) {
+  if (!dateKey) return null
+  const d = new Date(dateKey + 'T00:00:00')
+  return Number.isNaN(d.getTime()) ? null : d
+}
 
 export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const today = useMemo(() => new Date(), [])
+  // 다른 탭/사이트를 보고 돌아와도 보던 화면 그대로 복원되도록 마운트 시점에
+  // localStorage에서 이전 상태를 한 번만 읽어온다.
+  const initialUi = useMemo(() => readLocalJSON(UI_STATE_KEY) || {}, [])
 
-  const [selectedDate, setSelectedDate] = useState(today)
-  const [viewYear, setViewYear] = useState(today.getFullYear())
-  const [viewMonth, setViewMonth] = useState(today.getMonth())
+  const [selectedDate, setSelectedDate] = useState(() => parseDateKey(initialUi.selectedDate) || today)
+  const [viewYear, setViewYear] = useState(() => initialUi.viewYear ?? today.getFullYear())
+  const [viewMonth, setViewMonth] = useState(() => initialUi.viewMonth ?? today.getMonth())
 
   const [memos, setMemos] = useState([])
   const [dailyScheduleNotes, setDailyScheduleNotes] = useState([])
@@ -33,13 +44,13 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
   const [notedDateKeys, setNotedDateKeys] = useState({})
 
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(() => initialUi.searchQuery ?? '')
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [highlightMemoId, setHighlightMemoId] = useState(null)
 
   const searchMode = searchQuery.trim().length > 0
-  const [filterWriter, setFilterWriter] = useState('all')
+  const [filterWriter, setFilterWriter] = useState(() => initialUi.filterWriter ?? 'all')
 
   /* ===== 연결고리 ===== */
   const [allLinkKeys, setAllLinkKeys] = useState([])
@@ -64,6 +75,88 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     () => new Set(stickyData.map((d) => d.sticky.diary_id)),
     [stickyData]
   )
+
+  /* ===== 화면 상태(날짜/필터/검색어) 저장 ===== */
+  useEffect(() => {
+    patchLocalJSON(UI_STATE_KEY, {
+      selectedDate: toDateKey(selectedDate),
+      viewYear,
+      viewMonth,
+      filterWriter,
+      searchQuery,
+    })
+  }, [selectedDate, viewYear, viewMonth, filterWriter, searchQuery])
+
+  /* ===== 스크롤 위치 저장/복원 =====
+   * scroll 이벤트는 버블링되지 않으므로 capture 단계에서 document에 붙여
+   * 페이지 전체 스크롤(window)과 메모 목록(.wd-list) 내부 스크롤을 함께 잡는다.
+   * requestAnimationFrame은 탭이 백그라운드거나 화면이 그려지지 않는 상태에서는
+   * 아예 실행되지 않을 수 있으므로, setTimeout 기반으로 저장 빈도만 가볍게 제한한다. */
+  const scrollSaveTimerRef = useRef(null)
+  useEffect(() => {
+    function handleScroll(e) {
+      if (scrollSaveTimerRef.current) return
+      scrollSaveTimerRef.current = setTimeout(() => {
+        scrollSaveTimerRef.current = null
+        const target = e.target
+        if (target === document) {
+          patchLocalJSON(UI_STATE_KEY, { scrollY: window.scrollY })
+        } else if (target?.classList?.contains?.('wd-list')) {
+          patchLocalJSON(UI_STATE_KEY, { listScrollTop: target.scrollTop })
+        }
+      }, 150)
+    }
+    document.addEventListener('scroll', handleScroll, { capture: true, passive: true })
+    return () => {
+      document.removeEventListener('scroll', handleScroll, true)
+      clearTimeout(scrollSaveTimerRef.current)
+    }
+  }, [])
+
+  const restoreScrollAndFilters = useCallback(() => {
+    const saved = readLocalJSON(UI_STATE_KEY)
+    if (!saved) return
+    // bfcache 복원 등으로 pageshow가 발생했을 때도 저장된 값과 어긋나지 않도록 다시 맞춘다.
+    // 값이 이미 같으면 이전 state를 그대로 반환해 불필요한 재렌더/재조회를 막는다.
+    if (saved.selectedDate) {
+      setSelectedDate((prev) => (toDateKey(prev) === saved.selectedDate ? prev : parseDateKey(saved.selectedDate) || prev))
+    }
+    if (typeof saved.viewYear === 'number') {
+      setViewYear((prev) => (prev === saved.viewYear ? prev : saved.viewYear))
+    }
+    if (typeof saved.viewMonth === 'number') {
+      setViewMonth((prev) => (prev === saved.viewMonth ? prev : saved.viewMonth))
+    }
+    if (saved.filterWriter) {
+      setFilterWriter((prev) => (prev === saved.filterWriter ? prev : saved.filterWriter))
+    }
+    if (typeof saved.searchQuery === 'string') {
+      setSearchQuery((prev) => (prev === saved.searchQuery ? prev : saved.searchQuery))
+    }
+    if (typeof saved.scrollY === 'number') window.scrollTo(0, saved.scrollY)
+    if (typeof saved.listScrollTop === 'number') {
+      const listEl = document.querySelector('.wd-list')
+      if (listEl) listEl.scrollTop = saved.listScrollTop
+    }
+  }, [])
+
+  const restoredOnceRef = useRef(false)
+  useEffect(() => {
+    // 마운트 직후 한 번, 그리고 목록 로딩이 끝나 실제 스크롤 높이가 자리잡은 뒤 한 번 더 복원한다.
+    const t = setTimeout(restoreScrollAndFilters, 60)
+    window.addEventListener('pageshow', restoreScrollAndFilters)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('pageshow', restoreScrollAndFilters)
+    }
+  }, [restoreScrollAndFilters])
+
+  useEffect(() => {
+    if (loading || searchLoading || restoredOnceRef.current) return
+    restoredOnceRef.current = true
+    const t = setTimeout(restoreScrollAndFilters, 30)
+    return () => clearTimeout(t)
+  }, [loading, searchLoading, restoreScrollAndFilters])
 
   /* ===== 선택 날짜의 메모 로드 ===== */
   const loadPhotosForRows = useCallback(async (rows) => {

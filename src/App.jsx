@@ -2,18 +2,16 @@ import { useEffect, useState } from 'react'
 import WorkDiary from './components/WorkDiary'
 import PrivateNotes from './components/PrivateNotes'
 import StorageAdmin from './components/StorageAdmin'
+import { readLocalJSON, writeLocalJSON } from './lib/uiState'
 
 /* 현재 보고 있던 화면(업무일지 / 개인일지)을 기억해 두어
-   탭 전환 후 새로고침되어도 작성 중이던 화면으로 그대로 돌아오게 한다 */
+   다른 탭·사이트를 보고 돌아오거나 새로고침돼도 보던 화면 그대로 돌아오게 한다.
+   sessionStorage가 아닌 localStorage를 쓰는 이유는 모바일 브라우저가 다른 탭/앱
+   전환 후 메모리 확보를 위해 탭을 통째로 다시 로드하는 경우에도 남아있어야 하기 때문. */
 const NAV_KEY = 'app_nav_state'
 
 function loadNav() {
-  try {
-    const raw = sessionStorage.getItem(NAV_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
+  return readLocalJSON(NAV_KEY)
 }
 
 function App() {
@@ -22,12 +20,20 @@ function App() {
   const [diaryOwner, setDiaryOwner] = useState(initialNav?.diaryOwner || '주현희')
 
   useEffect(() => {
-    try {
-      sessionStorage.setItem(NAV_KEY, JSON.stringify({ page, diaryOwner }))
-    } catch {
-      // 무시 — 실패해도 화면 전환 자체는 계속 동작해야 함
-    }
+    writeLocalJSON(NAV_KEY, { page, diaryOwner })
   }, [page, diaryOwner])
+
+  // 다른 탭/사이트를 보고 돌아왔을 때(pageshow)도 저장된 화면으로 다시 맞춘다
+  useEffect(() => {
+    function handlePageShow() {
+      const saved = loadNav()
+      if (!saved) return
+      if (saved.page) setPage((prev) => (prev === saved.page ? prev : saved.page))
+      if (saved.diaryOwner) setDiaryOwner((prev) => (prev === saved.diaryOwner ? prev : saved.diaryOwner))
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
+  }, [])
 
   function openDiary(owner) {
     setDiaryOwner(owner)

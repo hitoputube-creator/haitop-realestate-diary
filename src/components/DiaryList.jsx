@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { DiaryPhotoStrip, DiaryPhotoUploader, PhotoGalleryModal } from './DiaryPhotos'
 import { DiaryFileUploader, DiaryFileList } from './DiaryFiles'
 import { getAttachmentSignedUrl } from '../lib/attachments'
+import { readLocalJSON, writeLocalJSON, removeLocalJSON } from '../lib/uiState'
 import CustomerMemoLookupModal from './CustomerMemoLookupModal'
 
 /* ===== 스티커 메타 ===== */
@@ -228,6 +229,10 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
   }
 
   async function sendToPropertyRegister() {
+    // 팝업 차단을 피하려고 클릭에 반응해 빈 탭을 먼저 열어두고, 신호가 다 모이면
+    // 그 탭의 주소만 바꾼다 — 현재 업무일지 탭은 화면 그대로 유지된다.
+    const newTab = window.open('', '_blank')
+
     const params = new URLSearchParams()
     params.set('memo', memo.content || '')
     if (memo.title) params.set('title', memo.title)
@@ -254,7 +259,13 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
       params.set('photos', JSON.stringify(transferPhotos))
     }
 
-    window.location.href = `${PROPERTY_REGISTER_URL}?${params.toString()}`
+    const targetUrl = `${PROPERTY_REGISTER_URL}?${params.toString()}`
+    if (newTab) {
+      newTab.location.href = targetUrl
+    } else {
+      // 팝업이 차단됐어도 현재 탭은 건드리지 않고 새 탭으로 다시 시도한다
+      window.open(targetUrl, '_blank', 'noopener,noreferrer')
+    }
   }
 
   return (
@@ -864,34 +875,19 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
   )
 }
 
-/* ── 작성 중인 메모 임시저장 (탭 전환/새로고침에도 유지) ── */
+/* ── 작성 중인 메모 임시저장 (다른 탭/사이트를 보고 돌아오거나 새로고침해도 유지) ── */
 const COMPOSER_DRAFT_KEY = 'wd_composer_draft'
 
 function loadComposerDraft() {
-  try {
-    const raw = sessionStorage.getItem(COMPOSER_DRAFT_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === 'object' ? parsed : null
-  } catch {
-    return null
-  }
+  return readLocalJSON(COMPOSER_DRAFT_KEY)
 }
 
 function saveComposerDraft(draft) {
-  try {
-    sessionStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft))
-  } catch {
-    // 저장 실패해도 작성은 계속 가능해야 하므로 무시
-  }
+  writeLocalJSON(COMPOSER_DRAFT_KEY, draft)
 }
 
 function clearComposerDraft() {
-  try {
-    sessionStorage.removeItem(COMPOSER_DRAFT_KEY)
-  } catch {
-    // 무시
-  }
+  removeLocalJSON(COMPOSER_DRAFT_KEY)
 }
 
 /* ===== 입력창 (Composer) ===== */
@@ -912,7 +908,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
 
-  // 입력값을 sessionStorage에 계속 동기화 — 완전히 빈 상태면 임시저장을 지운다
+  // 입력값을 localStorage에 계속 동기화 — 완전히 빈 상태면 임시저장을 지운다
   useEffect(() => {
     const isEmpty = !value.trim() && !linkKey.trim() && !sticker && !name.trim() && !phone.trim() && !title.trim()
     if (isEmpty) {
@@ -921,6 +917,25 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
       saveComposerDraft({ value, writer, sticker, linkKey, name, phone, title, pickedCustomerId })
     }
   }, [value, writer, sticker, linkKey, name, phone, title, pickedCustomerId])
+
+  // 다른 탭/사이트를 보고 돌아왔을 때(pageshow)도 저장된 작성 중인 메모·고객 연결정보로 다시 맞춘다
+  useEffect(() => {
+    function handlePageShow() {
+      const draft = loadComposerDraft()
+      if (!draft) return
+      setValue(draft.value ?? '')
+      setWriter(draft.writer ?? '주현희')
+      setSticker(draft.sticker ?? null)
+      setLinkKey(draft.linkKey ?? '')
+      setName(draft.name ?? '')
+      setPhone(draft.phone ?? '')
+      setTitle(draft.title ?? '')
+      setPickedCustomerId(draft.pickedCustomerId ?? null)
+      requestAnimationFrame(() => autoResizeComposer(composerRef.current))
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
+  }, [])
 
   // 이름/연락처를 직접 고치면 불러온 고객과의 연결이 더 이상 정확하지 않을 수 있으므로 해제한다
   function handleNameInput(e) {
