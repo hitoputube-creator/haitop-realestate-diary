@@ -128,6 +128,64 @@ export async function resolveOrCreateCustomer({ name, phone, manager } = {}) {
   return created
 }
 
+/* ── 고객명·전화번호·제목·메모 내용으로 전체 기간 업무일지 검색 ── */
+export async function searchDiaryEntriesFull(query, { limit = 50 } = {}) {
+  const trimmed = (query || '').trim()
+  if (!isSupabaseConfigured || !trimmed) return []
+
+  const digits = normalizePhone(trimmed)
+  const normQ = trimmed.replace(/[\s_]+/g, '')
+
+  const orParts = [
+    `customer_name.ilike.%${trimmed}%`,
+    `customer_phone.ilike.%${trimmed}%`,
+    `title.ilike.%${trimmed}%`,
+    `content.ilike.%${trimmed}%`,
+  ]
+  if (digits) orParts.push(`customer_phone.ilike.%${digits}%`)
+  if (normQ && normQ !== trimmed) {
+    orParts.push(
+      `customer_name.ilike.%${normQ}%`,
+      `title.ilike.%${normQ}%`,
+      `content.ilike.%${normQ}%`
+    )
+  }
+
+  const { data, error } = await supabase
+    .from(WORK_DIARY_TABLE)
+    .select('id, date, created_at, title, customer_name, customer_phone, customer_id, content, writer')
+    .neq('link_key', DAILY_SCHEDULE_KEY)
+    .or(orParts.join(','))
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data || []
+}
+
+/* ── customer_id가 없는 과거 메모를 기존 고객과 연결하고 원본 메모에도 저장 ── */
+export async function ensureDiaryRowCustomerId(row) {
+  if (!isSupabaseConfigured || !row) return null
+  if (row.customer_id) return row.customer_id
+
+  // customer_name이 비어있을 때만 title을 이름 폴백으로 사용 (customer_name/title을 서로 대체하지 않음)
+  const lookupName = (row.customer_name || '').trim() || (row.title || '').trim()
+  const lookupPhone = row.customer_phone || ''
+  if (!lookupName && !lookupPhone) return null
+
+  const customer = await resolveOrCreateCustomer({ name: lookupName, phone: lookupPhone, manager: row.writer })
+  if (!customer?.id) return null
+
+  const { error } = await supabase
+    .from(WORK_DIARY_TABLE)
+    .update({ customer_id: customer.id })
+    .eq('id', row.id)
+  if (error) throw error
+
+  return customer.id
+}
+
 /* ── 고객별 전체 메모 타임라인 (등록 시 초기 메모 + 업무일지 메모 + 첨부파일) ── */
 export async function getCustomerTimeline(customerId) {
   if (!isSupabaseConfigured || !customerId) {

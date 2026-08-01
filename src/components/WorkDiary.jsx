@@ -394,7 +394,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
-    async (content, writer = '주현희', sticker = null, linkKey = '', name = '', phone = '', title = '') => {
+    async (content, writer = '주현희', sticker = null, linkKey = '', name = '', phone = '', title = '', pickedCustomerId = null) => {
       if (!isSupabaseConfigured) {
         setError('Supabase 연결이 설정되지 않았습니다. .env에 VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY를 추가해주세요.')
         return
@@ -403,10 +403,11 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         const tags = extractTags(content)
         const dateStr = toDateKey(selectedDate)
 
-        // 이름/연락처가 있으면 고객을 찾거나 새로 만들어 customer_id로 연결
+        // "기존 고객·메모 불러오기"로 이미 고른 customer_id가 있으면 그대로 사용해
+        // 같은 고객으로 정확히 연결한다. 없을 때만 이름/연락처로 찾거나 새로 만든다.
         // (실패해도 메모 저장 자체는 막지 않는다)
-        let customerId = null
-        if (name.trim() || phone.trim()) {
+        let customerId = pickedCustomerId || null
+        if (!customerId && (name.trim() || phone.trim())) {
           try {
             const customer = await resolveOrCreateCustomer({ name, phone, manager: writer })
             customerId = customer?.id || null
@@ -989,8 +990,8 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           loading={searchMode ? searchLoading : loading}
           error={error}
           searchMode={searchMode}
-          onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '', diaryFiles = []) => {
-            const createdMemo = await handleCreate(content, writer, sticker, linkKey, name, phone, title)
+          onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '', diaryFiles = [], customerId = null) => {
+            const createdMemo = await handleCreate(content, writer, sticker, linkKey, name, phone, title, customerId)
             if (!createdMemo) return
             if (photoFiles.length > 0) {
               try {

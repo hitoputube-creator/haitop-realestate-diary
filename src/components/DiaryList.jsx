@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { DiaryPhotoStrip, DiaryPhotoUploader, PhotoGalleryModal } from './DiaryPhotos'
 import { DiaryFileUploader, DiaryFileList } from './DiaryFiles'
 import { getAttachmentSignedUrl } from '../lib/attachments'
+import CustomerMemoLookupModal from './CustomerMemoLookupModal'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -903,6 +904,8 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const [name, setName] = useState(initialDraft?.name ?? '')
   const [phone, setPhone] = useState(initialDraft?.phone ?? '')
   const [title, setTitle] = useState(initialDraft?.title ?? '')
+  const [pickedCustomerId, setPickedCustomerId] = useState(initialDraft?.pickedCustomerId ?? null)
+  const [lookupOpen, setLookupOpen] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [diaryFiles, setDiaryFiles] = useState([])
   const [submitError, setSubmitError] = useState('')
@@ -915,9 +918,27 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     if (isEmpty) {
       clearComposerDraft()
     } else {
-      saveComposerDraft({ value, writer, sticker, linkKey, name, phone, title })
+      saveComposerDraft({ value, writer, sticker, linkKey, name, phone, title, pickedCustomerId })
     }
-  }, [value, writer, sticker, linkKey, name, phone, title])
+  }, [value, writer, sticker, linkKey, name, phone, title, pickedCustomerId])
+
+  // 이름/연락처를 직접 고치면 불러온 고객과의 연결이 더 이상 정확하지 않을 수 있으므로 해제한다
+  function handleNameInput(e) {
+    setName(e.target.value)
+    if (pickedCustomerId) setPickedCustomerId(null)
+  }
+  function handlePhoneInput(e) {
+    setPhone(e.target.value)
+    if (pickedCustomerId) setPickedCustomerId(null)
+  }
+  function handleLookupSelect(picked) {
+    // title/customer_name/customer_phone은 검색 결과에서 온 값을 그대로 넣는다 — 서로 섞거나 대체하지 않는다
+    setTitle(picked.title || '')
+    setName(picked.customerName || '')
+    setPhone(picked.customerPhone || '')
+    setPickedCustomerId(picked.customerId || null)
+    setLookupOpen(false)
+  }
 
   // 최초 마운트 시 저장된 값 기준으로 textarea 높이 복원
   useEffect(() => {
@@ -939,7 +960,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     setSubmitting(true)
     setSubmitError('')
     try {
-      await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles, trimmedName, trimmedPhone, trimmedTitle, diaryFiles)
+      await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles, trimmedName, trimmedPhone, trimmedTitle, diaryFiles, pickedCustomerId)
       setValue('')
       setSticker(null)
       setLinkKey('')
@@ -948,6 +969,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
       setName('')
       setPhone('')
       setTitle('')
+      setPickedCustomerId(null)
       if (composerRef.current) composerRef.current.style.height = '120px'
     } catch (err) {
       setSubmitError(err.message || String(err))
@@ -1007,6 +1029,31 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
         })}
       </div>
 
+      <div className="wd-composer-lookup-row">
+        <button
+          type="button"
+          className="wd-composer-lookup-btn"
+          onClick={() => setLookupOpen(true)}
+          disabled={disabled || submitting}
+        >
+          🔎 기존 고객·메모 불러오기
+        </button>
+        {pickedCustomerId && (
+          <span className="wd-composer-lookup-linked">
+            🔗 고객 연결됨
+            <button
+              type="button"
+              className="wd-composer-lookup-unlink"
+              onClick={() => setPickedCustomerId(null)}
+              disabled={disabled || submitting}
+              aria-label="고객 연결 해제"
+            >
+              ✕
+            </button>
+          </span>
+        )}
+      </div>
+
       <div className="wd-composer-customer-row">
         <input
           className="wd-composer-customer-input"
@@ -1019,17 +1066,24 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
           className="wd-composer-customer-input"
           placeholder="이름"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={handleNameInput}
           disabled={disabled || submitting}
         />
         <input
           className="wd-composer-customer-input"
           placeholder="연락처"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={handlePhoneInput}
           disabled={disabled || submitting}
         />
       </div>
+
+      {lookupOpen && (
+        <CustomerMemoLookupModal
+          onClose={() => setLookupOpen(false)}
+          onSelect={handleLookupSelect}
+        />
+      )}
 
       <details className="wd-composer-extra">
         <summary>세부정보 · 연결태그 · 사진</summary>
@@ -1206,8 +1260,8 @@ export default function DiaryList({
 
       {!searchMode && (
         <Composer
-          onSubmit={(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles) =>
-            onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles)}
+          onSubmit={(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId) =>
+            onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId)}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}

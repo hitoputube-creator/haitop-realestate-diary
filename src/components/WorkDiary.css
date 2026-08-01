@@ -852,6 +852,56 @@
   color: var(--color-on-surface);
 }
 
+/* ===== 작성창(Composer) — 기존 고객·메모 불러오기 ===== */
+.wd-composer-lookup-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.wd-composer-lookup-btn {
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-soft);
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.wd-composer-lookup-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+.wd-composer-lookup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wd-composer-lookup-linked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(230, 195, 100, 0.12);
+  border-radius: 8px;
+}
+
+.wd-composer-lookup-unlink {
+  color: var(--color-on-surface-faint);
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+.wd-composer-lookup-unlink:hover:not(:disabled) {
+  color: var(--color-danger, #f87171);
+}
+
 /* ===== 작성창(Composer) — 이름/연락처/제목 ===== */
 .wd-composer-customer-row {
   display: flex;
