@@ -70,12 +70,8 @@ export default function CustomerMemoLookupModal({ onClose, onSelect }) {
     setError('')
     try {
       const customerId = await ensureDiaryRowCustomerId(row)
-      if (!customerId) {
-        setError('이름 또는 연락처가 없어 고객을 연결할 수 없습니다.')
-        return
-      }
       onSelect?.({
-        customerId,
+        customerId: customerId || null,
         title: row.title || '',
         customerName: row.customer_name || '',
         customerPhone: row.customer_phone || '',

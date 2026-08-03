@@ -5,7 +5,6 @@ const WORK_DIARY_TABLE = 'work_diary'
 const CUSTOMERS_TABLE = 'customers'
 const DAILY_SCHEDULE_KEY = '__daily_schedule__'
 
-/* ── 전화번호 정규화: 숫자만 추출 ── */
 export function normalizePhone(phone) {
   return (phone || '').replace(/[^0-9]/g, '')
 }
@@ -23,7 +22,6 @@ function generateCustomerCode() {
   return `C-${y}${m}${day}-${makeClientSuffix()}`
 }
 
-/* ── 고객 검색: 이름/업체명/연락처(하이픈 유무 무관) ── */
 export async function searchCustomers(query, { limit = 20 } = {}) {
   const trimmed = (query || '').trim()
   if (!isSupabaseConfigured || !trimmed) return []
@@ -43,7 +41,6 @@ export async function searchCustomers(query, { limit = 20 } = {}) {
   const customers = data || []
   if (customers.length === 0) return []
 
-  // 고객별 최근 메모 날짜 조회 (customer_id 기준)
   const ids = customers.map((c) => c.id)
   const { data: memoRows } = await supabase
     .from(WORK_DIARY_TABLE)
@@ -62,7 +59,6 @@ export async function searchCustomers(query, { limit = 20 } = {}) {
   return customers.map((c) => ({ ...c, lastMemoDate: lastDateMap[c.id] || null }))
 }
 
-/* ── 이름/전화번호로 고객을 찾거나 없으면 생성 ── */
 export async function resolveOrCreateCustomer({ name, phone, manager } = {}) {
   if (!isSupabaseConfigured) return null
   const trimmedName = (name || '').trim()
@@ -70,7 +66,6 @@ export async function resolveOrCreateCustomer({ name, phone, manager } = {}) {
   const digits = normalizePhone(trimmedPhone)
   if (!trimmedName && !digits) return null
 
-  // 1) 전화번호로 매칭 (가장 신뢰도 높은 식별자)
   if (digits) {
     const { data: byPhone, error: phoneErr } = await supabase
       .from(CUSTOMERS_TABLE)
@@ -82,23 +77,22 @@ export async function resolveOrCreateCustomer({ name, phone, manager } = {}) {
     if (byPhone) return byPhone
   }
 
-  // 2) 전화번호가 없으면 이름 완전 일치로 매칭
-  if (!digits && trimmedName) {
+  if (trimmedName) {
     const { data: byName, error: nameErr } = await supabase
       .from(CUSTOMERS_TABLE)
       .select('id, name, phone, phone_normalized')
       .ilike('name', trimmedName)
-      .is('phone_normalized', null)
       .limit(1)
       .maybeSingle()
     if (nameErr) throw nameErr
     if (byName) return byName
   }
 
-  // 3) 없으면 새 고객 생성
+  if (!trimmedName) return null
+
   const payload = {
     customer_code: generateCustomerCode(),
-    name: trimmedName || '(이름 미입력)',
+    name: trimmedName,
     phone: trimmedPhone || null,
     phone_normalized: digits || null,
     manager: manager || null,
@@ -112,7 +106,6 @@ export async function resolveOrCreateCustomer({ name, phone, manager } = {}) {
     .single()
 
   if (insertErr) {
-    // 동시 저장으로 유니크 제약 위반 시 — 방금 다른 요청이 만든 고객을 재조회해서 사용
     if (insertErr.code === '23505' && digits) {
       const { data: retry } = await supabase
         .from(CUSTOMERS_TABLE)
@@ -128,7 +121,6 @@ export async function resolveOrCreateCustomer({ name, phone, manager } = {}) {
   return created
 }
 
-/* ── 고객명·전화번호·제목·메모 내용으로 전체 기간 업무일지 검색 ── */
 export async function searchDiaryEntriesFull(query, { limit = 50 } = {}) {
   const trimmed = (query || '').trim()
   if (!isSupabaseConfigured || !trimmed) return []
@@ -164,13 +156,11 @@ export async function searchDiaryEntriesFull(query, { limit = 50 } = {}) {
   return data || []
 }
 
-/* ── customer_id가 없는 과거 메모를 기존 고객과 연결하고 원본 메모에도 저장 ── */
 export async function ensureDiaryRowCustomerId(row) {
   if (!isSupabaseConfigured || !row) return null
   if (row.customer_id) return row.customer_id
 
-  // customer_name이 비어있을 때만 title을 이름 폴백으로 사용 (customer_name/title을 서로 대체하지 않음)
-  const lookupName = (row.customer_name || '').trim() || (row.title || '').trim()
+  const lookupName = (row.customer_name || '').trim()
   const lookupPhone = row.customer_phone || ''
   if (!lookupName && !lookupPhone) return null
 
@@ -186,7 +176,6 @@ export async function ensureDiaryRowCustomerId(row) {
   return customer.id
 }
 
-/* ── 고객별 전체 메모 타임라인 (등록 시 초기 메모 + 업무일지 메모 + 첨부파일) ── */
 export async function getCustomerTimeline(customerId) {
   if (!isSupabaseConfigured || !customerId) {
     return { customer: null, entries: [] }
@@ -228,7 +217,6 @@ export async function getCustomerTimeline(customerId) {
     files: fileMap[row.id] || [],
   }))
 
-  // 고객 등록 시 작성한 기본 메모 (customers.memo) — 읽기 전용 안내 항목
   if (customer?.memo && customer.memo.trim()) {
     entries.push({
       kind: 'registration',

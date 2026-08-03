@@ -8,6 +8,7 @@ import SelectedScheduleMemos from './SelectedScheduleMemos'
 import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
 import { listDiaryPhotosForIds, uploadDiaryPhotos, listDiaryFilesForIds, uploadDiaryFiles } from '../lib/attachments'
 import { resolveOrCreateCustomer } from '../lib/customers'
+import { buildCustomerMemoPayload } from '../lib/workDiaryPayload'
 import CustomerSearchPanel from './CustomerSearchPanel'
 import AddCustomerMemoModal from './AddCustomerMemoModal'
 import CustomerTimelineModal from './CustomerTimelineModal'
@@ -769,8 +770,8 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     if (memo.customer_id) {
       return { id: memo.customer_id }
     }
-    // customers 조회/생성에만 쓰는 내부용 이름 — customer_name이 비어있을 때만 title을 폴백으로 사용
-    const customerLookupName = (memo.customer_name || '').trim() || (memo.title || '').trim()
+    // customers 조회/생성에는 customer_name과 phone만 사용한다. title은 고객명으로 쓰지 않는다.
+    const customerLookupName = (memo.customer_name || '').trim()
     if (!customerLookupName && !memo.customer_phone) return null
 
     const customer = await resolveOrCreateCustomer({
@@ -795,12 +796,8 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const handleOpenAddMemoForMemo = useCallback(async (memo) => {
     try {
       const linked = await ensureCustomerLinked(memo)
-      if (!linked) {
-        setError('고객 이름 또는 연락처가 없어 메모를 연결할 수 없습니다.')
-        return
-      }
       setAddMemoTarget({
-        customerId: linked.id,
+        customerId: linked?.id || null,
         sourceDiaryId: memo.id,
         sourceTitle: memo.title || '',
         sourceCustomerName: memo.customer_name || '',
@@ -845,22 +842,25 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   // 고객 타임라인 양쪽에서 동시에 보이도록 work_diary에 customer_id + date로 저장
   const handleCreateForCustomer = useCallback(async ({ customerId, title, customerName, phone, date, content, writer }) => {
     if (!isSupabaseConfigured) throw new Error('Supabase 연결이 설정되지 않았습니다.')
-    if (!customerId) throw new Error('고객 정보를 찾을 수 없습니다. 다시 검색해주세요.')
     if (!date) throw new Error('기록 날짜를 선택해주세요.')
 
-    const tags = extractTags(content)
+    const payload = buildCustomerMemoPayload(
+      {},
+      { customerId, title, customerName, phone, date, content, writer },
+      customerId ? { id: customerId } : null
+    )
     const insertPayload = {
-      content,
-      tags,
+      content: payload.content,
+      tags: extractTags(payload.content || ''),
       status: 'normal',
-      date,
-      writer,
+      date: payload.date,
+      writer: payload.author,
       sticker: null,
       link_key: '',
-      title: title || null,
-      customer_name: customerName || null,
-      customer_phone: phone || null,
-      customer_id: customerId,
+      title: payload.title,
+      customer_name: payload.customer_name,
+      customer_phone: payload.customer_phone,
+      customer_id: payload.customer_id,
     }
     // created_at/updated_at은 지정하지 않고 DB 기본값(now())을 그대로 사용한다
 

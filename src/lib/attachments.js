@@ -1,4 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase'
+import { normalizeAttachmentMime } from './fileMime'
+export { normalizeAttachmentMime } from './fileMime'
 
 export const PHOTO_BUCKET = 'crm-attachments'
 export const MAX_PHOTO_FILES = 10
@@ -32,8 +34,8 @@ export function validatePhotoFiles(files) {
 
   list.slice(0, MAX_PHOTO_FILES).forEach((file) => {
     const ext = getExtension(file.name)
-    const mime = file.type || ''
-    if (!IMAGE_EXTENSIONS.has(ext) || (mime && !IMAGE_MIME_TYPES.has(mime))) {
+    const mime = normalizeAttachmentMime(file, '')
+    if (!IMAGE_EXTENSIONS.has(ext) || !IMAGE_MIME_TYPES.has(mime)) {
       errors.push(`${file.name}: jpg, png, webp, heic, heif 사진만 첨부할 수 있습니다.`)
       return
     }
@@ -144,7 +146,8 @@ export async function fetchAttachmentBlob(row) {
       return await response.blob()
     } catch (fetchErr) {
       console.error('[attachments] 다운로드 최종 실패:', { bucket, path, message: fetchErr.message || fetchErr })
-      throw new Error('파일을 다운로드하지 못했습니다. 잠시 후 다시 시도해주세요.', { cause: fetchErr })
+      const reason = fetchErr?.message || downloadErr?.message || 'Storage 권한 또는 파일 경로를 확인해야 합니다.'
+      throw new Error(`파일을 다운로드하지 못했습니다. ${reason}`, { cause: fetchErr })
     }
   }
 }
@@ -157,7 +160,7 @@ function triggerBlobDownload(blob, filename) {
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
-  URL.revokeObjectURL(objectUrl)
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
 }
 
 // PC 브라우저에서 cross-origin 첨부파일 1개를 확실하게 저장한다.
@@ -258,11 +261,12 @@ export async function uploadDiaryPhotos({ files, workDiaryId, uploadedBy = '' })
   const uploaded = []
   for (const file of validFiles) {
     const requestedPath = makePhotoPath({ workDiaryId, file })
+    const contentType = normalizeAttachmentMime(file, 'image/jpeg')
     const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from(PHOTO_BUCKET)
       .upload(requestedPath, file, {
-        contentType: file.type || 'image/jpeg',
+        contentType,
         upsert: false,
       })
     if (uploadError) throw uploadError
@@ -278,7 +282,7 @@ export async function uploadDiaryPhotos({ files, workDiaryId, uploadedBy = '' })
         storage_bucket: PHOTO_BUCKET,
         storage_path: storedPath,
         original_name: file.name,
-        mime_type: file.type || null,
+        mime_type: contentType,
         file_size: file.size,
         uploaded_by: uploadedBy || null,
       })
@@ -384,7 +388,7 @@ export async function uploadDiaryFiles({ files, workDiaryId, uploadedBy = '' }) 
   const uploaded = []
   for (const file of validFiles) {
     const ext = getExtension(file.name)
-    const contentType = FILE_EXTENSION_MIME[ext] || 'application/octet-stream'
+    const contentType = normalizeAttachmentMime(file, FILE_EXTENSION_MIME[ext] || 'application/octet-stream')
     const requestedPath = makeFilePath({ workDiaryId, file })
     const { data: uploadData, error: uploadError } = await supabase
       .storage

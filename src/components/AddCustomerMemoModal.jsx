@@ -36,8 +36,6 @@ export default function AddCustomerMemoModal({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [submitting, onClose])
 
-  if (!customerId) return null
-
   async function handleSave() {
     const trimmed = content.trim()
     if (!trimmed || !date || submitting) return
