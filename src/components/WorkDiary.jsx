@@ -13,6 +13,7 @@ import CustomerSearchPanel from './CustomerSearchPanel'
 import AddCustomerMemoModal from './AddCustomerMemoModal'
 import CustomerTimelineModal from './CustomerTimelineModal'
 import WeeklyDiary from './WeeklyDiary'
+import MonthlyDiary from './MonthlyDiary'
 import { readLocalJSON, patchLocalJSON } from '../lib/uiState'
 import './WorkDiary.css'
 
@@ -1106,6 +1107,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         >
           📓 김정현 개인일지
         </button>
+        <button type="button" className="wd-action-btn active wd-top-new-memo" onClick={() => openDateInToday(selectedDate)}>&#49352; &#47700;&#47784; &#51089;&#49457;</button>
       </div>
 
       {!isSupabaseConfigured && (
@@ -1131,10 +1133,9 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             </button>
           ))}
         </div>
-        <button type="button" className="wd-action-btn active" onClick={() => openDateInToday(selectedDate)}>{'\uC0C8 \uBA54\uBAA8 \uC791\uC131'}</button>
       </div>
 
-      <main className={`wd-main wd-main--${mainView}`}>
+      <main className={'wd-main wd-main--' + mainView}>
         {mainView === 'week' ? (
           <WeeklyDiary
             days={weekDays}
@@ -1150,10 +1151,21 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             onOpenMemo={openDateInToday}
             onAddMemo={(day) => openDateInToday(day)}
           />
+        ) : mainView === 'month' ? (
+          <MonthlyDiary
+            calendar={<Calendar viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />}
+            selectedDate={selectedDate}
+            memos={filteredMemos.filter((memo) => memo.date === toDateKey(selectedDate))}
+            loading={searchMode ? searchLoading : loading}
+            onOpenToday={openDateInToday}
+          />
         ) : (
           <div className="wd-primary-grid">
             <div className="wd-left-col">
               <Calendar viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />
+              <CustomerSearchPanel onAddMemo={handleSearchAddMemo} onViewTimeline={handleSearchViewTimeline} />
+              <UpcomingSchedules filterWriter={filterWriter} refreshKey={upcomingRefreshKey} onNavigate={handleNavigate} />
+              <SelectedScheduleMemos key={toDateKey(selectedDate)} selectedDate={selectedDate} notes={dailyScheduleNotes} loading={scheduleLoading} saving={scheduleSaving} error={scheduleError} onCreate={handleCreateDailySchedule} onUpdate={handleUpdateDailySchedule} onDelete={handleDeleteDailySchedule} />
             </div>
             <DiaryList
               selectedDate={selectedDate} memos={filteredMemos} loading={searchMode ? searchLoading : loading} error={error} searchMode={searchMode}
@@ -1171,11 +1183,6 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             />
           </div>
         )}
-        <section className="wd-support-grid" aria-label="Work diary supporting tools">
-          <CustomerSearchPanel onAddMemo={handleSearchAddMemo} onViewTimeline={handleSearchViewTimeline} />
-          <UpcomingSchedules filterWriter={filterWriter} refreshKey={upcomingRefreshKey} onNavigate={handleNavigate} />
-          <SelectedScheduleMemos key={toDateKey(selectedDate)} selectedDate={selectedDate} notes={dailyScheduleNotes} loading={scheduleLoading} saving={scheduleSaving} error={scheduleError} onCreate={handleCreateDailySchedule} onUpdate={handleUpdateDailySchedule} onDelete={handleDeleteDailySchedule} />
-        </section>
       </main>
       {LinkPanel}
       {photoGallery && (

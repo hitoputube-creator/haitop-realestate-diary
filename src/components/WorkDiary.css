@@ -2869,3 +2869,125 @@
     min-height: 0;
   }
 }
+
+/* ===== Today and monthly layout refinement ===== */
+.wd-filter-tabs {
+  max-width: 1800px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.wd-top-new-memo {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.wd-view-toolbar {
+  justify-content: flex-start;
+}
+
+.wd-month-layout {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(520px, 760px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+  min-width: 0;
+}
+
+.wd-month-calendar,
+.wd-month-memos {
+  min-width: 0;
+  width: 100%;
+}
+
+.wd-month-memos-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.wd-month-memo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wd-month-memo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-container);
+  min-width: 0;
+}
+
+.wd-month-memo-card strong,
+.wd-month-memo-card span,
+.wd-month-memo-card p {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wd-month-memo-card strong,
+.wd-month-memo-card span {
+  white-space: nowrap;
+}
+
+.wd-month-memo-card span {
+  color: var(--color-primary);
+  font-size: 12px;
+}
+
+.wd-month-memo-card p {
+  grid-column: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  margin: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.wd-month-memo-card .wd-action-btn {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+}
+
+@media (max-width: 960px) {
+  .wd-month-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .wd-filter-tabs {
+    align-items: stretch;
+  }
+
+  .wd-top-new-memo {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .wd-month-memos-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wd-month-memo-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wd-month-memo-card p,
+  .wd-month-memo-card .wd-action-btn {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
