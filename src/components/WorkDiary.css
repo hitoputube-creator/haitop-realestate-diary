@@ -2991,3 +2991,89 @@
     grid-row: auto;
   }
 }
+
+/* ===== Toolbar and diary header button refinement ===== */
+.wd-view-toolbar {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.wd-toolbar-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.wd-toolbar-tools .wd-filter-tab,
+.wd-toolbar-tools .wd-btn-personal-diary {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wd-toolbar-tools .wd-filter-divider {
+  margin: 0 6px;
+}
+
+.wd-diary-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 16px;
+}
+
+.wd-diary-header > .wd-diary-date,
+.wd-diary-header > .wd-diary-date-sub,
+.wd-diary-header > .wd-diary-stats {
+  grid-column: 1;
+}
+
+.wd-diary-new-memo {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  flex-shrink: 0;
+  align-self: start;
+}
+
+@media (max-width: 960px) {
+  .wd-view-toolbar {
+    align-items: flex-start;
+  }
+
+  .wd-toolbar-tools {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  .wd-toolbar-tools {
+    gap: 6px;
+  }
+
+  .wd-toolbar-tools .wd-filter-tab,
+  .wd-toolbar-tools .wd-btn-personal-diary {
+    flex: 1 1 auto;
+  }
+
+  .wd-toolbar-tools .wd-filter-divider {
+    display: none;
+  }
+
+  .wd-diary-header {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 12px;
+  }
+
+  .wd-diary-new-memo {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+}

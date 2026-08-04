@@ -1199,6 +1199,7 @@ export default function DiaryList({
   error,
   searchMode,
   searchQuery,
+  onNewMemo,
   onCreate,
   onAddPhotos,
   onAddFiles,
@@ -1250,6 +1251,7 @@ export default function DiaryList({
               완료 <span className="wd-stat-num">{doneCount}</span>
             </span>
           </div>
+          <button type="button" className="wd-action-btn active wd-diary-new-memo" onClick={() => onNewMemo?.()}>&#49352; &#47700;&#47784; &#51089;&#49457;</button>
         </header>
       )}
 

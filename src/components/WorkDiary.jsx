@@ -1067,8 +1067,31 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           구글 캘린더
         </a>
       </header>
+      {!isSupabaseConfigured && (
+        <div className="wd-notice">
+          <span aria-hidden="true">!</span>
+          <div>
+            <strong>Supabase 연결 미설정.</strong> 프로젝트 루트에 <code>.env</code> 파일을 만들고
+            <code>VITE_SUPABASE_URL</code>, <code>VITE_SUPABASE_ANON_KEY</code>를 설정한 뒤
+            개발 서버를 재시작해주세요. 그 전까지는 메모 저장/조회가 동작하지 않습니다.
+          </div>
+        </div>
+      )}
 
-      <div className="wd-filter-tabs">
+      <div className="wd-view-toolbar">
+        <div className="wd-view-tabs" role="tablist" aria-label="Work diary views">
+          {[
+            ['today', '\uC624\uB298'],
+            ['week', '\uC8FC\uAC04'],
+            ['month', '\uC6D4\uAC04'],
+          ].map(([value, label]) => (
+            <button key={value} type="button" role="tab" aria-selected={mainView === value} className={`wd-filter-tab ${mainView === value ? 'active' : ''}`} onClick={() => setMainView(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="wd-toolbar-tools">
         <button
           type="button"
           className={`wd-filter-tab ${filterWriter === 'all' ? 'active' : ''}`}
@@ -1107,32 +1130,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         >
           📓 김정현 개인일지
         </button>
-        <button type="button" className="wd-action-btn active wd-top-new-memo" onClick={() => openDateInToday(selectedDate)}>&#49352; &#47700;&#47784; &#51089;&#49457;</button>
       </div>
-
-      {!isSupabaseConfigured && (
-        <div className="wd-notice">
-          <span aria-hidden="true">!</span>
-          <div>
-            <strong>Supabase 연결 미설정.</strong> 프로젝트 루트에 <code>.env</code> 파일을 만들고
-            <code>VITE_SUPABASE_URL</code>, <code>VITE_SUPABASE_ANON_KEY</code>를 설정한 뒤
-            개발 서버를 재시작해주세요. 그 전까지는 메모 저장/조회가 동작하지 않습니다.
-          </div>
-        </div>
-      )}
-
-      <div className="wd-view-toolbar">
-        <div className="wd-view-tabs" role="tablist" aria-label="Work diary views">
-          {[
-            ['today', '\uC624\uB298'],
-            ['week', '\uC8FC\uAC04'],
-            ['month', '\uC6D4\uAC04'],
-          ].map(([value, label]) => (
-            <button key={value} type="button" role="tab" aria-selected={mainView === value} className={`wd-filter-tab ${mainView === value ? 'active' : ''}`} onClick={() => setMainView(value)}>
-              {label}
-            </button>
-          ))}
-        </div>
       </div>
 
       <main className={'wd-main wd-main--' + mainView}>
@@ -1167,6 +1165,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
               <SelectedScheduleMemos key={toDateKey(selectedDate)} selectedDate={selectedDate} notes={dailyScheduleNotes} loading={scheduleLoading} saving={scheduleSaving} error={scheduleError} onCreate={handleCreateDailySchedule} onUpdate={handleUpdateDailySchedule} onDelete={handleDeleteDailySchedule} />
             </div>
             <DiaryList
+              onNewMemo={() => openDateInToday(selectedDate)}
               selectedDate={selectedDate} memos={filteredMemos} loading={searchMode ? searchLoading : loading} error={error} searchMode={searchMode}
               onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '', diaryFiles = [], customerId = null) => {
                 const createdMemo = await handleCreate(content, writer, sticker, linkKey, name, phone, title, customerId)
