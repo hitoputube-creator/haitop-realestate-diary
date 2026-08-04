@@ -1163,7 +1163,6 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           <div className="wd-primary-grid">
             <div className="wd-left-col">
               <Calendar viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />
-              <CustomerSearchPanel onAddMemo={handleSearchAddMemo} onViewTimeline={handleSearchViewTimeline} />
               <UpcomingSchedules filterWriter={filterWriter} refreshKey={upcomingRefreshKey} onNavigate={handleNavigate} />
               <SelectedScheduleMemos key={toDateKey(selectedDate)} selectedDate={selectedDate} notes={dailyScheduleNotes} loading={scheduleLoading} saving={scheduleSaving} error={scheduleError} onCreate={handleCreateDailySchedule} onUpdate={handleUpdateDailySchedule} onDelete={handleDeleteDailySchedule} />
             </div>
