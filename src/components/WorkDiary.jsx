@@ -9,7 +9,6 @@ import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
 import { listDiaryPhotosForIds, uploadDiaryPhotos, listDiaryFilesForIds, uploadDiaryFiles } from '../lib/attachments'
 import { resolveOrCreateCustomer } from '../lib/customers'
 import { buildCustomerMemoPayload } from '../lib/workDiaryPayload'
-import CustomerSearchPanel from './CustomerSearchPanel'
 import AddCustomerMemoModal from './AddCustomerMemoModal'
 import CustomerTimelineModal from './CustomerTimelineModal'
 import WeeklyDiary from './WeeklyDiary'
@@ -19,6 +18,7 @@ import './WorkDiary.css'
 
 const TABLE = 'work_diary'
 const DAILY_SCHEDULE_KEY = '__daily_schedule__'
+const FULL_WEEKDAYS = ['\uC77C\uC694\uC77C', '\uC6D4\uC694\uC77C', '\uD654\uC694\uC77C', '\uC218\uC694\uC77C', '\uBAA9\uC694\uC77C', '\uAE08\uC694\uC77C', '\uD1A0\uC694\uC77C']
 const UI_STATE_KEY = 'wd_ui_state_v1'
 
 function parseDateKey(dateKey) {
@@ -685,6 +685,18 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     return raw.filter((m) => (m.writer || '주현희') === filterWriter)
   }, [searchMode, searchResults, memos, filterWriter])
 
+  const selectedDateStats = useMemo(() => {
+    const selectedMemos = filterWriter === 'all'
+      ? memos
+      : memos.filter((memo) => (memo.writer || '\uC8FC\uD604\uD76C') === filterWriter)
+
+    return {
+      total: selectedMemos.length,
+      important: selectedMemos.filter((memo) => memo.status === 'important').length,
+      done: selectedMemos.filter((memo) => memo.status === 'done').length,
+      isToday: toDateKey(selectedDate) === toDateKey(today),
+    }
+  }, [memos, filterWriter, selectedDate, today])
   const handleChangeStatus = useCallback(async (id, nextStatus) => {
     if (!isSupabaseConfigured) return
     // 낙관적 업데이트
@@ -1158,11 +1170,31 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             onOpenToday={openDateInToday}
           />
         ) : (
-          <div className="wd-primary-grid">
-            <div className="wd-left-col">
-              <Calendar viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />
-              <UpcomingSchedules filterWriter={filterWriter} refreshKey={upcomingRefreshKey} onNavigate={handleNavigate} />
-              <SelectedScheduleMemos key={toDateKey(selectedDate)} selectedDate={selectedDate} notes={dailyScheduleNotes} loading={scheduleLoading} saving={scheduleSaving} error={scheduleError} onCreate={handleCreateDailySchedule} onUpdate={handleUpdateDailySchedule} onDelete={handleDeleteDailySchedule} />
+          <div className="wd-today-layout">
+            <div className="wd-today-dashboard">
+              <section className="wd-panel wd-today-date-card" aria-label="&#49440;&#53469; &#45216;&#51676; &#50836;&#50557;">
+                <div className="wd-today-date-heading">
+                  <span className="wd-today-weekday">{FULL_WEEKDAYS[selectedDate.getDay()]}</span>
+                  {selectedDateStats.isToday && <span className="wd-today-badge">&#50724;&#45720;</span>}
+                </div>
+                <div className="wd-today-date-value">
+                  {selectedDate.getMonth() + 1}&#50900; {selectedDate.getDate()}&#51068;
+                </div>
+                <div className="wd-today-date-stats">
+                  <div><strong>{selectedDateStats.total}</strong><span>&#47700;&#47784;</span></div>
+                  <div><strong>{selectedDateStats.important}</strong><span>&#51473;&#50836;</span></div>
+                  <div><strong>{selectedDateStats.done}</strong><span>&#50756;&#47308;</span></div>
+                </div>
+              </section>
+              <div className="wd-today-card wd-today-card--calendar">
+                <Calendar viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />
+              </div>
+              <div className="wd-today-card wd-today-card--upcoming">
+                <UpcomingSchedules filterWriter={filterWriter} refreshKey={upcomingRefreshKey} onNavigate={handleNavigate} />
+              </div>
+              <div className="wd-today-card wd-today-card--schedule">
+                <SelectedScheduleMemos key={toDateKey(selectedDate)} selectedDate={selectedDate} notes={dailyScheduleNotes} loading={scheduleLoading} saving={scheduleSaving} error={scheduleError} onCreate={handleCreateDailySchedule} onUpdate={handleUpdateDailySchedule} onDelete={handleDeleteDailySchedule} />
+              </div>
             </div>
             <DiaryList
               onNewMemo={() => openDateInToday(selectedDate)}

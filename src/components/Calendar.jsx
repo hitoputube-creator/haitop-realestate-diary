@@ -145,6 +145,8 @@ export default function Calendar({
             const filtered = filterWriter === 'all'
               ? entries
               : entries.filter((e) => e.writer === filterWriter)
+            const memoCount = filtered.length
+
 
             // 일정 스티커는 날짜칸 안에 라벨로 표시한다.
             const scheduleLabels = [...new Set(
@@ -161,7 +163,6 @@ export default function Calendar({
             const hasKimDot = filtered.some((e) => (!e.sticker || !SCHEDULE_STICKERS.includes(e.sticker)) && e.writer === '김정현') &&
               (filterWriter === 'all' || filterWriter === '김정현')
 
-            const hasNote = scheduleLabels.length > 0 || hasJooDot || hasKimDot
             const weekday = date.getDay()
 
             const cls = [
@@ -181,10 +182,15 @@ export default function Calendar({
                 key={`${key}-${idx}`}
                 className={cls}
                 onClick={() => onSelectDate(date)}
-                aria-label={`${date.getMonth() + 1}월 ${date.getDate()}일${hasNote ? ', 메모 있음' : ''}`}
+                aria-label={`${date.getMonth() + 1}\uC6D4 ${date.getDate()}\uC77C${memoCount > 0 ? `, \uBA54\uBAA8 ${memoCount}\uAC74` : ''}`}
                 aria-pressed={isSelected}
               >
                 <span className="wd-cal-day-num">{date.getDate()}</span>
+                {memoCount > 0 && (
+                  <span className="wd-cal-memo-count" aria-hidden="true">
+                    {memoCount >= 10 ? '9+' : memoCount}
+                  </span>
+                )}
 
                 {scheduleLabels.length > 0 && (
                   <div className="wd-cal-day-stickers" aria-hidden="true">
