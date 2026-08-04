@@ -2606,3 +2606,256 @@
     max-height: calc(94vh - 52px);
   }
 }
+
+/* ===== ?낅Т?쇱? 蹂닿린 ?꾪솚 諛?1李??덉씠?꾩썐 媛쒗렪 ===== */
+.wd-view-toolbar {
+  width: 100%;
+  max-width: 1800px;
+  margin: 18px auto 0;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.wd-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wd-main {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1800px;
+}
+
+.wd-primary-grid {
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: 24px;
+  min-width: 0;
+}
+
+.wd-main--month .wd-primary-grid {
+  grid-template-columns: minmax(420px, 520px) minmax(0, 1fr);
+}
+
+.wd-support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 20px;
+  min-width: 0;
+}
+
+.wd-support-grid > * {
+  grid-area: auto;
+  min-width: 0;
+  max-height: none;
+}
+
+.wd-weekly {
+  width: 100%;
+  min-width: 0;
+}
+
+.wd-weekly-header,
+.wd-weekly-nav,
+.wd-week-day-header,
+.wd-week-day-header > div {
+  display: flex;
+  align-items: center;
+}
+
+.wd-weekly-header {
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.wd-weekly-nav {
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.wd-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wd-week-day {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.wd-week-day.is-today {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 3px 0 var(--color-primary);
+}
+
+.wd-week-day-header {
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-container);
+}
+
+.wd-week-day-header > div {
+  gap: 7px;
+  min-width: 0;
+}
+
+.wd-week-day-header strong {
+  color: var(--color-on-surface);
+}
+
+.wd-week-day-header span,
+.wd-week-empty,
+.wd-week-meta {
+  color: var(--color-on-surface-faint);
+}
+
+.wd-week-add {
+  flex-shrink: 0;
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.wd-week-memos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  min-height: 150px;
+}
+
+.wd-week-memo {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+  text-align: left;
+}
+
+.wd-week-memo:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
+
+.wd-week-memo strong,
+.wd-week-customer,
+.wd-week-content,
+.wd-week-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wd-week-memo strong,
+.wd-week-customer,
+.wd-week-meta {
+  white-space: nowrap;
+}
+
+.wd-week-customer {
+  color: var(--color-primary);
+  font-size: 12px;
+}
+
+.wd-week-content {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.wd-week-meta {
+  font-size: 10.5px;
+}
+
+.wd-week-empty {
+  padding: 24px 8px;
+  text-align: center;
+  font-size: 12px;
+}
+
+@media (max-width: 1300px) {
+  .wd-main,
+  .wd-primary-grid {
+    grid-template-areas: none;
+  }
+
+  .wd-week-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .wd-support-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .wd-primary-grid,
+  .wd-main--month .wd-primary-grid,
+  .wd-support-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wd-left-col,
+  .wd-diary {
+    grid-area: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .wd-view-toolbar {
+    padding: 0 16px;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .wd-view-tabs {
+    width: 100%;
+  }
+
+  .wd-view-tabs .wd-filter-tab {
+    flex: 1;
+  }
+
+  .wd-weekly-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .wd-weekly-nav {
+    justify-content: stretch;
+  }
+
+  .wd-weekly-nav .wd-action-btn {
+    flex: 1;
+  }
+
+  .wd-week-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wd-week-memos {
+    min-height: 0;
+  }
+}

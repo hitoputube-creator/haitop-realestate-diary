@@ -12,6 +12,7 @@ import { buildCustomerMemoPayload } from '../lib/workDiaryPayload'
 import CustomerSearchPanel from './CustomerSearchPanel'
 import AddCustomerMemoModal from './AddCustomerMemoModal'
 import CustomerTimelineModal from './CustomerTimelineModal'
+import WeeklyDiary from './WeeklyDiary'
 import { readLocalJSON, patchLocalJSON } from '../lib/uiState'
 import './WorkDiary.css'
 
@@ -52,6 +53,10 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
   const searchMode = searchQuery.trim().length > 0
   const [filterWriter, setFilterWriter] = useState(() => initialUi.filterWriter ?? 'all')
+  const [mainView, setMainView] = useState('today')
+  const [weekAnchor, setWeekAnchor] = useState(today)
+  const [weekMemos, setWeekMemos] = useState([])
+  const [weekLoading, setWeekLoading] = useState(false)
 
   /* ===== 연결고리 ===== */
   const [allLinkKeys, setAllLinkKeys] = useState([])
@@ -291,6 +296,46 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     loadMonthDots()
   }, [loadMonthDots])
 
+  const weekDays = useMemo(() => {
+    const start = new Date(weekAnchor)
+    start.setHours(0, 0, 0, 0)
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
+    return Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(start)
+      day.setDate(start.getDate() + index)
+      return day
+    })
+  }, [weekAnchor])
+
+  useEffect(() => {
+    if (mainView !== 'week' || !isSupabaseConfigured) return undefined
+    let cancelled = false
+    setWeekLoading(true)
+    ;(async () => {
+      try {
+        const { data, error: weekError } = await supabase
+          .from(TABLE)
+          .select('*')
+          .gte('date', toDateKey(weekDays[0]))
+          .lte('date', toDateKey(weekDays[6]))
+          .order('date', { ascending: true })
+          .order('created_at', { ascending: true })
+        if (weekError) throw weekError
+        if (!cancelled) {
+          const rows = (data || []).filter((row) => row.link_key !== DAILY_SCHEDULE_KEY)
+          setWeekMemos(rows)
+          loadPhotosForRows(rows)
+          loadFilesForRows(rows)
+        }
+      } catch (weekError) {
+        if (!cancelled) setError(`\uC8FC\uAC04 \uBA54\uBAA8 \uC870\uD68C \uC2E4\uD328: ${weekError.message || weekError}`)
+      } finally {
+        if (!cancelled) setWeekLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [mainView, weekDays, upcomingRefreshKey, loadPhotosForRows, loadFilesForRows])
+
   /* ===== 사용 중인 연결고리 목록 로드 ===== */
   const loadAllLinkKeys = useCallback(async () => {
     if (!isSupabaseConfigured) return
@@ -413,6 +458,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     const d = new Date(dateStr + 'T00:00:00')
     if (isNaN(d.getTime())) return
     setSearchQuery('')         // 메인 검색 초기화
+    setMainView('today')
     handleSelectDate(d)        // 해당 날짜로 이동
     setHighlightMemoId(memoId || null)
     // 3초 후 하이라이트 해제
@@ -915,6 +961,26 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     }
   }
 
+  function openDateInToday(d, memoId = null) {
+    handleSelectDate(d)
+    setMainView('today')
+    setHighlightMemoId(memoId)
+    if (memoId) setTimeout(() => setHighlightMemoId(null), 3000)
+    setTimeout(() => document.querySelector('.wd-diary')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  }
+
+  function moveWeek(offset) {
+    if (offset === 0) {
+      setWeekAnchor(new Date())
+      return
+    }
+    setWeekAnchor((current) => {
+      const next = new Date(current)
+      next.setDate(next.getDate() + offset * 7)
+      return next
+    })
+  }
+
   /* ===== 연결 메모 패널 ===== */
   const LinkPanel = linkKeyFilter ? (
     <div className="wd-link-modal" role="dialog" aria-modal="true" aria-label="연결 메모 보기">
@@ -1053,88 +1119,64 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         </div>
       )}
 
-      <main className="wd-main">
-        <div className="wd-left-col">
-          <Calendar
-            viewYear={viewYear}
-            viewMonth={viewMonth}
-            selectedDate={selectedDate}
-            notedDateKeys={notedDateKeys}
-            filterWriter={filterWriter}
-            onSelectDate={handleSelectDate}
-            onPrevMonth={handlePrevMonth}
-            onNextMonth={handleNextMonth}
-            onJumpToday={handleJumpToday}
-          />
-          <CustomerSearchPanel
-            onAddMemo={handleSearchAddMemo}
-            onViewTimeline={handleSearchViewTimeline}
-          />
-          <UpcomingSchedules
-            filterWriter={filterWriter}
-            refreshKey={upcomingRefreshKey}
-            onNavigate={handleNavigate}
-          />
+      <div className="wd-view-toolbar">
+        <div className="wd-view-tabs" role="tablist" aria-label="Work diary views">
+          {[
+            ['today', '\uC624\uB298'],
+            ['week', '\uC8FC\uAC04'],
+            ['month', '\uC6D4\uAC04'],
+          ].map(([value, label]) => (
+            <button key={value} type="button" role="tab" aria-selected={mainView === value} className={`wd-filter-tab ${mainView === value ? 'active' : ''}`} onClick={() => setMainView(value)}>
+              {label}
+            </button>
+          ))}
         </div>
+        <button type="button" className="wd-action-btn active" onClick={() => openDateInToday(selectedDate)}>{'\uC0C8 \uBA54\uBAA8 \uC791\uC131'}</button>
+      </div>
 
-        <DiaryList
-          selectedDate={selectedDate}
-          memos={filteredMemos}
-          loading={searchMode ? searchLoading : loading}
-          error={error}
-          searchMode={searchMode}
-          onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '', diaryFiles = [], customerId = null) => {
-            const createdMemo = await handleCreate(content, writer, sticker, linkKey, name, phone, title, customerId)
-            if (!createdMemo) return
-            if (photoFiles.length > 0) {
-              try {
-                await handleAddPhotosToMemo(createdMemo.id, photoFiles, writer)
-              } catch (photoErr) {
-                setError(`메모는 저장됐지만 사진 업로드에 실패했습니다: ${photoErr.message || photoErr}`)
-              }
-            }
-            if (diaryFiles.length > 0) {
-              try {
-                await handleAddFilesToMemo(createdMemo.id, diaryFiles, writer)
-              } catch (fileErr) {
-                setError(`메모는 저장됐지만 파일 업로드에 실패했습니다: ${fileErr.message || fileErr}`)
-              }
-            }
-          }}
-          onAddPhotos={handleAddPhotosToMemo}
-          onAddFiles={handleAddFilesToMemo}
-          onChangeStatus={handleChangeStatus}
-          onDelete={handleDelete}
-          onUpdateContent={handleUpdateContent}
-          onUpdateLinkKey={handleUpdateLinkKey}
-          onOpenAddMemoForMemo={handleOpenAddMemoForMemo}
-          onOpenTimelineForMemo={handleOpenTimelineForMemo}
-          composerDisabled={!isSupabaseConfigured}
-          allLinkKeys={allLinkKeys}
-          onLinkKeyClick={handleLinkKeyClick}
-          pinnedDiaryIds={pinnedDiaryIds}
-          onPin={handlePin}
-          onUnpin={handleUnpin}
-          onNavigate={handleNavigate}
-          highlightMemoId={highlightMemoId}
-          searchQuery={searchQuery}
-          photoMap={photoMap}
-          fileMap={fileMap}
-        />
-
-        <SelectedScheduleMemos
-          key={toDateKey(selectedDate)}
-          selectedDate={selectedDate}
-          notes={dailyScheduleNotes}
-          loading={scheduleLoading}
-          saving={scheduleSaving}
-          error={scheduleError}
-          onCreate={handleCreateDailySchedule}
-          onUpdate={handleUpdateDailySchedule}
-          onDelete={handleDeleteDailySchedule}
-        />
+      <main className={`wd-main wd-main--${mainView}`}>
+        {mainView === 'week' ? (
+          <WeeklyDiary
+            days={weekDays}
+            memos={weekMemos}
+            loading={weekLoading}
+            filterWriter={filterWriter}
+            photoMap={photoMap}
+            fileMap={fileMap}
+            pinnedDiaryIds={pinnedDiaryIds}
+            onPrevWeek={() => moveWeek(-1)}
+            onThisWeek={() => moveWeek(0)}
+            onNextWeek={() => moveWeek(1)}
+            onOpenMemo={openDateInToday}
+            onAddMemo={(day) => openDateInToday(day)}
+          />
+        ) : (
+          <div className="wd-primary-grid">
+            <div className="wd-left-col">
+              <Calendar viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />
+            </div>
+            <DiaryList
+              selectedDate={selectedDate} memos={filteredMemos} loading={searchMode ? searchLoading : loading} error={error} searchMode={searchMode}
+              onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '', diaryFiles = [], customerId = null) => {
+                const createdMemo = await handleCreate(content, writer, sticker, linkKey, name, phone, title, customerId)
+                if (!createdMemo) return
+                if (photoFiles.length > 0) { try { await handleAddPhotosToMemo(createdMemo.id, photoFiles, writer) } catch (photoErr) { setError(`\uBA54\uBAA8\uB294 \uC800\uC7A5\uB410\uC9C0\uB9CC \uC0AC\uC9C4 \uC5C5\uB85C\uB4DC\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4: ${photoErr.message || photoErr}`) } }
+                if (diaryFiles.length > 0) { try { await handleAddFilesToMemo(createdMemo.id, diaryFiles, writer) } catch (fileErr) { setError(`\uBA54\uBAA8\uB294 \uC800\uC7A5\uB410\uC9C0\uB9CC \uD30C\uC77C \uC5C5\uB85C\uB4DC\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4: ${fileErr.message || fileErr}`) } }
+              }}
+              onAddPhotos={handleAddPhotosToMemo} onAddFiles={handleAddFilesToMemo} onChangeStatus={handleChangeStatus} onDelete={handleDelete}
+              onUpdateContent={handleUpdateContent} onUpdateLinkKey={handleUpdateLinkKey} onOpenAddMemoForMemo={handleOpenAddMemoForMemo}
+              onOpenTimelineForMemo={handleOpenTimelineForMemo} composerDisabled={!isSupabaseConfigured} allLinkKeys={allLinkKeys}
+              onLinkKeyClick={handleLinkKeyClick} pinnedDiaryIds={pinnedDiaryIds} onPin={handlePin} onUnpin={handleUnpin}
+              onNavigate={handleNavigate} highlightMemoId={highlightMemoId} searchQuery={searchQuery} photoMap={photoMap} fileMap={fileMap}
+            />
+          </div>
+        )}
+        <section className="wd-support-grid" aria-label="Work diary supporting tools">
+          <CustomerSearchPanel onAddMemo={handleSearchAddMemo} onViewTimeline={handleSearchViewTimeline} />
+          <UpcomingSchedules filterWriter={filterWriter} refreshKey={upcomingRefreshKey} onNavigate={handleNavigate} />
+          <SelectedScheduleMemos key={toDateKey(selectedDate)} selectedDate={selectedDate} notes={dailyScheduleNotes} loading={scheduleLoading} saving={scheduleSaving} error={scheduleError} onCreate={handleCreateDailySchedule} onUpdate={handleUpdateDailySchedule} onDelete={handleDeleteDailySchedule} />
+        </section>
       </main>
-
       {LinkPanel}
       {photoGallery && (
         <PhotoGalleryModal
