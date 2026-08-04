@@ -30,6 +30,7 @@ export default function Calendar({
   onJumpToday,
   notedDateKeys = {},
   filterWriter = 'all',
+  variant = 'large',
 }) {
   const todayKey = toDateKey(new Date())
   const selectedKey = toDateKey(selectedDate)
@@ -66,7 +67,7 @@ export default function Calendar({
   }, [viewYear, viewMonth])
 
   return (
-    <section className="wd-panel" aria-label="달력">
+    <section className={`wd-panel wd-calendar wd-calendar--${variant}`} aria-label="달력">
       <header className="wd-cal-nav">
         <div>
           <span className="wd-cal-month">{viewMonth + 1}월</span>
@@ -154,8 +155,15 @@ export default function Calendar({
                 .filter((e) => SCHEDULE_STICKERS.includes(e.sticker))
                 .map((e) => e.sticker)
             )]
-            const visibleScheduleLabels = scheduleLabels.slice(0, 2)
-            const extraScheduleCount = Math.max(0, scheduleLabels.length - visibleScheduleLabels.length)
+            const compactScheduleLabels = SCHEDULE_STICKERS
+              .filter((sticker) => scheduleLabels.includes(sticker))
+              .sort((a, b) => ['\uC794\uAE08', '\uACC4\uC57D', '\uC57D\uC18D'].indexOf(a) - ['\uC794\uAE08', '\uACC4\uC57D', '\uC57D\uC18D'].indexOf(b))
+            const visibleScheduleLabels = variant === 'compact'
+              ? compactScheduleLabels.slice(0, 1)
+              : scheduleLabels.slice(0, 2)
+            const extraScheduleCount = variant === 'compact'
+              ? 0
+              : Math.max(0, scheduleLabels.length - visibleScheduleLabels.length)
 
             // 일정 스티커가 아닌 메모는 기존처럼 작성자별 도트로 표시한다.
             const hasJooDot = filtered.some((e) => (!e.sticker || !SCHEDULE_STICKERS.includes(e.sticker)) && e.writer === '주현희') &&
@@ -209,7 +217,7 @@ export default function Calendar({
                   </div>
                 )}
 
-                {(hasJooDot || hasKimDot) && (
+                {(variant !== 'compact' || memoCount === 0) && (hasJooDot || hasKimDot) && (
                   <div className="wd-cal-day-dots" aria-hidden="true">
                     {hasJooDot && <span className="wd-cal-day-dot dot-joo" />}
                     {hasKimDot && <span className="wd-cal-day-dot dot-kim" />}

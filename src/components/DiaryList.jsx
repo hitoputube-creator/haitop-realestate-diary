@@ -5,6 +5,7 @@ import { DiaryFileUploader, DiaryFileList } from './DiaryFiles'
 import { getAttachmentSignedUrl } from '../lib/attachments'
 import { readLocalJSON, writeLocalJSON, removeLocalJSON } from '../lib/uiState'
 import CustomerMemoLookupModal from './CustomerMemoLookupModal'
+import DetailModal from './DetailModal'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -77,7 +78,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate, onOpenAddMemoForMemo, onOpenTimelineForMemo }) {
+function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate, onOpenAddMemoForMemo, onOpenTimelineForMemo, variant = 'full', onOpenDetail }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const [draftName, setDraftName] = useState(memo.customer_name || '')
@@ -266,6 +267,60 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
       // 팝업이 차단됐어도 현재 탭은 건드리지 않고 새 탭으로 다시 시도한다
       window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
+  }
+
+  if (variant === 'compact') {
+    return (
+      <article ref={cardRef} className={`${cls} wd-card--compact`} aria-label="간단 메모">
+        <div className="wd-compact-card-top">
+          <div className="wd-card-meta">
+            <span className="wd-card-time">{formatTime(memo.created_at)}</span>
+            <span className="wd-card-writer">· {memo.writer || '주현희'}</span>
+          </div>
+          <div className="wd-compact-badges">
+            {stickerMeta && <span className="wd-sticker-badge" style={{ background: stickerMeta.color }}>{memo.sticker}</span>}
+            <StatusBadge status={memo.status || 'normal'} />
+          </div>
+        </div>
+
+        <button type="button" className="wd-compact-card-main" onClick={() => onOpenDetail?.(memo.id)}>
+          <strong className="wd-compact-title">{memo.title || '(제목 미입력)'}</strong>
+          {(memo.customer_name || memo.customer_phone) && (
+            <span className="wd-compact-customer">
+              {memo.customer_name || '미입력'}{memo.customer_phone ? ` · ${memo.customer_phone}` : ''}
+            </span>
+          )}
+          <span className="wd-compact-content">{memo.content}</span>
+        </button>
+
+        <div className="wd-compact-info">
+          {memo.link_key && <span className="wd-compact-info-badge">🔗 {memo.link_key}</span>}
+          {photos?.length > 0 && <span className="wd-compact-info-badge">사진 {photos.length}</span>}
+          {files?.length > 0 && <span className="wd-compact-info-badge">파일 {files.length}</span>}
+        </div>
+
+        <div className="wd-compact-actions">
+          <button type="button" className="wd-action-btn active" onClick={() => onOpenDetail?.(memo.id)}>전체보기</button>
+          <button type="button" className="wd-action-btn" onClick={() => onOpenAddMemoForMemo?.(memo)}>메모 추가</button>
+          <button
+            type="button"
+            className={`wd-action-btn ${memo.status === 'important' ? 'active' : ''}`}
+            onClick={() => onChangeStatus(memo.id, memo.status === 'important' ? 'normal' : 'important')}
+            aria-pressed={memo.status === 'important'}
+          >
+            ★ 중요
+          </button>
+          <button
+            type="button"
+            className={`wd-action-btn done ${memo.status === 'done' ? 'active done' : ''}`}
+            onClick={() => onChangeStatus(memo.id, memo.status === 'done' ? 'normal' : 'done')}
+            aria-pressed={memo.status === 'done'}
+          >
+            ✓ 완료
+          </button>
+        </div>
+      </article>
+    )
   }
 
   return (
@@ -1226,6 +1281,7 @@ export default function DiaryList({
   fileMap,
 }) {
   const [gallery, setGallery] = useState(null)
+  const [detailMemoId, setDetailMemoId] = useState(null)
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
     : ''
@@ -1238,6 +1294,7 @@ export default function DiaryList({
 
   const importantCount = memos.filter((m) => m.status === 'important').length
   const doneCount = memos.filter((m) => m.status === 'done').length
+  const detailMemo = memos.find((memo) => memo.id === detailMemoId) || null
 
   return (
     <section className="wd-panel wd-diary" aria-label="메모 목록">
@@ -1314,6 +1371,8 @@ export default function DiaryList({
             <MemoCard
               key={m.id}
               memo={m}
+              variant={searchMode ? 'full' : 'compact'}
+              onOpenDetail={() => setDetailMemoId(m.id)}
               photos={photoMap?.[m.id] || []}
               files={fileMap?.[m.id] || []}
               onOpenPhotos={(photos, index) => setGallery({ photos, index })}
@@ -1337,6 +1396,46 @@ export default function DiaryList({
           ))
         )}
       </div>
+
+      {detailMemo && !searchMode && (
+        <DetailModal title="메모 전체보기" onClose={() => setDetailMemoId(null)} className="wd-memo-detail-dialog">
+          <MemoCard
+            memo={detailMemo}
+            variant="full"
+            photos={photoMap?.[detailMemo.id] || []}
+            files={fileMap?.[detailMemo.id] || []}
+            onOpenPhotos={(photos, index) => {
+              setDetailMemoId(null)
+              setGallery({ photos, index })
+            }}
+            onAddPhotos={onAddPhotos}
+            onAddFiles={onAddFiles}
+            showDate
+            onChangeStatus={onChangeStatus}
+            onDelete={(id) => { onDelete(id); setDetailMemoId(null) }}
+            onUpdateContent={onUpdateContent}
+            onLinkKeyClick={(linkKey) => {
+              setDetailMemoId(null)
+              onLinkKeyClick?.(linkKey)
+            }}
+            onUpdateLinkKey={onUpdateLinkKey}
+            onOpenAddMemoForMemo={(memo) => {
+              setDetailMemoId(null)
+              onOpenAddMemoForMemo?.(memo)
+            }}
+            onOpenTimelineForMemo={(memo) => {
+              setDetailMemoId(null)
+              onOpenTimelineForMemo?.(memo)
+            }}
+            allLinkKeys={allLinkKeys}
+            isPinned={pinnedDiaryIds?.has(detailMemo.id) ?? false}
+            onPin={onPin}
+            onUnpin={onUnpin}
+            isHighlighted={false}
+            onNavigate={onNavigate}
+          />
+        </DetailModal>
+      )}
 
       {gallery && (
         <PhotoGalleryModal

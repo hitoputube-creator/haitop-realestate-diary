@@ -1163,7 +1163,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           />
         ) : mainView === 'month' ? (
           <MonthlyDiary
-            calendar={<Calendar viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />}
+            calendar={<Calendar variant="large" viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />}
             selectedDate={selectedDate}
             memos={filteredMemos.filter((memo) => memo.date === toDateKey(selectedDate))}
             loading={searchMode ? searchLoading : loading}
@@ -1187,13 +1187,13 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
                 </div>
               </section>
               <div className="wd-today-card wd-today-card--calendar">
-                <Calendar viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />
+                <Calendar variant="compact" viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />
               </div>
               <div className="wd-today-card wd-today-card--upcoming">
-                <UpcomingSchedules filterWriter={filterWriter} refreshKey={upcomingRefreshKey} onNavigate={handleNavigate} />
+                <UpcomingSchedules variant="compact" filterWriter={filterWriter} refreshKey={upcomingRefreshKey} onNavigate={handleNavigate} />
               </div>
               <div className="wd-today-card wd-today-card--schedule">
-                <SelectedScheduleMemos key={toDateKey(selectedDate)} selectedDate={selectedDate} notes={dailyScheduleNotes} loading={scheduleLoading} saving={scheduleSaving} error={scheduleError} onCreate={handleCreateDailySchedule} onUpdate={handleUpdateDailySchedule} onDelete={handleDeleteDailySchedule} />
+                <SelectedScheduleMemos variant="compact" key={toDateKey(selectedDate)} selectedDate={selectedDate} notes={dailyScheduleNotes} loading={scheduleLoading} saving={scheduleSaving} error={scheduleError} onCreate={handleCreateDailySchedule} onUpdate={handleUpdateDailySchedule} onDelete={handleDeleteDailySchedule} />
               </div>
             </div>
             <DiaryList

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { toDateKey } from './Calendar'
 import { STICKER_META } from './DiaryList'
+import DetailModal from './DetailModal'
 import './UpcomingSchedules.css'
 
 const TARGET_STICKERS = ['계약', '잔금', '약속']
@@ -29,9 +30,10 @@ function getMemoTitle(memo) {
   return firstLine.length > 34 ? firstLine.slice(0, 34) + '...' : firstLine
 }
 
-export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0, onNavigate }) {
+export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0, onNavigate, variant = 'full' }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
+  const [selectedItem, setSelectedItem] = useState(null)
 
   const loadItems = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -89,14 +91,14 @@ export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0
         <div className="usw-empty">예정된 일정이 없습니다.</div>
       ) : (
         <div className="usw-list">
-          {items.map((item) => {
+          {(variant === 'compact' ? items.slice(0, 5) : items).map((item) => {
             const stickerMeta = STICKER_META[item.sticker] || {}
             return (
               <button
                 key={item.id}
                 type="button"
                 className="usw-item"
-                onClick={() => onNavigate?.(item.date, item.id)}
+                onClick={() => variant === 'compact' ? setSelectedItem(item) : onNavigate?.(item.date, item.id)}
                 title="클릭하면 해당 날짜의 메모로 이동합니다"
               >
                 <span className="usw-date">{formatShortDate(item.date)}</span>
@@ -112,6 +114,33 @@ export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0
             )
           })}
         </div>
+      )}
+
+      {selectedItem && (
+        <DetailModal title="&#51068;&#51221; &#49345;&#49464;&#48372;&#44592;" onClose={() => setSelectedItem(null)} className="usw-detail-dialog">
+          <div className="usw-detail-meta">
+            <span>{formatShortDate(selectedItem.date)}</span>
+            <span className="usw-sticker" style={{ background: STICKER_META[selectedItem.sticker]?.color || 'var(--color-primary-container)' }}>
+              {selectedItem.sticker}
+            </span>
+            <span>{selectedItem.writer || '\uC8FC\uD604\uD76C'}</span>
+          </div>
+          <h3 className="usw-detail-title">{getMemoTitle(selectedItem)}</h3>
+          <div className="usw-detail-content">{selectedItem.content}</div>
+          <div className="usw-detail-actions">
+            <button type="button" className="wd-action-btn" onClick={() => setSelectedItem(null)}>&#45803;&#44592;</button>
+            <button
+              type="button"
+              className="wd-action-btn active"
+              onClick={() => {
+                onNavigate?.(selectedItem.date, selectedItem.id)
+                setSelectedItem(null)
+              }}
+            >
+              &#50724;&#45720; &#54868;&#47732;&#50640;&#49436; &#50676;&#44592;
+            </button>
+          </div>
+        </DetailModal>
       )}
     </section>
   )
