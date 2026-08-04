@@ -997,102 +997,107 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
 
   return (
     <div className="wd-composer">
-      <div className="wd-composer-input-wrap">
-        <textarea
-          ref={composerRef}
-          className="wd-composer-input"
-          placeholder="이 날짜에 메모를 남겨보세요. #태그를 포함하면 자동으로 분류됩니다."
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value)
-            autoResizeComposer(e.target)
-          }}
-          onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-              e.preventDefault()
-              handleSubmit()
-            }
-          }}
-          disabled={disabled || submitting}
-        />
-      </div>
-
-      {/* 스티커 선택 */}
-      <div className="wd-sticker-bar">
-        <span className="wd-sticker-bar-label">스티커</span>
-        {STICKER_OPTIONS.map((opt) => {
-          const isActive = sticker === opt.value
-          const meta = opt.value ? STICKER_META[opt.value] : null
-          return (
-            <button
-              key={opt.value ?? 'none'}
-              type="button"
-              className={`wd-sticker-btn ${isActive ? 'active' : ''}`}
-              style={
-                meta
-                  ? isActive
-                    ? { background: meta.color, borderColor: meta.color, color: '#fff' }
-                    : { borderColor: meta.color + '88', color: meta.color }
-                  : {}
-              }
-              onClick={() => setSticker(isActive && opt.value !== null ? null : opt.value)}
+      <div className="wd-composer-layout">
+        <div className="wd-composer-content">
+          <div className="wd-composer-input-wrap">
+            <textarea
+              ref={composerRef}
+              className="wd-composer-input"
+              placeholder="이 날짜에 메모를 남겨보세요. #태그를 포함하면 자동으로 분류됩니다."
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value)
+                autoResizeComposer(e.target)
+              }}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  handleSubmit()
+                }
+              }}
               disabled={disabled || submitting}
-            >
-              {opt.label}
-            </button>
-          )
-        })}
-      </div>
+            />
+          </div>
+        </div>
 
-      <div className="wd-composer-lookup-row">
-        <button
-          type="button"
-          className="wd-composer-lookup-btn"
-          onClick={() => setLookupOpen(true)}
-          disabled={disabled || submitting}
-        >
-          🔎 기존 고객·메모 불러오기
-        </button>
-        {pickedCustomerId && (
-          <span className="wd-composer-lookup-linked">
-            🔗 고객 연결됨
+        <div className="wd-composer-side">
+          <div className="wd-composer-customer-row">
+            <input
+              className="wd-composer-customer-input"
+              placeholder="제목"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={disabled || submitting}
+            />
+            <input
+              className="wd-composer-customer-input"
+              placeholder="이름"
+              value={name}
+              onChange={handleNameInput}
+              disabled={disabled || submitting}
+            />
+            <input
+              className="wd-composer-customer-input"
+              placeholder="연락처"
+              value={phone}
+              onChange={handlePhoneInput}
+              disabled={disabled || submitting}
+            />
+          </div>
+
+          <div className="wd-composer-lookup-row">
             <button
               type="button"
-              className="wd-composer-lookup-unlink"
-              onClick={() => setPickedCustomerId(null)}
+              className="wd-composer-lookup-btn"
+              onClick={() => setLookupOpen(true)}
               disabled={disabled || submitting}
-              aria-label="고객 연결 해제"
             >
-              ✕
+              🔎 기존 고객·메모 불러오기
             </button>
-          </span>
-        )}
-      </div>
+            {pickedCustomerId && (
+              <span className="wd-composer-lookup-linked">
+                🔗 고객 연결됨
+                <button
+                  type="button"
+                  className="wd-composer-lookup-unlink"
+                  onClick={() => setPickedCustomerId(null)}
+                  disabled={disabled || submitting}
+                  aria-label="고객 연결 해제"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+          </div>
 
-      <div className="wd-composer-customer-row">
-        <input
-          className="wd-composer-customer-input"
-          placeholder="제목"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          disabled={disabled || submitting}
-        />
-        <input
-          className="wd-composer-customer-input"
-          placeholder="이름"
-          value={name}
-          onChange={handleNameInput}
-          disabled={disabled || submitting}
-        />
-        <input
-          className="wd-composer-customer-input"
-          placeholder="연락처"
-          value={phone}
-          onChange={handlePhoneInput}
-          disabled={disabled || submitting}
-        />
+          {/* 스티커 선택 */}
+          <div className="wd-sticker-bar">
+            <span className="wd-sticker-bar-label">스티커</span>
+            {STICKER_OPTIONS.map((opt) => {
+              const isActive = sticker === opt.value
+              const meta = opt.value ? STICKER_META[opt.value] : null
+              return (
+                <button
+                  key={opt.value ?? 'none'}
+                  type="button"
+                  className={`wd-sticker-btn ${isActive ? 'active' : ''}`}
+                  style={
+                    meta
+                      ? isActive
+                        ? { background: meta.color, borderColor: meta.color, color: '#fff' }
+                        : { borderColor: meta.color + '88', color: meta.color }
+                      : {}
+                  }
+                  onClick={() => setSticker(isActive && opt.value !== null ? null : opt.value)}
+                  disabled={disabled || submitting}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
-
       {lookupOpen && (
         <CustomerMemoLookupModal
           onClose={() => setLookupOpen(false)}
