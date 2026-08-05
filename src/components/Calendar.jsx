@@ -20,6 +20,27 @@ function indicatorColor(entry) {
   return '#F2C94C'
 }
 
+function monthlyStickerColor(sticker) {
+  if (!sticker) return '#95A5A6'
+  return STICKER_COLORS[sticker] || {
+    계약: '#C9A84C',
+    잔금: '#E74C3C',
+    약속: '#3498DB',
+    내부: '#27AE60',
+    기타: '#95A5A6',
+  }[sticker] || '#95A5A6'
+}
+
+function monthlyStickerLabels(entries) {
+  const labels = []
+  entries.forEach((entry) => {
+    const sticker = entry.sticker
+    if (!sticker || sticker === '없음' || labels.includes(sticker)) return
+    labels.push(sticker)
+  })
+  return labels.slice(0, 2)
+}
+
 export function toDateKey(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
@@ -152,6 +173,7 @@ export default function Calendar({
               : entries.filter((e) => e.writer === filterWriter)
             const visibleIndicators = filtered.slice(0, 3)
             const hasNote = filtered.length > 0
+            const monthlyLabels = variant === 'month' ? monthlyStickerLabels(filtered) : []
             const weekday = date.getDay()
 
             const cls = [
@@ -176,7 +198,24 @@ export default function Calendar({
               >
                 <span className="wd-cal-day-num">{date.getDate()}</span>
 
-                {hasNote && (
+                {hasNote && variant === 'month' ? (
+                  <div className="wd-cal-month-info" aria-hidden="true">
+                    {monthlyLabels.length > 0 && (
+                      <div className="wd-cal-month-stickers">
+                        {monthlyLabels.map((label) => (
+                          <span
+                            key={label}
+                            className="wd-cal-month-sticker"
+                            style={{ '--sticker-color': monthlyStickerColor(label) }}
+                          >
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <span className="wd-cal-month-count">메모 {filtered.length}</span>
+                  </div>
+                ) : hasNote && (
                   <div className="wd-cal-day-indicators" aria-hidden="true">
                     {visibleIndicators.map((entry, entryIdx) => (
                       <span

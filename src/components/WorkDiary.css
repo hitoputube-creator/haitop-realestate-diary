@@ -3216,6 +3216,7 @@
 }
 
 .wd-week-memo {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -3223,6 +3224,7 @@
   min-width: 0;
   height: var(--wd-week-memo-height);
   padding: 10px;
+  padding-right: 12px;
   border: 1px solid var(--color-border);
   border-radius: 9px;
   background: var(--color-surface-container);
@@ -3248,6 +3250,8 @@
 }
 
 .wd-week-memo strong {
+  min-height: 18px;
+  padding-right: 54px;
   color: var(--color-on-surface);
   font-size: 13.5px;
   font-weight: 800;
@@ -3257,12 +3261,38 @@
 }
 
 .wd-week-customer {
+  min-height: 15px;
   color: var(--color-primary);
   font-size: 11.5px;
   font-weight: 700;
   line-height: 1.3;
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+.wd-week-memo strong.is-empty,
+.wd-week-customer.is-empty {
+  color: transparent;
+}
+
+.wd-card-important-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(216, 184, 74, 0.18);
+  color: var(--color-primary);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .wd-week-content {
@@ -3539,12 +3569,113 @@
   align-items: start;
   gap: 24px;
   min-width: 0;
+  min-height: calc(100vh - 260px);
 }
 
 .wd-month-calendar,
 .wd-month-memos {
   min-width: 0;
   width: 100%;
+}
+
+.wd-month-calendar,
+.wd-month-calendar .wd-calendar--month {
+  height: 100%;
+}
+
+.wd-calendar--month {
+  min-height: calc(100vh - 260px);
+  display: flex;
+  flex-direction: column;
+}
+
+.wd-calendar--month .wd-cal-nav {
+  padding: 22px 24px 14px;
+}
+
+.wd-calendar--month .wd-cal-month {
+  font-size: 21px;
+}
+
+.wd-calendar--month .wd-cal-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 24px 22px;
+  min-height: 0;
+}
+
+.wd-calendar--month .wd-cal-weekdays {
+  margin-bottom: 10px;
+}
+
+.wd-calendar--month .wd-cal-weekday {
+  font-size: 12px;
+}
+
+.wd-calendar--month .wd-cal-days {
+  flex: 1;
+  grid-template-rows: repeat(6, minmax(68px, 1fr));
+  gap: 7px;
+}
+
+.wd-calendar--month .wd-cal-day {
+  justify-content: flex-start;
+  min-height: 68px;
+  padding: 9px 5px 7px;
+  gap: 6px;
+}
+
+.wd-calendar--month .wd-cal-day-num {
+  font-size: clamp(17px, 1.15vw, 22px);
+  font-weight: 800;
+}
+
+.wd-cal-month-info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.wd-cal-month-stickers {
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.wd-cal-month-sticker {
+  max-width: 44px;
+  padding: 1px 5px 2px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--sticker-color) 22%, transparent);
+  color: var(--sticker-color);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wd-cal-month-count {
+  color: var(--color-on-surface-faint);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.wd-cal-day.selected .wd-cal-month-sticker {
+  background: rgba(4, 16, 28, 0.16);
+  color: var(--color-bg);
+}
+
+.wd-cal-day.selected .wd-cal-month-count {
+  color: rgba(4, 16, 28, 0.72);
 }
 
 .wd-month-memos-header {
@@ -3562,48 +3693,83 @@
 }
 
 .wd-month-memo-card {
+  position: relative;
+  width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 6px 12px;
-  padding: 12px;
+  padding: 14px 16px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: var(--color-surface-container);
+  color: inherit;
+  text-align: left;
   min-width: 0;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.wd-month-memo-card strong,
-.wd-month-memo-card span,
-.wd-month-memo-card p {
+.wd-month-memo-card:hover {
+  border-color: rgba(216, 184, 74, 0.46);
+  background: var(--color-surface-hover);
+}
+
+.wd-month-memo-title,
+.wd-month-memo-name,
+.wd-month-memo-phone,
+.wd-month-memo-content,
+.wd-month-memo-meta {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.wd-month-memo-card strong,
-.wd-month-memo-card span {
+.wd-month-memo-title,
+.wd-month-memo-name,
+.wd-month-memo-phone,
+.wd-month-memo-meta {
   white-space: nowrap;
 }
 
-.wd-month-memo-card span {
-  color: var(--color-primary);
-  font-size: 12px;
+.wd-month-memo-title {
+  grid-column: 1 / -1;
+  padding-right: 62px;
+  color: var(--color-on-surface);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
 }
 
-.wd-month-memo-card p {
-  grid-column: 1;
+.wd-month-memo-name {
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.wd-month-memo-phone {
+  justify-self: start;
+  color: var(--color-on-surface-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wd-month-memo-content {
+  grid-column: 1 / -1;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  margin: 0;
-  line-height: 1.5;
+  color: var(--color-on-surface-muted);
+  font-size: 13px;
+  line-height: 1.55;
   overflow-wrap: anywhere;
 }
 
-.wd-month-memo-card .wd-action-btn {
-  grid-column: 2;
-  grid-row: 1 / span 3;
+.wd-month-memo-meta {
+  grid-column: 1 / -1;
+  color: var(--color-on-surface-faint);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 @media (max-width: 960px) {
@@ -3631,10 +3797,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .wd-month-memo-card p,
-  .wd-month-memo-card .wd-action-btn {
-    grid-column: 1;
-    grid-row: auto;
+  .wd-calendar--month {
+    min-height: 560px;
   }
 }
 

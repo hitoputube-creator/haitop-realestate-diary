@@ -49,8 +49,9 @@ export default function WeeklyDiary({ days, memos, loading, filterWriter, photoM
                 <div className="wd-week-memos">
                   {rows.length === 0 ? <div className="wd-week-empty">메모 없음</div> : rows.map((memo) => (
                     <button key={memo.id} type="button" className="wd-week-memo" onClick={() => setSelectedMemoId(memo.id)}>
-                      {memo.title && <strong>{memo.title}</strong>}
-                      {memo.customer_name && <span className="wd-week-customer">{memo.customer_name}</span>}
+                      {memo.status === 'important' && <span className="wd-card-important-badge">★ 중요</span>}
+                      <strong className={!memo.title ? 'is-empty' : ''}>{memo.title || '\u00a0'}</strong>
+                      <span className={`wd-week-customer ${!memo.customer_name ? 'is-empty' : ''}`}>{memo.customer_name || '\u00a0'}</span>
                       <span className="wd-week-content">{memo.content}</span>
                       <span className="wd-week-meta">{memo.writer || ''}{((photoMap?.[memo.id] || []).length > 0 || (fileMap?.[memo.id] || []).length > 0) ? ' \u00B7 \uCCA8\uBD80' : ''}{pinnedDiaryIds?.has(memo.id) ? ' \u00B7 \uACE0\uC815' : ''}{memo.link_key ? ` \u00B7 ${memo.link_key}` : ''}</span>
                     </button>
@@ -84,7 +85,7 @@ export default function WeeklyDiary({ days, memos, loading, filterWriter, photoM
   )
 }
 
-function WeeklyMemoDetail({ memo, photos, files, onOpenPhotos, onClose, onSave, onAddPhotos, onAddFiles }) {
+export function WeeklyMemoDetail({ memo, photos, files, onOpenPhotos, onClose, onSave, onAddPhotos, onAddFiles }) {
   const [editing, setEditing] = useState(false)
   const [photoAddOpen, setPhotoAddOpen] = useState(false)
   const [fileAddOpen, setFileAddOpen] = useState(false)

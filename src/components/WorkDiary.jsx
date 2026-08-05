@@ -1194,11 +1194,16 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       ) : mainView === 'month' ? (
         <main className="wd-main wd-main--month">
           <MonthlyDiary
-            calendar={<Calendar variant="large" viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />}
+            calendar={<Calendar variant="month" viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} notedDateKeys={notedDateKeys} filterWriter={filterWriter} onSelectDate={handleSelectDate} onPrevMonth={handlePrevMonth} onNextMonth={handleNextMonth} onJumpToday={handleJumpToday} />}
             selectedDate={selectedDate}
             memos={filteredMemos.filter((memo) => memo.date === toDateKey(selectedDate))}
             loading={searchMode ? searchLoading : loading}
             onOpenToday={openDateInToday}
+            photoMap={photoMap}
+            fileMap={fileMap}
+            onUpdateMemo={handleUpdateContent}
+            onAddPhotos={handleAddPhotosToMemo}
+            onAddFiles={handleAddFilesToMemo}
           />
         </main>
       ) : (
