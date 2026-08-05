@@ -1176,8 +1176,8 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         <main className="wd-main wd-main--week">
           <WeeklyDiary
             days={weekDays}
-            memos={weekMemos}
-            loading={weekLoading}
+            memos={searchMode ? searchResults : weekMemos}
+            loading={searchMode ? searchLoading : weekLoading}
             filterWriter={filterWriter}
             photoMap={photoMap}
             fileMap={fileMap}
