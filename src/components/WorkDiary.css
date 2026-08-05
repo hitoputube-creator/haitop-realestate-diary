@@ -4083,6 +4083,13 @@
   -webkit-line-clamp: 2;
 }
 
+.wd-card--compact.is-expanded .wd-compact-content {
+  display: block;
+  overflow: visible;
+  white-space: pre-wrap;
+  -webkit-line-clamp: unset;
+}
+
 .wd-compact-info {
   margin-top: 9px;
 }
@@ -4108,6 +4115,18 @@
 .wd-compact-actions .wd-action-btn {
   padding: 5px 8px;
   font-size: 10.5px;
+}
+
+.wd-compact-expanded {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.wd-compact-expanded .wd-card-tags,
+.wd-compact-expanded .wd-photo-strip,
+.wd-compact-expanded .wd-file-list {
+  margin-top: 8px;
 }
 
 .wd-memo-detail-dialog .wd-card {

@@ -5,7 +5,6 @@ import { DiaryFileUploader, DiaryFileList } from './DiaryFiles'
 import { getAttachmentSignedUrl } from '../lib/attachments'
 import { readLocalJSON, writeLocalJSON, removeLocalJSON } from '../lib/uiState'
 import CustomerMemoLookupModal from './CustomerMemoLookupModal'
-import DetailModal from './DetailModal'
 
 /* ===== 스티커 메타 ===== */
 export const STICKER_META = {
@@ -76,8 +75,9 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate, onOpenAddMemoForMemo, onOpenTimelineForMemo, variant = 'full', onOpenDetail }) {
+function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate, onOpenAddMemoForMemo, onOpenTimelineForMemo, variant = 'full' }) {
   const [editing, setEditing] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState(memo.content)
   const [draftName, setDraftName] = useState(memo.customer_name || '')
   const [draftPhone, setDraftPhone] = useState(memo.customer_phone || '')
@@ -269,7 +269,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
 
   if (variant === 'compact') {
     return (
-      <article ref={cardRef} className={`${cls} wd-card--compact`} aria-label="간단 메모">
+      <article ref={cardRef} className={`${cls} wd-card--compact ${expanded ? 'is-expanded' : ''}`} aria-label="간단 메모">
         <div className="wd-compact-card-top">
           <div className="wd-card-meta">
             <span className="wd-card-time">{formatTime(memo.created_at)}</span>
@@ -281,7 +281,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
           </div>
         </div>
 
-        <button type="button" className="wd-compact-card-main" onClick={() => onOpenDetail?.(memo.id)}>
+        <div className="wd-compact-card-main">
           <strong className="wd-compact-title">{memo.title || '(제목 미입력)'}</strong>
           {(memo.customer_name || memo.customer_phone) && (
             <span className="wd-compact-customer">
@@ -289,7 +289,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             </span>
           )}
           <span className="wd-compact-content">{memo.content}</span>
-        </button>
+        </div>
 
         <div className="wd-compact-info">
           {memo.link_key && <span className="wd-compact-info-badge">🔗 {memo.link_key}</span>}
@@ -298,7 +298,14 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
         </div>
 
         <div className="wd-compact-actions">
-          <button type="button" className="wd-action-btn active" onClick={() => onOpenDetail?.(memo.id)}>전체보기</button>
+          <button
+            type="button"
+            className="wd-action-btn active"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+          >
+            {expanded ? '접기' : '전체보기'}
+          </button>
           <button type="button" className="wd-action-btn" onClick={() => onOpenAddMemoForMemo?.(memo)}>메모 추가</button>
           <button
             type="button"
@@ -317,6 +324,21 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             ✓ 완료
           </button>
         </div>
+        {expanded && (
+          <div className="wd-compact-expanded">
+            {tags.length > 0 && (
+              <div className="wd-card-tags">
+                {tags.map((t) => (
+                  <span key={t} className="wd-tag">
+                    #{t}
+                  </span>
+                ))}
+              </div>
+            )}
+            {photos?.length > 0 && <DiaryPhotoStrip photos={photos} onOpen={onOpenPhotos} />}
+            {files?.length > 0 && <DiaryFileList files={files} />}
+          </div>
+        )}
       </article>
     )
   }
@@ -1297,7 +1319,6 @@ export default function DiaryList({
   fileMap,
 }) {
   const [gallery, setGallery] = useState(null)
-  const [detailMemoId, setDetailMemoId] = useState(null)
   const [composerOpen, setComposerOpen] = useState(false)
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
@@ -1311,7 +1332,6 @@ export default function DiaryList({
 
   const importantCount = memos.filter((m) => m.status === 'important').length
   const doneCount = memos.filter((m) => m.status === 'done').length
-  const detailMemo = memos.find((memo) => memo.id === detailMemoId) || null
 
   function openComposer() {
     onNewMemo?.()
@@ -1398,7 +1418,6 @@ export default function DiaryList({
               key={m.id}
               memo={m}
               variant={searchMode ? 'full' : 'compact'}
-              onOpenDetail={() => setDetailMemoId(m.id)}
               photos={photoMap?.[m.id] || []}
               files={fileMap?.[m.id] || []}
               onOpenPhotos={(photos, index) => setGallery({ photos, index })}
@@ -1422,46 +1441,6 @@ export default function DiaryList({
           ))
         )}
       </div>
-
-      {detailMemo && !searchMode && (
-        <DetailModal title="메모 전체보기" onClose={() => setDetailMemoId(null)} className="wd-memo-detail-dialog">
-          <MemoCard
-            memo={detailMemo}
-            variant="full"
-            photos={photoMap?.[detailMemo.id] || []}
-            files={fileMap?.[detailMemo.id] || []}
-            onOpenPhotos={(photos, index) => {
-              setDetailMemoId(null)
-              setGallery({ photos, index })
-            }}
-            onAddPhotos={onAddPhotos}
-            onAddFiles={onAddFiles}
-            showDate
-            onChangeStatus={onChangeStatus}
-            onDelete={(id) => { onDelete(id); setDetailMemoId(null) }}
-            onUpdateContent={onUpdateContent}
-            onLinkKeyClick={(linkKey) => {
-              setDetailMemoId(null)
-              onLinkKeyClick?.(linkKey)
-            }}
-            onUpdateLinkKey={onUpdateLinkKey}
-            onOpenAddMemoForMemo={(memo) => {
-              setDetailMemoId(null)
-              onOpenAddMemoForMemo?.(memo)
-            }}
-            onOpenTimelineForMemo={(memo) => {
-              setDetailMemoId(null)
-              onOpenTimelineForMemo?.(memo)
-            }}
-            allLinkKeys={allLinkKeys}
-            isPinned={pinnedDiaryIds?.has(detailMemo.id) ?? false}
-            onPin={onPin}
-            onUnpin={onUnpin}
-            isHighlighted={false}
-            onNavigate={onNavigate}
-          />
-        </DetailModal>
-      )}
 
       {gallery && (
         <PhotoGalleryModal
