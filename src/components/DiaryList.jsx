@@ -474,12 +474,100 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
                 <div className="wd-compact-edit-actions">
                   <button
                     type="button"
+                    className="wd-action-btn"
+                    onClick={() => {
+                      setPhotoAddOpen((value) => !value)
+                      setPhotoError('')
+                    }}
+                    disabled={photoBusy}
+                  >
+                    사진 추가
+                  </button>
+                  <button
+                    type="button"
+                    className="wd-action-btn"
+                    onClick={() => {
+                      setFileAddOpen((value) => !value)
+                      setFileError('')
+                    }}
+                    disabled={fileBusy}
+                  >
+                    파일 추가
+                  </button>
+                  <button
+                    type="button"
                     className="wd-action-btn active"
                     onClick={() => setEditing(true)}
                   >
                     수정
                   </button>
                 </div>
+                {photoAddOpen && (
+                  <div className="wd-card-photo-panel">
+                    <DiaryPhotoUploader
+                      files={photoFiles}
+                      onChange={setPhotoFiles}
+                      disabled={photoBusy}
+                      busy={photoBusy}
+                    />
+                    {photoError && <div className="wd-photo-error" role="alert">{photoError}</div>}
+                    <div className="wd-photo-upload-actions">
+                      <button
+                        type="button"
+                        className="wd-action-btn"
+                        onClick={() => {
+                          setPhotoFiles([])
+                          setPhotoError('')
+                          setPhotoAddOpen(false)
+                        }}
+                        disabled={photoBusy}
+                      >
+                        취소
+                      </button>
+                      <button
+                        type="button"
+                        className="wd-action-btn active"
+                        onClick={handleAddPhotos}
+                        disabled={photoBusy || photoFiles.length === 0}
+                      >
+                        {photoBusy ? '업로드 중...' : '업로드'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {fileAddOpen && (
+                  <div className="wd-card-file-panel">
+                    <DiaryFileUploader
+                      files={diaryFiles}
+                      onChange={setDiaryFiles}
+                      disabled={fileBusy}
+                      busy={fileBusy}
+                    />
+                    {fileError && <div className="wd-photo-error" role="alert">{fileError}</div>}
+                    <div className="wd-photo-upload-actions">
+                      <button
+                        type="button"
+                        className="wd-action-btn"
+                        onClick={() => {
+                          setDiaryFiles([])
+                          setFileError('')
+                          setFileAddOpen(false)
+                        }}
+                        disabled={fileBusy}
+                      >
+                        취소
+                      </button>
+                      <button
+                        type="button"
+                        className="wd-action-btn active"
+                        onClick={handleAddFiles}
+                        disabled={fileBusy || diaryFiles.length === 0}
+                      >
+                        {fileBusy ? '업로드 중...' : '업로드'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

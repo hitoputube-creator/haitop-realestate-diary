@@ -3398,6 +3398,23 @@
   margin-top: 14px;
 }
 
+.wd-week-detail-attachments {
+  margin-top: 12px;
+}
+
+.wd-week-detail-attachments .wd-photo-strip-wrap,
+.wd-week-detail-attachments .wd-file-list,
+.wd-week-detail-upload {
+  margin-top: 10px;
+}
+
+.wd-week-detail-upload {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
 @media (max-width: 1300px) {
   .wd-main,
   .wd-primary-grid {

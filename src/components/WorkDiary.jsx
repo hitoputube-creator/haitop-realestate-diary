@@ -1186,6 +1186,8 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             onThisWeek={() => moveWeek(0)}
             onNextWeek={() => moveWeek(1)}
             onUpdateMemo={handleUpdateContent}
+            onAddPhotos={handleAddPhotosToMemo}
+            onAddFiles={handleAddFilesToMemo}
             onAddMemo={(day) => openDateInToday(day)}
           />
         </main>

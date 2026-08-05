@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toDateKey } from './Calendar'
 import { STICKER_META } from './DiaryList'
+import { DiaryPhotoStrip, DiaryPhotoUploader, PhotoGalleryModal } from './DiaryPhotos'
+import { DiaryFileUploader, DiaryFileList } from './DiaryFiles'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
-export default function WeeklyDiary({ days, memos, loading, filterWriter, photoMap, fileMap, pinnedDiaryIds, onPrevWeek, onThisWeek, onNextWeek, onUpdateMemo, onAddMemo }) {
+export default function WeeklyDiary({ days, memos, loading, filterWriter, photoMap, fileMap, pinnedDiaryIds, onPrevWeek, onThisWeek, onNextWeek, onUpdateMemo, onAddPhotos, onAddFiles, onAddMemo }) {
   const [selectedMemoId, setSelectedMemoId] = useState(null)
+  const [gallery, setGallery] = useState(null)
   const todayKey = toDateKey(new Date())
   const visibleMemos = useMemo(
     () => filterWriter === 'all' ? memos : memos.filter((memo) => (memo.writer || '주현희') === filterWriter),
@@ -61,16 +64,36 @@ export default function WeeklyDiary({ days, memos, loading, filterWriter, photoM
       {selectedMemo && (
         <WeeklyMemoDetail
           memo={selectedMemo}
+          photos={photoMap?.[selectedMemo.id] || []}
+          files={fileMap?.[selectedMemo.id] || []}
+          onOpenPhotos={(photos, index) => setGallery({ photos, index })}
           onClose={() => setSelectedMemoId(null)}
           onSave={onUpdateMemo}
+          onAddPhotos={onAddPhotos}
+          onAddFiles={onAddFiles}
+        />
+      )}
+      {gallery && (
+        <PhotoGalleryModal
+          photos={gallery.photos}
+          startIndex={gallery.index}
+          onClose={() => setGallery(null)}
         />
       )}
     </section>
   )
 }
 
-function WeeklyMemoDetail({ memo, onClose, onSave }) {
+function WeeklyMemoDetail({ memo, photos, files, onOpenPhotos, onClose, onSave, onAddPhotos, onAddFiles }) {
   const [editing, setEditing] = useState(false)
+  const [photoAddOpen, setPhotoAddOpen] = useState(false)
+  const [fileAddOpen, setFileAddOpen] = useState(false)
+  const [photoFiles, setPhotoFiles] = useState([])
+  const [diaryFiles, setDiaryFiles] = useState([])
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [fileBusy, setFileBusy] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+  const [fileError, setFileError] = useState('')
   const [draftTitle, setDraftTitle] = useState(memo.title || '')
   const [draftName, setDraftName] = useState(memo.customer_name || '')
   const [draftPhone, setDraftPhone] = useState(memo.customer_phone || '')
@@ -86,6 +109,12 @@ function WeeklyMemoDetail({ memo, onClose, onSave }) {
     setDraftPhone(memo.customer_phone || '')
     setDraftLinkKey(memo.link_key || '')
     setDraftContent(memo.content || '')
+    setPhotoAddOpen(false)
+    setFileAddOpen(false)
+    setPhotoFiles([])
+    setDiaryFiles([])
+    setPhotoError('')
+    setFileError('')
     setError('')
   }, [memo])
 
@@ -108,6 +137,36 @@ function WeeklyMemoDetail({ memo, onClose, onSave }) {
       setError(err.message || String(err))
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleAddPhotos() {
+    if (!photoFiles.length || photoBusy) return
+    setPhotoBusy(true)
+    setPhotoError('')
+    try {
+      await onAddPhotos?.(memo.id, photoFiles, memo.writer)
+      setPhotoFiles([])
+      setPhotoAddOpen(false)
+    } catch (err) {
+      setPhotoError(err.message || String(err))
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
+  async function handleAddFiles() {
+    if (!diaryFiles.length || fileBusy) return
+    setFileBusy(true)
+    setFileError('')
+    try {
+      await onAddFiles?.(memo.id, diaryFiles, memo.writer)
+      setDiaryFiles([])
+      setFileAddOpen(false)
+    } catch (err) {
+      setFileError(err.message || String(err))
+    } finally {
+      setFileBusy(false)
     }
   }
 
@@ -147,9 +206,91 @@ function WeeklyMemoDetail({ memo, onClose, onSave }) {
               </div>
             </div>
             <div className="wd-week-detail-content">{memo.content}</div>
+            <div className="wd-week-detail-attachments">
+              {photos?.length > 0 && <DiaryPhotoStrip photos={photos} onOpen={onOpenPhotos} />}
+              {files?.length > 0 && <DiaryFileList files={files} />}
+            </div>
             <div className="wd-week-detail-actions">
+              <button
+                type="button"
+                className="wd-action-btn"
+                onClick={() => {
+                  setPhotoAddOpen((value) => !value)
+                  setPhotoError('')
+                }}
+                disabled={photoBusy}
+              >
+                사진 추가
+              </button>
+              <button
+                type="button"
+                className="wd-action-btn"
+                onClick={() => {
+                  setFileAddOpen((value) => !value)
+                  setFileError('')
+                }}
+                disabled={fileBusy}
+              >
+                파일 추가
+              </button>
               <button type="button" className="wd-action-btn active" onClick={() => setEditing(true)}>수정</button>
             </div>
+            {photoAddOpen && (
+              <div className="wd-week-detail-upload">
+                <DiaryPhotoUploader files={photoFiles} onChange={setPhotoFiles} disabled={photoBusy} busy={photoBusy} />
+                {photoError && <div className="wd-photo-error" role="alert">{photoError}</div>}
+                <div className="wd-photo-upload-actions">
+                  <button
+                    type="button"
+                    className="wd-action-btn"
+                    onClick={() => {
+                      setPhotoFiles([])
+                      setPhotoError('')
+                      setPhotoAddOpen(false)
+                    }}
+                    disabled={photoBusy}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className="wd-action-btn active"
+                    onClick={handleAddPhotos}
+                    disabled={photoBusy || photoFiles.length === 0}
+                  >
+                    {photoBusy ? '업로드 중...' : '업로드'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {fileAddOpen && (
+              <div className="wd-week-detail-upload">
+                <DiaryFileUploader files={diaryFiles} onChange={setDiaryFiles} disabled={fileBusy} busy={fileBusy} />
+                {fileError && <div className="wd-photo-error" role="alert">{fileError}</div>}
+                <div className="wd-photo-upload-actions">
+                  <button
+                    type="button"
+                    className="wd-action-btn"
+                    onClick={() => {
+                      setDiaryFiles([])
+                      setFileError('')
+                      setFileAddOpen(false)
+                    }}
+                    disabled={fileBusy}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className="wd-action-btn active"
+                    onClick={handleAddFiles}
+                    disabled={fileBusy || diaryFiles.length === 0}
+                  >
+                    {fileBusy ? '업로드 중...' : '업로드'}
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <>
