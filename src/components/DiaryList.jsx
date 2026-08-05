@@ -273,7 +273,6 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
         <div className="wd-compact-card-top">
           <div className="wd-card-meta">
             <span className="wd-card-time">{formatTime(memo.created_at)}</span>
-            {showDate && <span className="wd-card-date">· {formatDateLabel(memo.date, true)}</span>}
             <span className="wd-card-writer">· {memo.writer || '주현희'}</span>
           </div>
           <div className="wd-compact-badges">
@@ -1327,7 +1326,6 @@ export default function DiaryList({
   highlightMemoId,
   photoMap,
   fileMap,
-  listScope = 'date',
 }) {
   const [gallery, setGallery] = useState(null)
   const [composerOpen, setComposerOpen] = useState(false)
@@ -1341,12 +1339,8 @@ export default function DiaryList({
       ]
     : ''
 
-  const isAllMemoList = listScope === 'all' && !searchMode
   const importantCount = memos.filter((m) => m.status === 'important').length
   const doneCount = memos.filter((m) => m.status === 'done').length
-  const summaryLabel = isAllMemoList
-    ? `전체 ${memos.length}건 · 중요 ${importantCount} · 완료 ${doneCount}`
-    : `${weekdayLabel} · ${memos.length}건 · 중요 ${importantCount} · 완료 ${doneCount}`
 
   function openComposer() {
     onNewMemo?.()
@@ -1361,9 +1355,9 @@ export default function DiaryList({
       {!searchMode && (
         <header className="wd-diary-header">
           <div>
-            <div className="wd-diary-date">{isAllMemoList ? '기존 메모 목록' : dateLabel}</div>
+            <div className="wd-diary-date">{dateLabel}</div>
             <div className="wd-diary-date-sub">
-              {summaryLabel}
+              {weekdayLabel} · {memos.length}건 · 중요 {importantCount} · 완료 {doneCount}
             </div>
           </div>
           <button
@@ -1438,7 +1432,7 @@ export default function DiaryList({
               onOpenPhotos={(photos, index) => setGallery({ photos, index })}
               onAddPhotos={onAddPhotos}
               onAddFiles={onAddFiles}
-              showDate={searchMode || isAllMemoList}
+              showDate={searchMode}
               onChangeStatus={onChangeStatus}
               onDelete={onDelete}
               onUpdateContent={onUpdateContent}
@@ -1451,7 +1445,7 @@ export default function DiaryList({
               onPin={onPin}
               onUnpin={onUnpin}
               isHighlighted={m.id === highlightMemoId}
-              onNavigate={searchMode || isAllMemoList ? onNavigate : undefined}
+              onNavigate={searchMode ? onNavigate : undefined}
             />
           ))
         )}
