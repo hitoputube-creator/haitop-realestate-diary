@@ -1298,6 +1298,7 @@ export default function DiaryList({
 }) {
   const [gallery, setGallery] = useState(null)
   const [detailMemoId, setDetailMemoId] = useState(null)
+  const [composerOpen, setComposerOpen] = useState(false)
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
     : ''
@@ -1312,6 +1313,14 @@ export default function DiaryList({
   const doneCount = memos.filter((m) => m.status === 'done').length
   const detailMemo = memos.find((memo) => memo.id === detailMemoId) || null
 
+  function openComposer() {
+    onNewMemo?.()
+    setComposerOpen(true)
+    requestAnimationFrame(() => {
+      document.querySelector('.wd-composer-input')?.focus()
+    })
+  }
+
   return (
     <section className="wd-panel wd-diary" aria-label="메모 목록">
       {!searchMode && (
@@ -1325,7 +1334,7 @@ export default function DiaryList({
           <button
             type="button"
             className="wd-new-memo-btn"
-            onClick={() => document.querySelector('.wd-composer-input')?.focus()}
+            onClick={openComposer}
           >
             새 메모 작성
           </button>
@@ -1352,10 +1361,12 @@ export default function DiaryList({
         </div>
       )}
 
-      {!searchMode && (
+      {!searchMode && composerOpen && (
         <Composer
-          onSubmit={(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId) =>
-            onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId)}
+          onSubmit={async (content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId) => {
+            await onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId)
+            setComposerOpen(false)
+          }}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
@@ -1378,7 +1389,7 @@ export default function DiaryList({
             <div className="wd-empty-sub">
               {searchMode
                 ? '다른 키워드로 검색해보세요.'
-                : '위쪽 입력창에 첫 메모를 남겨보세요.'}
+                : '새 메모 작성 버튼을 눌러 첫 메모를 남겨보세요.'}
             </div>
           </div>
         ) : (

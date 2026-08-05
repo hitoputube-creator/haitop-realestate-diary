@@ -150,11 +150,7 @@ export default function Calendar({
             const filtered = filterWriter === 'all'
               ? entries
               : entries.filter((e) => e.writer === filterWriter)
-            const memoCount = filtered.length
-
-
             const visibleIndicators = filtered.slice(0, 3)
-            const extraIndicatorCount = Math.max(0, filtered.length - visibleIndicators.length)
             const hasNote = filtered.length > 0
             const weekday = date.getDay()
 
@@ -175,15 +171,10 @@ export default function Calendar({
                 key={`${key}-${idx}`}
                 className={cls}
                 onClick={() => onSelectDate(date)}
-                aria-label={`${date.getMonth() + 1}\uC6D4 ${date.getDate()}\uC77C${memoCount > 0 ? `, \uBA54\uBAA8 ${memoCount}\uAC74` : ''}`}
+                aria-label={`${date.getMonth() + 1}\uC6D4 ${date.getDate()}\uC77C`}
                 aria-pressed={isSelected}
               >
                 <span className="wd-cal-day-num">{date.getDate()}</span>
-                {memoCount > 0 && (
-                  <span className="wd-cal-memo-count" aria-hidden="true">
-                    {memoCount >= 10 ? '9+' : memoCount}
-                  </span>
-                )}
 
                 {hasNote && (
                   <div className="wd-cal-day-indicators" aria-hidden="true">
@@ -194,9 +185,6 @@ export default function Calendar({
                         style={{ background: indicatorColor(entry) }}
                       />
                     ))}
-                    {extraIndicatorCount > 0 && (
-                      <span className="wd-cal-day-count">+{extraIndicatorCount}</span>
-                    )}
                   </div>
                 )}
               </button>
