@@ -823,17 +823,26 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
     try {
       const normQ = trimmed.replace(/[\s_]+/g, '')
       const orParts = [
+        `title.ilike.%${trimmed}%`,
+        `customer_name.ilike.%${trimmed}%`,
+        `customer_phone.ilike.%${trimmed}%`,
         `content.ilike.%${trimmed}%`,
         `link_key.ilike.%${trimmed}%`,
         `writer.ilike.%${trimmed}%`,
       ]
       if (normQ && normQ !== trimmed) {
-        orParts.push(`content.ilike.%${normQ}%`, `link_key.ilike.%${normQ}%`)
+        orParts.push(
+          `title.ilike.%${normQ}%`,
+          `customer_name.ilike.%${normQ}%`,
+          `customer_phone.ilike.%${normQ}%`,
+          `content.ilike.%${normQ}%`,
+          `link_key.ilike.%${normQ}%`
+        )
       }
 
       const { data: diaryRows } = await supabase
         .from('work_diary')
-        .select('id, content, link_key, writer, date, created_at')
+        .select('id, title, customer_name, customer_phone, content, link_key, writer, date, created_at')
         .or(orParts.join(','))
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })

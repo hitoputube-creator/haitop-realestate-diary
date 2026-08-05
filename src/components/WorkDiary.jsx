@@ -505,6 +505,9 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           orParts = [`tags.cs.{${tagTerm}}`]
         } else {
           orParts = [
+            `title.ilike.%${q}%`,
+            `customer_name.ilike.%${q}%`,
+            `customer_phone.ilike.%${q}%`,
             `content.ilike.%${q}%`,
             `tags.cs.{${tagTerm}}`,
             `link_key.ilike.%${q}%`,
@@ -512,7 +515,13 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           ]
           // 정규화 쿼리가 원본과 다를 때 추가 검색
           if (normQ && normQ !== q) {
-            orParts.push(`content.ilike.%${normQ}%`, `link_key.ilike.%${normQ}%`)
+            orParts.push(
+              `title.ilike.%${normQ}%`,
+              `customer_name.ilike.%${normQ}%`,
+              `customer_phone.ilike.%${normQ}%`,
+              `content.ilike.%${normQ}%`,
+              `link_key.ilike.%${normQ}%`
+            )
           }
         }
 
