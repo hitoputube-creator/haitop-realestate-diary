@@ -10,12 +10,12 @@
 }
 
 .usw-header {
-  padding: 14px 16px 10px;
+  padding: 16px 18px 12px;
   border-bottom: 1px solid var(--color-border);
 }
 
 .usw-title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--color-on-surface);
   letter-spacing: -0.2px;
@@ -30,9 +30,27 @@
 .usw-loading,
 .usw-empty {
   text-align: center;
-  padding: 18px 16px;
+  padding: 24px 16px;
   font-size: 12px;
   color: var(--color-on-surface-faint);
+}
+
+.usw-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.usw-empty-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  color: var(--color-on-surface-faint);
+  font-size: 14px;
 }
 
 .usw-list {
@@ -40,7 +58,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px 12px;
-  max-height: 240px;
+  max-height: 190px;
   overflow-y: auto;
 }
 

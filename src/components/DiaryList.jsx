@@ -21,8 +21,6 @@ const STICKER_OPTIONS = [
   { value: '계약', label: '계약' },
   { value: '잔금', label: '잔금' },
   { value: '약속', label: '약속' },
-  { value: '내부', label: '내부' },
-  { value: '기타', label: '기타' },
 ]
 
 const PROPERTY_REGISTER_URL = 'https://hitoputube-creator.github.io/haitop-realty-system/register.html'
@@ -1053,104 +1051,178 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   return (
     <div className="wd-composer">
       <div className="wd-composer-layout">
-        <div className="wd-composer-content">
-          <div className="wd-composer-input-wrap">
-            <textarea
-              ref={composerRef}
-              className="wd-composer-input"
-              placeholder="이 날짜에 메모를 남겨보세요. #태그를 포함하면 자동으로 분류됩니다."
-              value={value}
-              onChange={(e) => {
-                setValue(e.target.value)
-                autoResizeComposer(e.target)
-              }}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                  e.preventDefault()
-                  handleSubmit()
-                }
-              }}
-              disabled={disabled || submitting}
-            />
-          </div>
-        </div>
-
-        <div className="wd-composer-side">
-          <div className="wd-composer-customer-row">
+        <div className="wd-composer-fields">
+          <div className="wd-field-row">
+            <label htmlFor="wd-composer-title">제목</label>
             <input
+              id="wd-composer-title"
               className="wd-composer-customer-input"
-              placeholder="제목"
+              placeholder="제목을 입력하세요"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={disabled || submitting}
             />
+          </div>
+
+          <div className="wd-field-row">
+            <label htmlFor="wd-composer-name">이름</label>
             <input
+              id="wd-composer-name"
               className="wd-composer-customer-input"
-              placeholder="이름"
+              placeholder="이름을 입력하세요"
               value={name}
               onChange={handleNameInput}
               disabled={disabled || submitting}
             />
+          </div>
+
+          <div className="wd-field-row">
+            <label htmlFor="wd-composer-phone">연락처</label>
             <input
+              id="wd-composer-phone"
               className="wd-composer-customer-input"
-              placeholder="연락처"
+              placeholder="연락처를 입력하세요"
               value={phone}
               onChange={handlePhoneInput}
               disabled={disabled || submitting}
             />
           </div>
 
-          <div className="wd-composer-lookup-row">
-            <button
-              type="button"
-              className="wd-composer-lookup-btn"
-              onClick={() => setLookupOpen(true)}
+          <div className="wd-field-row wd-field-row--button">
+            <span className="wd-field-label-spacer" aria-hidden="true" />
+            <div className="wd-field-control-stack">
+              <button
+                type="button"
+                className="wd-composer-lookup-btn"
+                onClick={() => setLookupOpen(true)}
+                disabled={disabled || submitting}
+              >
+                기존 고객·메모 불러오기
+              </button>
+              {pickedCustomerId && (
+                <span className="wd-composer-lookup-linked">
+                  고객 연결됨
+                  <button
+                    type="button"
+                    className="wd-composer-lookup-unlink"
+                    onClick={() => setPickedCustomerId(null)}
+                    disabled={disabled || submitting}
+                    aria-label="고객 연결 해제"
+                  >
+                    ✕
+                  </button>
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="wd-field-row wd-field-row--stickers">
+            <span className="wd-sticker-bar-label">스티커</span>
+            <div className="wd-sticker-bar wd-sticker-segmented-control" role="radiogroup" aria-label="스티커 선택">
+              {STICKER_OPTIONS.map((opt) => {
+                const isActive = sticker === opt.value
+                const meta = opt.value ? STICKER_META[opt.value] : null
+                return (
+                  <button
+                    key={opt.value ?? 'none'}
+                    type="button"
+                    className={`wd-sticker-btn segment ${isActive ? 'active is-active' : ''}`}
+                    aria-pressed={isActive}
+                    style={
+                      meta
+                        ? { '--sticker-color': meta.color }
+                        : {}
+                    }
+                    onClick={() => setSticker(isActive && opt.value !== null ? null : opt.value)}
+                    disabled={disabled || submitting}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="wd-field-row wd-field-row--link-search">
+            <span className="wd-field-label-spacer" aria-hidden="true" />
+            <LinkKeySearchBox
+              currentValue={linkKey}
+              onSelect={setLinkKey}
               disabled={disabled || submitting}
-            >
-              🔎 기존 고객·메모 불러오기
-            </button>
-            {pickedCustomerId && (
-              <span className="wd-composer-lookup-linked">
-                🔗 고객 연결됨
+              onNavigate={onNavigate}
+            />
+          </div>
+
+          <div className="wd-field-row wd-field-row--connection-tag">
+            <label htmlFor="wd-link-key-input">연결태그</label>
+            <div className="wd-link-input-wrap">
+              <input
+                id="wd-link-key-input"
+                list="wd-link-key-datalist"
+                className="wd-link-input"
+                placeholder="예: 금승리67-6, 공장손님-김OO"
+                value={linkKey}
+                onChange={(e) => setLinkKey(e.target.value)}
+                disabled={disabled || submitting}
+              />
+              <datalist id="wd-link-key-datalist">
+                {(allLinkKeys || []).map((k) => (
+                  <option key={k} value={k} />
+                ))}
+              </datalist>
+              {linkKey && (
                 <button
                   type="button"
-                  className="wd-composer-lookup-unlink"
-                  onClick={() => setPickedCustomerId(null)}
+                  className="wd-link-clear-btn"
+                  onClick={() => setLinkKey('')}
                   disabled={disabled || submitting}
-                  aria-label="고객 연결 해제"
+                  aria-label="연결태그 초기화"
                 >
                   ✕
                 </button>
-              </span>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* 스티커 선택 */}
-          <div className="wd-sticker-bar">
-            <span className="wd-sticker-bar-label">스티커</span>
-            {STICKER_OPTIONS.map((opt) => {
-              const isActive = sticker === opt.value
-              const meta = opt.value ? STICKER_META[opt.value] : null
-              return (
-                <button
-                  key={opt.value ?? 'none'}
-                  type="button"
-                  className={`wd-sticker-btn ${isActive ? 'active' : ''}`}
-                  style={
-                    meta
-                      ? isActive
-                        ? { background: meta.color, borderColor: meta.color, color: '#fff' }
-                        : { borderColor: meta.color + '88', color: meta.color }
-                      : {}
-                  }
-                  onClick={() => setSticker(isActive && opt.value !== null ? null : opt.value)}
-                  disabled={disabled || submitting}
-                >
-                  {opt.label}
-                </button>
-              )
-            })}
+          <div className="wd-field-row wd-field-row--attach">
+            <span className="wd-field-label-spacer" aria-hidden="true" />
+            <div className="wd-attach-row attachment-button-group">
+              <DiaryPhotoUploader
+                files={photoFiles}
+                onChange={setPhotoFiles}
+                disabled={disabled}
+                busy={submitting}
+                compact
+              />
+              <DiaryFileUploader
+                files={diaryFiles}
+                onChange={setDiaryFiles}
+                disabled={disabled}
+                busy={submitting}
+                compact
+              />
+            </div>
           </div>
+        </div>
+
+        <div className="wd-composer-note-area">
+          <textarea
+            ref={composerRef}
+            className="wd-composer-input"
+            placeholder="메모 내용을 입력하세요."
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value)
+              autoResizeComposer(e.target)
+            }}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault()
+                handleSubmit()
+              }
+            }}
+            disabled={disabled || submitting}
+          />
         </div>
       </div>
       {lookupOpen && (
@@ -1159,62 +1231,6 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
           onSelect={handleLookupSelect}
         />
       )}
-
-      <details className="wd-composer-extra">
-        <summary>세부정보 · 연결태그 · 사진</summary>
-        <div className="wd-composer-extra-body">
-          <div className="wd-composer-tools-row">
-            <LinkKeySearchBox
-              currentValue={linkKey}
-              onSelect={setLinkKey}
-              disabled={disabled || submitting}
-              onNavigate={onNavigate}
-            />
-          </div>
-          <div className="wd-link-bar">
-            <span className="wd-link-bar-label">연결태그</span>
-            <input
-              list="wd-link-key-datalist"
-              className="wd-link-input"
-              placeholder="예: 금승리67-6, 공장손님-김OO"
-              value={linkKey}
-              onChange={(e) => setLinkKey(e.target.value)}
-              disabled={disabled || submitting}
-            />
-            <datalist id="wd-link-key-datalist">
-              {(allLinkKeys || []).map((k) => (
-                <option key={k} value={k} />
-              ))}
-            </datalist>
-            {linkKey && (
-              <button
-                type="button"
-                className="wd-link-clear-btn"
-                onClick={() => setLinkKey('')}
-                disabled={disabled || submitting}
-                aria-label="연결태그 초기화"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-          <div className="wd-link-hint">같은 손님·매물·계약 건을 묶는 이름입니다.</div>
-          <div className="wd-attach-row">
-            <DiaryPhotoUploader
-              files={photoFiles}
-              onChange={setPhotoFiles}
-              disabled={disabled}
-              busy={submitting}
-            />
-            <DiaryFileUploader
-              files={diaryFiles}
-              onChange={setDiaryFiles}
-              disabled={disabled}
-              busy={submitting}
-            />
-          </div>
-        </div>
-      </details>
 
       {submitError && <div className="wd-photo-error" role="alert">{submitError}</div>}
 
@@ -1300,20 +1316,19 @@ export default function DiaryList({
     <section className="wd-panel wd-diary" aria-label="메모 목록">
       {!searchMode && (
         <header className="wd-diary-header">
-          <div className="wd-diary-date">{dateLabel}</div>
-          <div className="wd-diary-date-sub">{weekdayLabel}</div>
-          <div className="wd-diary-stats">
-            <span>
-              <span className="wd-stat-num">{memos.length}</span>건
-            </span>
-            <span>
-              중요 <span className="wd-stat-num">{importantCount}</span>
-            </span>
-            <span>
-              완료 <span className="wd-stat-num">{doneCount}</span>
-            </span>
+          <div>
+            <div className="wd-diary-date">{dateLabel}</div>
+            <div className="wd-diary-date-sub">
+              {weekdayLabel} · {memos.length}건 · 중요 {importantCount} · 완료 {doneCount}
+            </div>
           </div>
-          <button type="button" className="wd-action-btn active wd-diary-new-memo" onClick={() => onNewMemo?.()}>&#49352; &#47700;&#47784; &#51089;&#49457;</button>
+          <button
+            type="button"
+            className="wd-new-memo-btn"
+            onClick={() => document.querySelector('.wd-composer-input')?.focus()}
+          >
+            새 메모 작성
+          </button>
         </header>
       )}
 

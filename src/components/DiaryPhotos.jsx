@@ -9,7 +9,7 @@ import {
   downloadAttachmentsAsZip,
 } from '../lib/attachments'
 
-export function DiaryPhotoUploader({ files, onChange, disabled, busy }) {
+export function DiaryPhotoUploader({ files, onChange, disabled, busy, compact = false }) {
   const inputRef = useRef(null)
   const [errors, setErrors] = useState([])
   const previews = useMemo(
@@ -33,7 +33,7 @@ export function DiaryPhotoUploader({ files, onChange, disabled, busy }) {
   }
 
   return (
-    <div className="wd-photo-uploader">
+    <div className={`wd-photo-uploader${compact ? ' wd-photo-uploader--compact' : ''}`}>
       <div className="wd-photo-uploader-row">
         <label className="wd-photo-add-btn">
           <span aria-hidden="true">사진</span>

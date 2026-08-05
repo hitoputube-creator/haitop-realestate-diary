@@ -57,7 +57,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(13, 27, 62, 0.92);
+  background: var(--color-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-border);
@@ -105,44 +105,111 @@
 .wd-main {
   flex: 1;
   display: grid;
-  grid-template-columns: 380px 1fr 320px;
-  grid-template-areas: "calendar diary panel";
-  gap: 24px;
-  padding: 24px 28px;
-  max-width: 1440px;
+  grid-template-columns: minmax(480px, 39fr) minmax(720px, 61fr);
+  gap: 18px;
+  padding: 20px 28px 28px;
+  max-width: 1600px;
   margin: 0 auto;
   width: 100%;
+  align-items: start;
 }
 
 /* ===== 좌측 컬럼 래퍼 (달력 + 포스트잇) ===== */
 .wd-left-col {
-  grid-area: calendar;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
   min-width: 0;
 }
 
+.wd-left-top {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(190px, 0.86fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.wd-left-top > .wd-panel {
+  min-height: 304px;
+}
+
+.wd-date-card {
+  padding: 22px 18px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-items: center;
+  text-align: center;
+  background: var(--color-surface);
+}
+
+.wd-date-weekday {
+  color: var(--color-on-surface);
+  font-size: clamp(15px, 1.35vw, 20px);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.wd-date-number {
+  place-self: center;
+  font-family: var(--font-sans);
+  color: #fff;
+  font-size: clamp(96px, 8vw, 148px);
+  font-weight: 200;
+  line-height: 0.88;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums lining-nums;
+  text-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
+}
+
+.wd-date-stats {
+  display: grid;
+  gap: 3px;
+  width: min(178px, 100%);
+  margin: 0 auto;
+}
+
+.wd-date-stat {
+  min-height: 28px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--color-on-surface-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.wd-date-stat strong {
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
 .wd-diary {
-  grid-area: diary;
+  min-width: 0;
 }
 
 @media (max-width: 1300px) {
   .wd-main {
-    grid-template-columns: 340px 1fr;
-    grid-template-areas:
-      "calendar diary"
-      "panel panel";
+    grid-template-columns: minmax(456px, 39fr) minmax(650px, 61fr);
+    gap: 16px;
+    padding-left: 20px;
+    padding-right: 20px;
   }
 }
 
 @media (max-width: 960px) {
   .wd-main {
     grid-template-columns: 1fr;
-    grid-template-areas:
-      "calendar"
-      "diary"
-      "panel";
+  }
+
+  .wd-composer-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -258,7 +325,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 20px 12px;
+  padding: 16px 18px 10px;
 }
 
 .wd-cal-month {
@@ -306,7 +373,7 @@
 }
 
 .wd-cal-grid {
-  padding: 4px 14px 18px;
+  padding: 4px 14px 14px;
 }
 
 .wd-cal-weekdays {
@@ -334,23 +401,23 @@
 .wd-cal-days {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: 3px;
 }
 
 .wd-cal-day {
-  min-height: 60px;
+  min-height: 34px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 6px 2px 4px;
+  justify-content: center;
+  padding: 4px 2px;
   font-size: 13px;
   font-weight: 500;
   color: var(--color-on-surface);
   border-radius: 8px;
   position: relative;
   transition: background 0.15s ease, color 0.15s ease;
-  gap: 2px;
+  gap: 3px;
 }
 
 .wd-cal-day:hover:not(.empty):not(.selected) {
@@ -399,51 +466,31 @@
   flex-shrink: 0;
 }
 
-/* 달력 스티커 라벨 */
-.wd-cal-day-stickers {
+.wd-cal-day-indicators {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  width: 100%;
-  margin-top: 2px;
-}
-
-.wd-cal-sticker-label {
-  display: block;
-  width: calc(100% - 6px);
-  text-align: center;
-  font-size: 9.5px;
-  font-weight: 800;
-  color: #fff;
-  border-radius: 4px;
-  padding: 1px 0 2px;
-  letter-spacing: 0;
-  line-height: 1.3;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
-}
-
-.wd-cal-sticker-more {
-  display: block;
-  width: calc(100% - 6px);
-  text-align: center;
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--color-primary);
-  border-radius: 4px;
-  background: rgba(230, 195, 100, 0.12);
-  line-height: 1.3;
+  height: 9px;
 }
 
 .wd-cal-day-dot {
-  width: 4px;
-  height: 4px;
+  width: 4.5px;
+  height: 4.5px;
   border-radius: 50%;
   background: var(--color-primary);
 }
 
-.wd-cal-day.selected .wd-cal-day-dot {
-  background: var(--color-bg);
+.wd-cal-day-count {
+  min-width: 12px;
+  height: 10px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--color-on-surface);
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 10px;
 }
 
 /* ===== 다이어리 목록 (오른쪽) ===== */
@@ -454,12 +501,16 @@
 }
 
 .wd-diary-header {
-  padding: 18px 22px 16px;
+  padding: 20px 24px 16px;
   border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .wd-diary-date {
-  font-size: 19px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--color-on-surface);
@@ -468,7 +519,8 @@
 .wd-diary-date-sub {
   font-size: 12px;
   color: var(--color-on-surface-faint);
-  margin-top: 4px;
+  margin-top: 5px;
+  font-weight: 700;
 }
 
 .wd-diary-stats {
@@ -487,22 +539,87 @@
 
 /* ===== 입력창 ===== */
 .wd-composer {
-  padding: 16px 22px;
+  padding: 18px 24px 14px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-deeper);
 }
 
+.wd-new-memo-btn {
+  min-height: 36px;
+  padding: 0 15px;
+  border-radius: 8px;
+  border: 1px solid var(--color-primary-container);
+  color: var(--color-primary);
+  background: rgba(230, 195, 100, 0.05);
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.wd-new-memo-btn:hover {
+  background: var(--color-primary-soft);
+}
+
+.wd-composer-layout {
+  display: grid;
+  grid-template-columns: minmax(270px, 35fr) minmax(0, 65fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.wd-composer-fields {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wd-field-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wd-field-row--connection-tag {
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.wd-field-row label,
+.wd-field-label-spacer,
+.wd-sticker-bar-label {
+  min-width: 0;
+  color: var(--color-on-surface-muted);
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.wd-field-control-stack {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wd-composer-note-area {
+  min-width: 0;
+  display: flex;
+}
+
 .wd-composer-input {
   width: 100%;
-  min-height: 120px;
+  min-height: clamp(360px, calc(100vh - 440px), 520px);
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 18px 20px;
   font-size: 13.5px;
   line-height: 1.6;
   resize: none;
-  overflow: hidden;
+  overflow: auto;
   outline: none;
   transition: border-color 0.15s ease;
 }
@@ -519,7 +636,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 10px;
+  margin-top: 14px;
   gap: 10px;
 }
 
@@ -862,9 +979,11 @@
 }
 
 .wd-composer-lookup-btn {
-  padding: 7px 12px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 800;
   color: var(--color-primary);
   background: var(--color-primary-soft);
   border: 1px solid var(--color-primary-soft);
@@ -911,9 +1030,10 @@
 }
 
 .wd-composer-customer-input {
-  flex: 1;
-  min-width: 120px;
-  padding: 9px 12px;
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
   font-size: 13px;
   border-radius: 8px;
   border: 1px solid var(--color-border);
@@ -1106,69 +1226,97 @@
   color: #bfdbfe;
 }
 
-/* ===== 작성자 필터 탭 바 ===== */
-.wd-filter-tabs {
+/* ===== 화면 전환 + 작성자 필터 탭 바 ===== */
+.wd-toolbar {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
   padding: 0 28px;
   margin-top: 16px;
   margin-bottom: -8px;
-  max-width: 1440px;
+  max-width: 1600px;
   width: 100%;
   margin-left: auto;
   margin-right: auto;
+  position: relative;
+  z-index: 5;
 }
 
-.wd-filter-tab {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 20px;
-  background: var(--color-surface);
-  color: var(--color-on-surface-muted);
+.wd-view-tabs,
+.wd-filter-tabs {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.wd-filter-tabs {
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.wd-view-tabs {
+  flex-shrink: 0;
+}
+
+.segmented-control {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
   border: 1px solid var(--color-border);
-  transition: all 0.15s ease;
-  cursor: pointer;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.wd-filter-tab:hover {
+.segmented-control .segment {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-on-surface-muted);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.segmented-control .segment:last-child {
+  border-right: 0;
+}
+
+.segmented-control .segment:hover:not(:disabled) {
   background: var(--color-surface-hover);
   color: var(--color-on-surface);
 }
 
-.wd-filter-tab.active {
+.segmented-control .segment.is-active {
   background: var(--color-primary);
   color: var(--color-bg);
-  border-color: var(--color-primary);
+  font-weight: 700;
 }
 
-/* ===== 필터탭 구분선 + 개인일지 버튼 ===== */
-.wd-filter-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--color-border);
-  align-self: center;
-  margin: 0 4px;
-  flex-shrink: 0;
+.wd-view-tab {
+  min-width: 62px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wd-filter-tab {
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .wd-btn-personal-diary {
-  padding: 7px 14px;
+  min-height: 36px;
+  padding: 0 14px;
   font-size: 12.5px;
   font-weight: 600;
-  border-radius: 20px;
-  background: rgba(56, 100, 200, 0.13);
-  border: 1px solid rgba(56, 100, 200, 0.35);
   color: #93b4f8;
-  cursor: pointer;
-  transition: all 0.15s ease;
   white-space: nowrap;
-  font-family: inherit;
-}
-.wd-btn-personal-diary:hover {
-  background: rgba(56, 100, 200, 0.25);
-  border-color: rgba(56, 100, 200, 0.65);
-  color: #c7d9ff;
 }
 
 /* ===== Composer 작성자 선택 드롭다운 ===== */
@@ -1288,9 +1436,155 @@
 .wd-sticker-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: 0;
+  min-width: 0;
+}
+
+.wd-sticker-segmented-control {
+  display: inline-flex;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 0;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ===== 주간 / 월간 화면 ===== */
+.wd-period-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px 28px 28px;
+}
+
+.wd-period-panel {
+  min-height: calc(100vh - 170px);
+}
+
+.wd-period-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.wd-period-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.wd-period-sub,
+.wd-period-count {
+  margin-top: 5px;
+  color: var(--color-on-surface-faint);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.wd-period-count {
+  margin-top: 0;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.wd-period-body {
+  display: grid;
+  grid-template-columns: minmax(330px, 0.38fr) minmax(0, 0.62fr);
+  gap: 18px;
+  padding: 18px 24px 24px;
+}
+
+.wd-period-main--week .wd-period-body {
+  grid-template-columns: 1fr;
+}
+
+.wd-period-calendar {
+  min-width: 0;
+}
+
+.wd-period-list {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wd-period-group {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-container);
+  overflow: hidden;
+}
+
+.wd-period-group-title {
+  min-height: 42px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-on-surface-muted);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.wd-period-group-title button {
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.wd-period-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.wd-period-item {
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.wd-period-item:last-child {
+  border-bottom: 0;
+}
+
+.wd-period-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.wd-period-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-on-surface);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.wd-period-item-meta {
+  color: var(--color-on-surface-faint);
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .wd-sticker-bar-label {
@@ -1301,15 +1595,34 @@
 }
 
 .wd-sticker-btn {
-  padding: 4px 12px;
+  min-height: 32px;
+  min-width: 58px;
+  padding: 0 12px;
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 800;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-on-surface-muted);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.wd-sticker-segmented-control .wd-sticker-btn {
+  min-height: 36px;
+  padding: 0 14px;
+  font-weight: 600;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  border-radius: 0;
+}
+
+.wd-sticker-segmented-control .wd-sticker-btn:last-child {
+  border-right: 0;
+}
+
+.wd-sticker-segmented-control .wd-sticker-btn:not(.active) {
+  color: var(--sticker-color, var(--color-on-surface-muted));
 }
 
 .wd-sticker-btn:hover:not(:disabled) {
@@ -1319,6 +1632,11 @@
 
 .wd-sticker-btn.active {
   font-weight: 700;
+}
+
+.wd-sticker-segmented-control .wd-sticker-btn.active {
+  background: var(--sticker-color, var(--color-surface-hover));
+  color: var(--sticker-active-text, #fff);
 }
 
 .wd-sticker-btn:disabled {
@@ -1348,12 +1666,14 @@
 }
 
 .wd-link-input {
+  width: 100%;
   flex: 1;
   min-width: 0;
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 5px 10px;
+  height: 38px;
+  padding: 0 10px;
   font-size: 12.5px;
   color: var(--color-on-surface);
   outline: none;
@@ -1387,6 +1707,24 @@
   margin-bottom: 6px;
 }
 
+.wd-field-row .wd-link-input-wrap {
+  width: 76%;
+  min-width: min(220px, 100%);
+  max-width: min(320px, 100%);
+}
+
+.wd-field-row .wd-link-input {
+  min-height: 36px;
+  height: 36px;
+}
+
+.wd-link-input-wrap {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ===== 메모 입력창 wrapper ===== */
 .wd-composer-input-wrap,
 .wd-card-edit-wrap {
@@ -1396,7 +1734,7 @@
 /* ===== 연결태그 검색박스 (LinkKeySearchBox) ===== */
 .lks-wrap {
   position: relative;
-  width: 210px;
+  width: 100%;
 }
 
 /* inline variant: link 에디터 바 안에서 flex 흐름을 따름 */
@@ -1413,7 +1751,8 @@
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 4px 8px;
+  min-height: 38px;
+  padding: 0 10px;
   transition: border-color 0.15s ease;
 }
 
@@ -1848,13 +2187,14 @@
 
 .wd-photo-uploader {
   margin-top: 12px;
+  min-width: 0;
 }
 
 .wd-photo-uploader-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .wd-photo-add-btn {
@@ -1862,7 +2202,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
+  width: 112px;
+  height: 38px;
+  justify-content: center;
+  padding: 0 12px;
   border: 1px solid rgba(201, 168, 76, 0.45);
   border-radius: 8px;
   color: #e7cf82;
@@ -1888,6 +2231,7 @@
 .wd-photo-help {
   font-size: 11px;
   color: var(--color-on-surface-faint);
+  line-height: 1.35;
 }
 
 .wd-photo-error {
@@ -2339,29 +2683,100 @@
 /* ===== 파일 첨부 (사진과 분리된 일반 파일 업로더) ===== */
 
 .wd-attach-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: flex-start;
-  gap: 20px;
-  flex-wrap: wrap;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 0;
+  min-width: 0;
+}
+
+.wd-attach-row.attachment-button-group {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  max-width: 320px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .wd-attach-row .wd-photo-uploader,
 .wd-attach-row .wd-file-uploader {
   margin-top: 0;
-  flex: 1 1 220px;
-  min-width: 220px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.attachment-button-group .wd-photo-uploader,
+.attachment-button-group .wd-file-uploader {
+  width: 50%;
+}
+
+.wd-attach-row .wd-photo-uploader-row,
+.wd-attach-row .wd-file-uploader-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.attachment-button-group .wd-photo-uploader-row,
+.attachment-button-group .wd-file-uploader-row {
+  height: 100%;
+  display: block;
+}
+
+.wd-attach-row .wd-photo-add-btn,
+.wd-attach-row .wd-file-add-btn {
+  width: 100%;
+}
+
+.attachment-button-group .wd-photo-add-btn,
+.attachment-button-group .wd-file-add-btn {
+  height: 36px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-on-surface-muted);
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.attachment-button-group .wd-photo-add-btn {
+  border-right: 1px solid var(--color-border);
+}
+
+.attachment-button-group .wd-photo-add-btn:hover,
+.attachment-button-group .wd-file-add-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-on-surface);
+}
+
+.attachment-button-group .wd-photo-add-btn:active,
+.attachment-button-group .wd-file-add-btn:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.attachment-button-group .wd-photo-help,
+.attachment-button-group .wd-file-help {
+  display: none;
 }
 
 .wd-file-uploader {
   margin-top: 12px;
+  min-width: 0;
 }
 
 .wd-file-uploader-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .wd-file-add-btn {
@@ -2369,7 +2784,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
+  width: 112px;
+  height: 38px;
+  justify-content: center;
+  padding: 0 12px;
   border: 1px solid rgba(96, 165, 250, 0.45);
   border-radius: 8px;
   color: #93c5fd;
@@ -2395,6 +2813,7 @@
 .wd-file-help {
   font-size: 11px;
   color: var(--color-on-surface-faint);
+  line-height: 1.35;
 }
 
 .wd-file-preview-list {
@@ -2529,7 +2948,7 @@
 
 @media (max-width: 600px) {
   .wd-attach-row {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     gap: 12px;
   }
 
@@ -2560,13 +2979,21 @@
     flex: 1 1 auto;
   }
 
-  .wd-filter-tabs {
-    flex-wrap: wrap;
-    gap: 6px;
+  .wd-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
     padding: 0 16px;
     margin-top: 12px;
   }
 
+  .wd-view-tabs,
+  .wd-filter-tabs {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .wd-view-tab,
   .wd-filter-tab,
   .wd-btn-personal-diary {
     flex: 1 1 auto;
@@ -2581,6 +3008,15 @@
   .wd-main {
     gap: 16px;
     padding: 16px;
+  }
+
+  .wd-period-main {
+    padding: 16px;
+  }
+
+  .wd-period-body {
+    grid-template-columns: 1fr;
+    padding: 14px;
   }
 
   .wd-photo-preview-list {

@@ -3,7 +3,7 @@ import DetailModal from './DetailModal'
 import './SelectedScheduleMemos.css'
 
 function formatTitleDate(date) {
-  return `${date.getMonth() + 1}월 ${date.getDate()}일 일정`
+  return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
 function formatSavedTime(iso) {
@@ -39,7 +39,7 @@ export default function SelectedScheduleMemos({
     if (!text || saving) return
     await onCreate?.({ writer, content: text })
     setContent('')
-    if (variant === 'compact') setComposerOpen(false)
+    setComposerOpen(false)
   }
 
   function startEdit(note) {
@@ -164,40 +164,54 @@ export default function SelectedScheduleMemos({
     <section className="wd-panel ssm-panel" aria-label="선택 날짜 일정 메모">
       <div className="wd-panel-header">
         <div>
-          <div className="wd-panel-title">{formatTitleDate(selectedDate)}</div>
-          <div className="ssm-sub">작성자별 그날 스케줄 공유</div>
+          <div className="wd-panel-title">오늘 일정</div>
+          <div className="ssm-sub">{formatTitleDate(selectedDate)} · {notes.length}건</div>
         </div>
-        <div className="wd-panel-sub">{notes.length}건</div>
-      </div>
-
-      <div className="ssm-composer">
-        <select
-          className="ssm-writer-select"
-          value={writer}
-          onChange={(event) => setWriter(event.target.value)}
-          disabled={saving}
-          aria-label="일정 작성자"
-        >
-          <option value="주현희">주현희</option>
-          <option value="김정현">김정현</option>
-        </select>
-        <textarea
-          className="ssm-input"
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          placeholder="그날 스케줄을 적어주세요."
-          rows={4}
-          disabled={saving}
-        />
         <button
           type="button"
-          className="ssm-save-btn"
-          onClick={handleSubmit}
-          disabled={saving || !content.trim()}
+          className="ssm-add-btn"
+          onClick={() => setComposerOpen((value) => !value)}
+          disabled={saving}
         >
-          일정 메모 저장
+          일정 추가
         </button>
       </div>
+
+      {composerOpen && (
+        <div className="ssm-composer">
+          <select
+            className="ssm-writer-select"
+            value={writer}
+            onChange={(event) => setWriter(event.target.value)}
+            disabled={saving}
+            aria-label="일정 작성자"
+          >
+            <option value="주현희">주현희</option>
+            <option value="김정현">김정현</option>
+          </select>
+          <textarea
+            className="ssm-input"
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            placeholder="그날 스케줄을 적어주세요."
+            rows={3}
+            disabled={saving}
+          />
+          <div className="ssm-composer-actions">
+            <button type="button" onClick={() => setComposerOpen(false)} disabled={saving}>
+              취소
+            </button>
+            <button
+              type="button"
+              className="ssm-save-btn"
+              onClick={handleSubmit}
+              disabled={saving || !content.trim()}
+            >
+              저장
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <div className="ssm-error">{error}</div>}
 
@@ -259,6 +273,9 @@ export default function SelectedScheduleMemos({
             </article>
           ))
         )}
+      </div>
+      <div className="ssm-footer">
+        <span>전체 일정 보기</span>
       </div>
     </section>
   )

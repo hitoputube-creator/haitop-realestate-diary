@@ -82,13 +82,15 @@ export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0
     <section className="usw-section" aria-label="다가오는 일정">
       <div className="usw-header">
         <div className="usw-title">다가오는 일정</div>
-        <div className="usw-sub">오늘부터 7일 이내 계약·잔금·약속 메모</div>
       </div>
 
       {loading ? (
         <div className="usw-loading">불러오는 중...</div>
       ) : items.length === 0 ? (
-        <div className="usw-empty">예정된 일정이 없습니다.</div>
+        <div className="usw-empty">
+          <span className="usw-empty-icon" aria-hidden="true">▣</span>
+          <span>등록된 다가오는 일정이 없습니다.</span>
+        </div>
       ) : (
         <div className="usw-list">
           {(variant === 'compact' ? items.slice(0, 5) : items).map((item) => {

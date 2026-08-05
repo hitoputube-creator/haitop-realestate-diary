@@ -10,10 +10,14 @@ const STICKER_COLORS = {
   '기타': '#95A5A6',
 }
 
-const SCHEDULE_STICKERS = ['계약', '잔금', '약속']
-
 function pad(n) {
   return String(n).padStart(2, '0')
+}
+
+function indicatorColor(entry) {
+  if (entry.sticker && STICKER_COLORS[entry.sticker]) return STICKER_COLORS[entry.sticker]
+  if (entry.writer === '김정현') return '#4ADE80'
+  return '#F2C94C'
 }
 
 export function toDateKey(date) {
@@ -149,28 +153,9 @@ export default function Calendar({
             const memoCount = filtered.length
 
 
-            // 일정 스티커는 날짜칸 안에 라벨로 표시한다.
-            const scheduleLabels = [...new Set(
-              filtered
-                .filter((e) => SCHEDULE_STICKERS.includes(e.sticker))
-                .map((e) => e.sticker)
-            )]
-            const compactScheduleLabels = SCHEDULE_STICKERS
-              .filter((sticker) => scheduleLabels.includes(sticker))
-              .sort((a, b) => ['\uC794\uAE08', '\uACC4\uC57D', '\uC57D\uC18D'].indexOf(a) - ['\uC794\uAE08', '\uACC4\uC57D', '\uC57D\uC18D'].indexOf(b))
-            const visibleScheduleLabels = variant === 'compact'
-              ? compactScheduleLabels.slice(0, 1)
-              : scheduleLabels.slice(0, 2)
-            const extraScheduleCount = variant === 'compact'
-              ? 0
-              : Math.max(0, scheduleLabels.length - visibleScheduleLabels.length)
-
-            // 일정 스티커가 아닌 메모는 기존처럼 작성자별 도트로 표시한다.
-            const hasJooDot = filtered.some((e) => (!e.sticker || !SCHEDULE_STICKERS.includes(e.sticker)) && e.writer === '주현희') &&
-              (filterWriter === 'all' || filterWriter === '주현희')
-            const hasKimDot = filtered.some((e) => (!e.sticker || !SCHEDULE_STICKERS.includes(e.sticker)) && e.writer === '김정현') &&
-              (filterWriter === 'all' || filterWriter === '김정현')
-
+            const visibleIndicators = filtered.slice(0, 3)
+            const extraIndicatorCount = Math.max(0, filtered.length - visibleIndicators.length)
+            const hasNote = filtered.length > 0
             const weekday = date.getDay()
 
             const cls = [
@@ -200,27 +185,18 @@ export default function Calendar({
                   </span>
                 )}
 
-                {scheduleLabels.length > 0 && (
-                  <div className="wd-cal-day-stickers" aria-hidden="true">
-                    {visibleScheduleLabels.map((s) => (
+                {hasNote && (
+                  <div className="wd-cal-day-indicators" aria-hidden="true">
+                    {visibleIndicators.map((entry, entryIdx) => (
                       <span
-                        key={s}
-                        className="wd-cal-sticker-label"
-                        style={{ background: STICKER_COLORS[s] }}
-                      >
-                        {s}
-                      </span>
+                        key={`${key}-${entryIdx}`}
+                        className="wd-cal-day-dot"
+                        style={{ background: indicatorColor(entry) }}
+                      />
                     ))}
-                    {extraScheduleCount > 0 && (
-                      <span className="wd-cal-sticker-more">+{extraScheduleCount}</span>
+                    {extraIndicatorCount > 0 && (
+                      <span className="wd-cal-day-count">+{extraIndicatorCount}</span>
                     )}
-                  </div>
-                )}
-
-                {(variant !== 'compact' || memoCount === 0) && (hasJooDot || hasKimDot) && (
-                  <div className="wd-cal-day-dots" aria-hidden="true">
-                    {hasJooDot && <span className="wd-cal-day-dot dot-joo" />}
-                    {hasKimDot && <span className="wd-cal-day-dot dot-kim" />}
                   </div>
                 )}
               </button>

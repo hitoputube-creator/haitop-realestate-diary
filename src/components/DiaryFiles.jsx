@@ -13,7 +13,7 @@ function getExtension(name = '') {
   return parts.pop().toUpperCase().slice(0, 5)
 }
 
-export function DiaryFileUploader({ files, onChange, disabled, busy }) {
+export function DiaryFileUploader({ files, onChange, disabled, busy, compact = false }) {
   const inputRef = useRef(null)
   const [errors, setErrors] = useState([])
 
@@ -31,7 +31,7 @@ export function DiaryFileUploader({ files, onChange, disabled, busy }) {
   }
 
   return (
-    <div className="wd-file-uploader">
+    <div className={`wd-file-uploader${compact ? ' wd-file-uploader--compact' : ''}`}>
       <div className="wd-file-uploader-row">
         <label className="wd-file-add-btn">
           <span aria-hidden="true">파일</span>
