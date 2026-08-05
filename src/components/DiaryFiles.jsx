@@ -5,6 +5,7 @@ import {
   formatPhotoSize,
   validateDiaryFiles,
   downloadAttachment,
+  getAttachmentSignedUrl,
 } from '../lib/attachments'
 
 function getExtension(name = '') {
@@ -79,10 +80,32 @@ export function DiaryFileUploader({ files, onChange, disabled, busy, compact = f
 // 첨부파일 1개 — 비공개 버킷이므로 클릭할 때마다 새 signed URL을 받아 fetch+blob으로 저장한다.
 // cross-origin <a download>는 브라우저가 무시할 수 있어 쓰지 않는다.
 function FileDownloadItem({ file }) {
+  const [viewing, setViewing] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleClick() {
+  async function handleView() {
+    if (viewing) return
+    const newTab = window.open('about:blank', '_blank')
+    if (newTab) newTab.opener = null
+    setViewing(true)
+    setError('')
+    try {
+      const url = await getAttachmentSignedUrl(file, { expiresIn: 300, forceRefresh: true })
+      if (newTab) {
+        newTab.location.href = url
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      }
+    } catch (err) {
+      if (newTab) newTab.close()
+      setError(err.message || String(err))
+    } finally {
+      setViewing(false)
+    }
+  }
+
+  async function handleDownload() {
     if (downloading) return
     setDownloading(true)
     setError('')
@@ -97,19 +120,31 @@ function FileDownloadItem({ file }) {
 
   return (
     <div className="wd-file-item-wrap">
-      <button
-        type="button"
-        className="wd-file-item"
-        onClick={handleClick}
-        disabled={downloading}
-        title={`${file.original_name || '첨부 파일'} 다운로드`}
-      >
+      <div className="wd-file-item" title={file.original_name || '첨부 파일'}>
         <span className="wd-file-icon" aria-hidden="true">{getExtension(file.original_name)}</span>
         <span className="wd-file-meta">
           <strong>{file.original_name || '첨부 파일'}</strong>
-          <span>{formatPhotoSize(file.file_size)} · {downloading ? '다운로드 중...' : '다운로드'}</span>
+          <span>{formatPhotoSize(file.file_size)}</span>
         </span>
-      </button>
+        <span className="wd-file-actions">
+          <button
+            type="button"
+            className="wd-file-action-btn"
+            onClick={handleView}
+            disabled={viewing}
+          >
+            {viewing ? '여는 중...' : '보기'}
+          </button>
+          <button
+            type="button"
+            className="wd-file-action-btn"
+            onClick={handleDownload}
+            disabled={downloading}
+          >
+            {downloading ? '다운로드 중...' : '다운로드'}
+          </button>
+        </span>
+      </div>
       {error && <div className="wd-file-item-error" role="alert">{error}</div>}
     </div>
   )

@@ -2889,7 +2889,7 @@
 
 .wd-file-item {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 7px 9px;
@@ -2902,13 +2902,8 @@
   font-family: inherit;
 }
 
-.wd-file-item:hover:not(:disabled) {
+.wd-file-item:hover {
   background: rgba(96, 165, 250, 0.12);
-}
-
-.wd-file-item:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
 }
 
 .wd-file-item .wd-file-icon {
@@ -2919,6 +2914,35 @@
 
 .wd-file-item .wd-file-meta strong {
   color: #cfe2ff;
+}
+
+.wd-file-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wd-file-action-btn {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 7px;
+  background: rgba(96, 165, 250, 0.08);
+  color: #cfe2ff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.wd-file-action-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: rgba(96, 165, 250, 0.16);
+  color: var(--color-on-surface);
+}
+
+.wd-file-action-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .wd-file-item-error {
@@ -3179,12 +3203,13 @@
 }
 
 .wd-week-memos {
+  --wd-week-memo-height: 148px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 10px;
   min-height: 150px;
-  max-height: calc((108px * 4) + (8px * 3) + 20px);
+  max-height: calc((var(--wd-week-memo-height) * 4) + (8px * 3) + 20px);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -3196,7 +3221,7 @@
   align-items: stretch;
   gap: 6px;
   min-width: 0;
-  min-height: 108px;
+  height: var(--wd-week-memo-height);
   padding: 10px;
   border: 1px solid var(--color-border);
   border-radius: 9px;
@@ -3220,13 +3245,6 @@
 .wd-week-content,
 .wd-week-meta {
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.wd-week-memo strong,
-.wd-week-customer,
-.wd-week-meta {
-  white-space: nowrap;
 }
 
 .wd-week-memo strong {
@@ -3234,12 +3252,17 @@
   font-size: 13.5px;
   font-weight: 800;
   line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .wd-week-customer {
   color: var(--color-primary);
   font-size: 11.5px;
   font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .wd-week-content {
@@ -3255,6 +3278,9 @@
 .wd-week-meta {
   color: var(--color-on-surface-faint);
   font-size: 10.5px;
+  margin-top: auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wd-week-empty {
@@ -4377,6 +4403,15 @@
 }
 
 @media (max-width: 600px) {
+  .wd-file-item {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .wd-file-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
   .wd-card--compact {
     padding: 12px;
   }
