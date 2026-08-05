@@ -304,7 +304,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             onClick={() => setExpanded((value) => !value)}
             aria-expanded={expanded}
           >
-            {expanded ? '접기' : '전체보기'}
+            {expanded ? '간략보기' : '펼쳐보기'}
           </button>
           <button type="button" className="wd-action-btn" onClick={() => onOpenAddMemoForMemo?.(memo)}>메모 추가</button>
           <button
@@ -326,17 +326,162 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
         </div>
         {expanded && (
           <div className="wd-compact-expanded">
-            {tags.length > 0 && (
-              <div className="wd-card-tags">
-                {tags.map((t) => (
-                  <span key={t} className="wd-tag">
-                    #{t}
-                  </span>
-                ))}
-              </div>
+            {editing ? (
+              <>
+                <div className="wd-card-customer-edit">
+                  <input
+                    className="wd-card-customer-input"
+                    placeholder="제목"
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                  />
+                  <input
+                    className="wd-card-customer-input"
+                    placeholder="이름"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                  />
+                  <input
+                    className="wd-card-customer-input"
+                    placeholder="연락처"
+                    value={draftPhone}
+                    onChange={(e) => setDraftPhone(e.target.value)}
+                  />
+                </div>
+                <div className="wd-sticker-bar wd-card-sticker-edit">
+                  <span className="wd-sticker-bar-label">스티커</span>
+                  {STICKER_OPTIONS.map((opt) => {
+                    const isActive = draftSticker === opt.value
+                    const meta = opt.value ? STICKER_META[opt.value] : null
+                    return (
+                      <button
+                        key={opt.value ?? 'none'}
+                        type="button"
+                        className={`wd-sticker-btn ${isActive ? 'active' : ''}`}
+                        style={
+                          meta
+                            ? isActive
+                              ? { background: meta.color, borderColor: meta.color, color: '#fff' }
+                              : { borderColor: `${meta.color}88`, color: meta.color }
+                            : {}
+                        }
+                        onClick={() => setDraftSticker(isActive && opt.value !== null ? null : opt.value)}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="wd-link-bar wd-compact-link-edit">
+                  <span className="wd-link-bar-label">연결태그</span>
+                  <input
+                    list={`wd-compact-link-key-datalist-${memo.id}`}
+                    className="wd-link-input"
+                    placeholder="예: 금릉167-6, 공장손님-김OO"
+                    value={linkDraft}
+                    onChange={(e) => setLinkDraft(e.target.value)}
+                  />
+                  <datalist id={`wd-compact-link-key-datalist-${memo.id}`}>
+                    {(allLinkKeys || []).map((k) => <option key={k} value={k} />)}
+                  </datalist>
+                  {linkDraft && (
+                    <button
+                      type="button"
+                      className="wd-link-clear-btn"
+                      onClick={() => setLinkDraft('')}
+                      aria-label="연결태그 초기화"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                <div className="wd-card-edit-wrap">
+                  <textarea
+                    ref={taRef}
+                    className="wd-card-edit"
+                    value={draft}
+                    onChange={(e) => {
+                      setDraft(e.target.value)
+                      autoResize(e.target)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        resetEditDraft()
+                        setEditing(false)
+                      }
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        saveEdit()
+                      }
+                    }}
+                  />
+                </div>
+                <div className="wd-compact-edit-actions">
+                  <button
+                    type="button"
+                    className="wd-action-btn"
+                    onClick={() => {
+                      resetEditDraft()
+                      setEditing(false)
+                    }}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className="wd-action-btn active"
+                    onClick={saveEdit}
+                  >
+                    저장
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="wd-compact-detail-grid">
+                  <div>
+                    <span>제목</span>
+                    <strong>{memo.title || '(제목 미입력)'}</strong>
+                  </div>
+                  <div>
+                    <span>이름</span>
+                    <strong>{memo.customer_name || '미입력'}</strong>
+                  </div>
+                  <div>
+                    <span>연락처</span>
+                    <strong>{memo.customer_phone || '미입력'}</strong>
+                  </div>
+                  <div>
+                    <span>스티커</span>
+                    <strong>{memo.sticker || '없음'}</strong>
+                  </div>
+                  <div className="wd-compact-detail-wide">
+                    <span>연결태그</span>
+                    <strong>{memo.link_key || '미입력'}</strong>
+                  </div>
+                </div>
+                <div className="wd-compact-full-content">{memo.content}</div>
+                {tags.length > 0 && (
+                  <div className="wd-card-tags">
+                    {tags.map((t) => (
+                      <span key={t} className="wd-tag">
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {photos?.length > 0 && <DiaryPhotoStrip photos={photos} onOpen={onOpenPhotos} />}
+                {files?.length > 0 && <DiaryFileList files={files} />}
+                <div className="wd-compact-edit-actions">
+                  <button
+                    type="button"
+                    className="wd-action-btn active"
+                    onClick={() => setEditing(true)}
+                  >
+                    수정
+                  </button>
+                </div>
+              </>
             )}
-            {photos?.length > 0 && <DiaryPhotoStrip photos={photos} onOpen={onOpenPhotos} />}
-            {files?.length > 0 && <DiaryFileList files={files} />}
           </div>
         )}
       </article>

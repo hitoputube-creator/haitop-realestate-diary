@@ -4123,6 +4123,66 @@
   border-top: 1px solid var(--color-border);
 }
 
+.wd-compact-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.wd-compact-detail-grid > div {
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.wd-compact-detail-grid span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--color-on-surface-faint);
+  font-size: 11px;
+}
+
+.wd-compact-detail-grid strong {
+  display: block;
+  overflow: hidden;
+  color: var(--color-on-surface);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wd-compact-detail-wide {
+  grid-column: 1 / -1;
+}
+
+.wd-compact-full-content {
+  margin-top: 10px;
+  padding: 10px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--color-on-surface);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wd-compact-link-edit,
+.wd-compact-expanded .wd-card-edit-wrap,
+.wd-compact-edit-actions {
+  margin-top: 10px;
+}
+
+.wd-compact-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .wd-compact-expanded .wd-card-tags,
 .wd-compact-expanded .wd-photo-strip,
 .wd-compact-expanded .wd-file-list {
@@ -4141,5 +4201,9 @@
   .wd-compact-actions .wd-action-btn {
     flex: 1 1 auto;
     justify-content: center;
+  }
+
+  .wd-compact-detail-grid {
+    grid-template-columns: 1fr;
   }
 }
