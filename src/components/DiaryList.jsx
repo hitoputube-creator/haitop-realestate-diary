@@ -1474,6 +1474,7 @@ export default function DiaryList({
 }) {
   const [gallery, setGallery] = useState(null)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [composerKey, setComposerKey] = useState(0)
   const dateLabel = selectedDate
     ? `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`
     : ''
@@ -1489,6 +1490,8 @@ export default function DiaryList({
 
   function openComposer() {
     onNewMemo?.()
+    clearComposerDraft()
+    setComposerKey((key) => key + 1)
     setComposerOpen(true)
     requestAnimationFrame(() => {
       document.querySelector('.wd-composer-input')?.focus()
@@ -1537,6 +1540,7 @@ export default function DiaryList({
 
       {!searchMode && composerOpen && (
         <Composer
+          key={composerKey}
           onSubmit={async (content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId) => {
             await onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId)
             setComposerOpen(false)
