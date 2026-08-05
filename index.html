@@ -1,13 +1,99 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>하이탑 업무일지</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+:root {
+  /* 배경 — 하이탑 공식 토큰(업무센터 기준) */
+  --color-bg: #071625;
+  --color-bg-deeper: #04101c;
+  --color-surface: #101f32;
+  --color-surface-container: #172b42;
+  --color-surface-hover: #1b324c;
+
+  /* 포인트 (골드) — 하이탑 공식 토큰 */
+  --color-primary: #d8b84a;
+  --color-primary-container: #c9a84c;
+  --color-primary-soft: rgba(216, 184, 74, 0.13);
+
+  /* 텍스트 — 하이탑 공식 토큰 */
+  --color-on-surface: #f5f8fb;
+  --color-on-surface-muted: #b4c2d2;
+  --color-on-surface-faint: #8193a8;
+
+  /* 상태 — 하이탑 공식 토큰 */
+  --color-important: #d8b84a;
+  --color-later: #5f9fd8;
+  --color-done: #4ade80;
+  --color-danger: #ff8585;
+
+  /* 보더 — 하이탑 공식 토큰 */
+  --color-border: #294057;
+  --color-border-strong: #35516c;
+
+  /* 폰트 */
+  --font-sans: Pretendard, 'Noto Sans KR', 'Apple SD Gothic Neo', Arial, sans-serif;
+
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-on-surface);
+  background-color: var(--color-bg);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* 스크롤바 (다크 모드) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-deeper);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-container);
+  border-radius: 6px;
+  border: 2px solid var(--color-bg-deeper);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-hover);
+}
+
+/* 선택 색상 */
+::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
