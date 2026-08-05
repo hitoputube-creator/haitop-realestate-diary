@@ -812,6 +812,9 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     setMemos((prev) =>
       prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
     )
+    setWeekMemos((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
+    )
     setSearchResults((prev) =>
       prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
     )
@@ -1182,7 +1185,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             onPrevWeek={() => moveWeek(-1)}
             onThisWeek={() => moveWeek(0)}
             onNextWeek={() => moveWeek(1)}
-            onOpenMemo={openDateInToday}
+            onUpdateMemo={handleUpdateContent}
             onAddMemo={(day) => openDateInToday(day)}
           />
         </main>
