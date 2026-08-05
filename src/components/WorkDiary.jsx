@@ -47,6 +47,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const [mainView, setMainView] = useState(() => normalizeViewMode(initialUi.viewMode))
 
   const [memos, setMemos] = useState([])
+  const [allMemos, setAllMemos] = useState([])
   const [dailyScheduleNotes, setDailyScheduleNotes] = useState([])
   const [loading, setLoading] = useState(false)
   const [scheduleLoading, setScheduleLoading] = useState(false)
@@ -267,6 +268,33 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   useEffect(() => {
     loadMemosForSelected()
   }, [loadMemosForSelected])
+
+  const loadAllDiaryMemos = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setAllMemos([])
+      return
+    }
+    try {
+      const { data, error: e } = await supabase
+        .from(TABLE)
+        .select('*')
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(500)
+      if (e) throw e
+      const rows = (data || []).filter((row) => row.link_key !== DAILY_SCHEDULE_KEY)
+      setAllMemos(rows)
+      loadPhotosForRows(rows)
+      loadFilesForRows(rows)
+    } catch (err) {
+      setError(`전체 메모 조회 실패: ${err.message || err}`)
+      setAllMemos([])
+    }
+  }, [loadPhotosForRows, loadFilesForRows])
+
+  useEffect(() => {
+    loadAllDiaryMemos()
+  }, [loadAllDiaryMemos])
 
   /* ===== 표시 중인 달의 메모 있는 날짜 마킹 ===== */
   const loadMonthDots = useCallback(async () => {
@@ -597,6 +625,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           .select()
           .single()
         if (e) throw e
+        setAllMemos((prev) => [data, ...prev.filter((m) => m.id !== data.id)])
         setMemos((prev) => [...prev, data])
         setNotedDateKeys((prev) => {
           const next = { ...prev }
@@ -701,21 +730,27 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     }
   }, [dailyScheduleNotes])
 
+  const selectedDateFilteredMemos = useMemo(() => {
+    if (filterWriter === 'all') return memos
+    return memos.filter((m) => m.writer === filterWriter)
+  }, [memos, filterWriter])
+
   const filteredMemos = useMemo(() => {
-    const raw = searchMode ? searchResults : memos
+    const raw = searchMode ? searchResults : allMemos
     if (filterWriter === 'all') return raw
-    return raw.filter((m) => (m.writer || '주현희') === filterWriter)
-  }, [searchMode, searchResults, memos, filterWriter])
+    return raw.filter((m) => m.writer === filterWriter)
+  }, [searchMode, searchResults, allMemos, filterWriter])
 
   const selectedWeekdayLabel = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'][selectedDate.getDay()]
   const selectedMonthLabel = `${selectedDate.getMonth() + 1}월`
   const selectedDayLabel = formatTwoDigitDay(selectedDate.getDate())
-  const selectedImportantCount = filteredMemos.filter((m) => m.status === 'important').length
-  const selectedDoneCount = filteredMemos.filter((m) => m.status === 'done').length
+  const selectedImportantCount = selectedDateFilteredMemos.filter((m) => m.status === 'important').length
+  const selectedDoneCount = selectedDateFilteredMemos.filter((m) => m.status === 'done').length
   const handleChangeStatus = useCallback(async (id, nextStatus) => {
     if (!isSupabaseConfigured) return
     // 낙관적 업데이트
     setMemos((prev) => prev.map((m) => (m.id === id ? { ...m, status: nextStatus } : m)))
+    setAllMemos((prev) => prev.map((m) => (m.id === id ? { ...m, status: nextStatus } : m)))
     setSearchResults((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: nextStatus } : m))
     )
@@ -729,8 +764,9 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       setError(`상태 변경 실패: ${err.message || err}`)
       // 실패 시 원본 다시 로드
       loadMemosForSelected()
+      loadAllDiaryMemos()
     }
-  }, [loadMemosForSelected])
+  }, [loadMemosForSelected, loadAllDiaryMemos])
 
   const handleDelete = useCallback(
     async (id) => {
@@ -738,6 +774,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       const prevList = memos
       const prevSearch = searchResults
       setMemos((prev) => prev.filter((m) => m.id !== id))
+      setAllMemos((prev) => prev.filter((m) => m.id !== id))
       setSearchResults((prev) => prev.filter((m) => m.id !== id))
       setPhotoMap((prev) => {
         const next = { ...prev }
@@ -758,10 +795,11 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       } catch (err) {
         setError(`삭제 실패: ${err.message || err}`)
         setMemos(prevList)
+        loadAllDiaryMemos()
         setSearchResults(prevSearch)
       }
     },
-    [memos, searchResults, loadMonthDots]
+    [memos, searchResults, loadMonthDots, loadAllDiaryMemos]
   )
 
   const handleUpdateLinkKey = useCallback(async (id, linkKey) => {
@@ -769,6 +807,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     const normalized = (linkKey || '').trim()
     // 낙관적 업데이트
     setMemos((prev) => prev.map((m) => (m.id === id ? { ...m, link_key: normalized } : m)))
+    setAllMemos((prev) => prev.map((m) => (m.id === id ? { ...m, link_key: normalized } : m)))
     setSearchResults((prev) => prev.map((m) => (m.id === id ? { ...m, link_key: normalized } : m)))
     try {
       const { error: e } = await supabase
@@ -795,7 +834,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
     // 아직 customer_id가 없는데 이름/연락처가 입력되면 고객을 찾거나 새로 만들어 연결
     if (!('customer_id' in meta)) {
-      const existing = memos.find((m) => m.id === id) || searchResults.find((m) => m.id === id)
+      const existing = memos.find((m) => m.id === id) || allMemos.find((m) => m.id === id) || searchResults.find((m) => m.id === id)
       const alreadyLinked = existing?.customer_id
       const nextName = 'customer_name' in meta ? meta.customer_name : existing?.customer_name
       const nextPhone = 'customer_phone' in meta ? meta.customer_phone : existing?.customer_phone
@@ -810,6 +849,9 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     }
 
     setMemos((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
+    )
+    setAllMemos((prev) =>
       prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
     )
     setSearchResults((prev) =>
@@ -833,7 +875,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       setError(`수정 실패: ${err.message || err}`)
       loadMemosForSelected()
     }
-  }, [loadMemosForSelected, loadMonthDots, memos, searchResults])
+  }, [loadMemosForSelected, loadMonthDots, memos, allMemos, searchResults])
 
   /* ===== 고객별 메모 타임라인 ===== */
 
@@ -856,6 +898,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     if (!customer?.id) return null
 
     setMemos((prev) => prev.map((m) => (m.id === memo.id ? { ...m, customer_id: customer.id } : m)))
+    setAllMemos((prev) => prev.map((m) => (m.id === memo.id ? { ...m, customer_id: customer.id } : m)))
     setSearchResults((prev) => prev.map((m) => (m.id === memo.id ? { ...m, customer_id: customer.id } : m)))
     try {
       const { error: e } = await supabase.from(TABLE).update({ customer_id: customer.id }).eq('id', memo.id)
@@ -930,6 +973,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       loadPhotosForRows([data])
       loadFilesForRows([data])
     }
+    setAllMemos((prev) => [data, ...prev.filter((m) => m.id !== data.id)])
     setNotedDateKeys((prev) => {
       const next = { ...prev }
       if (!next[date]) next[date] = []
@@ -1212,7 +1256,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
               <div className="wd-date-stats" aria-label={`${selectedMonthLabel} ${selectedDayLabel}일 메모 통계`}>
                 <div className="wd-date-stat">
                   <span>메모</span>
-                  <strong>{filteredMemos.length}</strong>
+                  <strong>{selectedDateFilteredMemos.length}</strong>
                 </div>
                 <div className="wd-date-stat">
                   <span>중요</span>
@@ -1287,6 +1331,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           searchQuery={searchQuery}
           photoMap={photoMap}
           fileMap={fileMap}
+          listScope={searchMode ? 'search' : 'all'}
         />
       </main>
       )}
