@@ -3624,6 +3624,7 @@
   min-height: 68px;
   padding: 9px 5px 7px;
   gap: 6px;
+  box-shadow: inset 0 0 0 1px transparent;
 }
 
 .wd-calendar--month .wd-cal-day-num {
@@ -3631,12 +3632,36 @@
   font-weight: 800;
 }
 
+.wd-calendar--month .wd-cal-day.has-month-sticker:not(.selected) {
+  border-radius: 10px;
+}
+
+.wd-calendar--month .wd-cal-day.month-sticker-balance:not(.selected) {
+  background: rgba(231, 76, 60, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(231, 76, 60, 0.34);
+}
+
+.wd-calendar--month .wd-cal-day.month-sticker-contract:not(.selected) {
+  background: rgba(216, 184, 74, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(216, 184, 74, 0.34);
+}
+
+.wd-calendar--month .wd-cal-day.month-sticker-appointment:not(.selected) {
+  background: rgba(52, 152, 219, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(52, 152, 219, 0.34);
+}
+
+.wd-calendar--month .wd-cal-day.month-sticker-neutral:not(.selected) {
+  background: rgba(149, 165, 166, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(149, 165, 166, 0.28);
+}
+
 .wd-cal-month-info {
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -3649,14 +3674,15 @@
 }
 
 .wd-cal-month-sticker {
-  max-width: 44px;
-  padding: 1px 5px 2px;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--sticker-color) 22%, transparent);
-  color: var(--sticker-color);
-  font-size: 9px;
+  min-width: 34px;
+  max-width: 56px;
+  padding: 2px 7px 3px;
+  border-radius: 6px;
+  background: var(--sticker-color);
+  color: var(--sticker-text-color, #fff);
+  font-size: 11.5px;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.05;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3664,7 +3690,7 @@
 
 .wd-cal-month-count {
   color: var(--color-on-surface-faint);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
   line-height: 1;
 }

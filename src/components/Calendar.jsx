@@ -41,6 +41,17 @@ function monthlyStickerLabels(entries) {
   return labels.slice(0, 2)
 }
 
+function monthlyStickerTone(labels) {
+  if (labels.includes('잔금')) return 'balance'
+  if (labels.includes('계약')) return 'contract'
+  if (labels.includes('약속')) return 'appointment'
+  return labels.length > 0 ? 'neutral' : ''
+}
+
+function monthlyStickerTextColor(sticker) {
+  return sticker === '계약' ? '#04101c' : '#ffffff'
+}
+
 export function toDateKey(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
@@ -174,10 +185,13 @@ export default function Calendar({
             const visibleIndicators = filtered.slice(0, 3)
             const hasNote = filtered.length > 0
             const monthlyLabels = variant === 'month' ? monthlyStickerLabels(filtered) : []
+            const monthlyTone = variant === 'month' ? monthlyStickerTone(monthlyLabels) : ''
             const weekday = date.getDay()
 
             const cls = [
               'wd-cal-day',
+              monthlyTone && 'has-month-sticker',
+              monthlyTone && `month-sticker-${monthlyTone}`,
               otherMonth && 'other-month',
               isToday && 'today',
               isSelected && 'selected',
@@ -206,7 +220,10 @@ export default function Calendar({
                           <span
                             key={label}
                             className="wd-cal-month-sticker"
-                            style={{ '--sticker-color': monthlyStickerColor(label) }}
+                            style={{
+                              '--sticker-color': monthlyStickerColor(label),
+                              '--sticker-text-color': monthlyStickerTextColor(label),
+                            }}
                           >
                             {label}
                           </span>
