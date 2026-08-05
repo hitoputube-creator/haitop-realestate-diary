@@ -3061,7 +3061,8 @@
   gap: 8px;
 }
 
-.wd-main {
+.wd-main--week,
+.wd-main--month {
   display: flex;
   flex-direction: column;
   gap: 24px;
