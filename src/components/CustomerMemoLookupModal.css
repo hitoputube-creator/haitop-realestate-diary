@@ -124,6 +124,23 @@
   color: var(--color-on-surface-faint);
 }
 
+.cml-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cml-section + .cml-section {
+  margin-top: 8px;
+}
+
+.cml-section-title {
+  padding: 2px 2px 0;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .cml-result-row {
   display: flex;
   flex-direction: column;

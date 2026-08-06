@@ -1291,6 +1291,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           onUpdateLinkKey={handleUpdateLinkKey}
           onOpenAddMemoForMemo={handleOpenAddMemoForMemo}
           onOpenTimelineForMemo={handleOpenTimelineForMemo}
+          onOpenTimelineForCustomer={(customerId) => setTimelineCustomerId(customerId)}
           composerDisabled={!isSupabaseConfigured}
           allLinkKeys={allLinkKeys}
           onLinkKeyClick={handleLinkKeyClick}

@@ -176,6 +176,48 @@ export async function ensureDiaryRowCustomerId(row) {
   return customer.id
 }
 
+export async function getCustomerBrief(customerId) {
+  if (!isSupabaseConfigured || !customerId) return null
+
+  const { data, error } = await supabase
+    .from(CUSTOMERS_TABLE)
+    .select('id, customer_code, name, phone, phone_normalized, customer_role, status, memo, created_at')
+    .eq('id', customerId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data || null
+}
+
+export async function getCustomerRecentDiaryEntries(customerId, { limit = 5 } = {}) {
+  if (!isSupabaseConfigured || !customerId) return []
+
+  const { data, error } = await supabase
+    .from(WORK_DIARY_TABLE)
+    .select('id, date, created_at, title, customer_name, customer_phone, customer_id, content, writer')
+    .eq('customer_id', customerId)
+    .neq('link_key', DAILY_SCHEDULE_KEY)
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data || []
+}
+
+export async function getCustomerSelectionContext(customerId, { limit = 5 } = {}) {
+  if (!isSupabaseConfigured || !customerId) {
+    return { customer: null, entries: [] }
+  }
+
+  const [customer, entries] = await Promise.all([
+    getCustomerBrief(customerId),
+    getCustomerRecentDiaryEntries(customerId, { limit }),
+  ])
+
+  return { customer, entries }
+}
+
 export async function getCustomerTimeline(customerId) {
   if (!isSupabaseConfigured || !customerId) {
     return { customer: null, entries: [] }

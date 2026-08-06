@@ -1060,6 +1060,115 @@
   color: var(--color-danger, #f87171);
 }
 
+.wd-customer-history {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-top: 2px;
+  padding: 10px 12px;
+  border: 1px solid rgba(230, 195, 100, 0.18);
+  border-radius: 10px;
+  background: rgba(230, 195, 100, 0.07);
+}
+
+.wd-customer-history-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wd-customer-history-title {
+  color: var(--color-primary);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.wd-customer-history-sub {
+  margin-top: 2px;
+  color: var(--color-on-surface-faint);
+  font-size: 11.5px;
+}
+
+.wd-customer-history-more {
+  flex-shrink: 0;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(230, 195, 100, 0.32);
+  border-radius: 8px;
+  color: var(--color-primary);
+  background: rgba(230, 195, 100, 0.08);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.wd-customer-history-more:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.wd-customer-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wd-customer-history-item {
+  display: grid;
+  grid-template-columns: 82px minmax(78px, 0.34fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.wd-customer-history-date,
+.wd-customer-history-name,
+.wd-customer-history-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+
+.wd-customer-history-date {
+  color: var(--color-on-surface-faint);
+}
+
+.wd-customer-history-name {
+  color: var(--color-on-surface);
+  font-weight: 700;
+}
+
+.wd-customer-history-text,
+.wd-customer-history-empty {
+  color: var(--color-on-surface-muted);
+}
+
+.wd-customer-history-empty {
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .wd-customer-history-head {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .wd-customer-history-more {
+    width: 100%;
+  }
+
+  .wd-customer-history-item {
+    grid-template-columns: 1fr;
+    gap: 3px;
+    align-items: start;
+  }
+}
+
 /* ===== 작성창(Composer) — 이름/연락처/제목 ===== */
 .wd-composer-customer-row {
   display: flex;

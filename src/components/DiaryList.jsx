@@ -55,6 +55,11 @@ function formatDateLabel(iso, fullFormat = false) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
+function formatMemoSnippet(content, max = 60) {
+  if (!content) return ''
+  return content.length > max ? content.slice(0, max) + '…' : content
+}
+
 /* ===== 상태 배지 ===== */
 const STATUS_META = {
   normal: { label: '일반', icon: null },
@@ -1226,7 +1231,7 @@ function clearComposerDraft() {
 }
 
 /* ===== 입력창 (Composer) ===== */
-function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate }) {
+function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpenTimelineForCustomer }) {
   const [value, setValue] = useState('')
   const [writer, setWriter] = useState('주현희')
   const [sticker, setSticker] = useState(null)
@@ -1235,6 +1240,7 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate }) {
   const [phone, setPhone] = useState('')
   const [title, setTitle] = useState('')
   const [pickedCustomerId, setPickedCustomerId] = useState(null)
+  const [pickedCustomerEntries, setPickedCustomerEntries] = useState([])
   const [lookupOpen, setLookupOpen] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [diaryFiles, setDiaryFiles] = useState([])
@@ -1252,6 +1258,7 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate }) {
     setPhone('')
     setTitle('')
     setPickedCustomerId(null)
+    setPickedCustomerEntries([])
     setSubmitError('')
     clearComposerDraft()
     if (composerRef.current) composerRef.current.style.height = '120px'
@@ -1260,19 +1267,32 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate }) {
   // 이름/연락처를 직접 고치면 불러온 고객과의 연결이 더 이상 정확하지 않을 수 있으므로 해제한다
   function handleNameInput(e) {
     setName(e.target.value)
-    if (pickedCustomerId) setPickedCustomerId(null)
+    if (pickedCustomerId) {
+      setPickedCustomerId(null)
+      setPickedCustomerEntries([])
+    }
   }
   function handlePhoneInput(e) {
     setPhone(e.target.value)
-    if (pickedCustomerId) setPickedCustomerId(null)
+    if (pickedCustomerId) {
+      setPickedCustomerId(null)
+      setPickedCustomerEntries([])
+    }
   }
   function handleLookupSelect(picked) {
-    // title/customer_name/customer_phone은 검색 결과에서 온 값을 그대로 넣는다 — 서로 섞거나 대체하지 않는다
-    setTitle(picked.title || '')
+    // 고객 선택은 customer_id와 실제 customers.name/phone만 입력한다. 기존 메모 제목/본문은 새 메모에 복사하지 않는다.
     setName(picked.customerName || '')
     setPhone(picked.customerPhone || '')
     setPickedCustomerId(picked.customerId || null)
+    setPickedCustomerEntries(picked.recentEntries || [])
     setLookupOpen(false)
+  }
+
+  function unlinkCustomer() {
+    setPickedCustomerId(null)
+    setName('')
+    setPhone('')
+    setPickedCustomerEntries([])
   }
 
   // 최초 마운트 시 저장된 값 기준으로 textarea 높이 복원
@@ -1363,7 +1383,7 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate }) {
                   <button
                     type="button"
                     className="wd-composer-lookup-unlink"
-                    onClick={() => setPickedCustomerId(null)}
+                    onClick={unlinkCustomer}
                     disabled={disabled || submitting}
                     aria-label="고객 연결 해제"
                   >
@@ -1373,6 +1393,40 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate }) {
               )}
             </div>
           </div>
+
+          {pickedCustomerId && (
+            <div className="wd-customer-history" aria-label="선택 고객 최근 기록">
+              <div className="wd-customer-history-head">
+                <div>
+                  <div className="wd-customer-history-title">최근 고객 기록</div>
+                  <div className="wd-customer-history-sub">
+                    {name || '이름 미입력'}{phone ? ` · ${phone}` : ''}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="wd-customer-history-more"
+                  onClick={() => onOpenTimelineForCustomer?.(pickedCustomerId)}
+                  disabled={disabled || submitting}
+                >
+                  전체 기록 보기
+                </button>
+              </div>
+              {pickedCustomerEntries.length > 0 ? (
+                <div className="wd-customer-history-list">
+                  {pickedCustomerEntries.slice(0, 5).map((entry) => (
+                    <div className="wd-customer-history-item" key={entry.id}>
+                      <span className="wd-customer-history-date">{formatDateLabel(entry.date || entry.created_at, true)}</span>
+                      <span className="wd-customer-history-name">{entry.title || '제목 미입력'}</span>
+                      <span className="wd-customer-history-text">{formatMemoSnippet(entry.content || '')}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="wd-customer-history-empty">표시할 기존 기록이 없습니다.</div>
+              )}
+            </div>
+          )}
 
           <div className="wd-field-row wd-field-row--stickers">
             <span className="wd-sticker-bar-label">스티커</span>
@@ -1554,6 +1608,7 @@ export default function DiaryList({
   onUpdateLinkKey,
   onOpenAddMemoForMemo,
   onOpenTimelineForMemo,
+  onOpenTimelineForCustomer,
   composerDisabled,
   allLinkKeys,
   onLinkKeyClick,
@@ -1657,6 +1712,7 @@ export default function DiaryList({
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
+          onOpenTimelineForCustomer={onOpenTimelineForCustomer}
         />
       )}
 
