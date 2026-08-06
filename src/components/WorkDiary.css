@@ -1173,6 +1173,17 @@
   background: rgba(74, 222, 128, 0.15);
 }
 
+.wd-action-btn.send-property {
+  color: var(--color-primary);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.35);
+}
+
+.wd-action-btn.send-property:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
 .wd-action-btn.danger:hover {
   color: var(--color-danger);
   background: rgba(248, 113, 113, 0.1);

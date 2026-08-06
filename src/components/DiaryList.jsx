@@ -22,7 +22,7 @@ const STICKER_OPTIONS = [
   { value: '약속', label: '약속' },
 ]
 
-const PROPERTY_REGISTER_URL = 'https://hitoputube-creator.github.io/haitop-realty-system/register.html'
+const PROPERTY_REGISTER_URL = 'https://hitoputube-creator.github.io/haitop-realty-system/properties.html'
 
 /* ===== 헬퍼 ===== */
 const TAG_REGEX = /#[\w가-힣]+/g
@@ -91,6 +91,8 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
   const [diaryFiles, setDiaryFiles] = useState([])
   const [fileBusy, setFileBusy] = useState(false)
   const [fileError, setFileError] = useState('')
+  const [propertySending, setPropertySending] = useState(false)
+  const propertySendingRef = useRef(false)
   const taRef = useRef(null)
   const cardRef = useRef(null)
 
@@ -228,42 +230,56 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
   }
 
   async function sendToPropertyRegister() {
+    if (propertySendingRef.current) return
+    propertySendingRef.current = true
+    setPropertySending(true)
+
     // 팝업 차단을 피하려고 클릭에 반응해 빈 탭을 먼저 열어두고, 신호가 다 모이면
     // 그 탭의 주소만 바꾼다 — 현재 업무일지 탭은 화면 그대로 유지된다.
     const newTab = window.open('', '_blank')
 
-    const params = new URLSearchParams()
-    params.set('memo', memo.content || '')
-    if (memo.title) params.set('title', memo.title)
-    if (memo.customer_name) params.set('customerName', memo.customer_name)
-    if (memo.customer_phone) params.set('customerPhone', memo.customer_phone)
-    if (memo.id) params.set('diaryId', String(memo.id))
+    try {
+      const params = new URLSearchParams()
+      params.set('memo', memo.content || '')
+      if (memo.title) params.set('title', memo.title)
+      if (memo.customer_name) params.set('customerName', memo.customer_name)
+      if (memo.customer_phone) {
+        params.set('customerPhone', memo.customer_phone)
+        params.set('contact', memo.customer_phone)
+      }
+      if (memo.id) params.set('diaryId', String(memo.id))
 
-    // crm-attachments는 비공개 버킷이라 영구 URL이 없다 — 매물등록 사이트로
-    // 넘어가서 확인/등록하는 동안 만료되지 않도록 넉넉한(1시간) signed URL을 발급한다.
-    const candidates = (photos || []).slice(0, 5)
-    const resolved = await Promise.all(
-      candidates.map(async (photo) => {
-        try {
-          const url = await getAttachmentSignedUrl(photo, { expiresIn: 3600 })
-          return { id: photo.id || '', url, name: photo.original_name || '업무일지 사진' }
-        } catch {
-          return null
-        }
-      })
-    )
-    const transferPhotos = resolved.filter(Boolean)
+      // crm-attachments는 비공개 버킷이라 영구 URL이 없다 — 매물등록 사이트로
+      // 넘어가서 확인/등록하는 동안 만료되지 않도록 넉넉한(1시간) signed URL을 발급한다.
+      const candidates = (photos || []).slice(0, 5)
+      const resolved = await Promise.all(
+        candidates.map(async (photo) => {
+          try {
+            const url = await getAttachmentSignedUrl(photo, { expiresIn: 3600 })
+            return { id: photo.id || '', url, name: photo.original_name || '업무일지 사진' }
+          } catch {
+            return null
+          }
+        })
+      )
+      const transferPhotos = resolved.filter(Boolean)
 
-    if (transferPhotos.length > 0) {
-      params.set('photos', JSON.stringify(transferPhotos))
-    }
+      if (transferPhotos.length > 0) {
+        params.set('photos', JSON.stringify(transferPhotos))
+      }
 
-    const targetUrl = `${PROPERTY_REGISTER_URL}?${params.toString()}`
-    if (newTab) {
-      newTab.location.href = targetUrl
-    } else {
-      // 팝업이 차단됐어도 현재 탭은 건드리지 않고 새 탭으로 다시 시도한다
-      window.open(targetUrl, '_blank', 'noopener,noreferrer')
+      const targetUrl = `${PROPERTY_REGISTER_URL}?${params.toString()}`
+      if (newTab) {
+        newTab.location.href = targetUrl
+      } else {
+        // 팝업이 차단됐어도 현재 탭은 건드리지 않고 새 탭으로 다시 시도한다
+        window.open(targetUrl, '_blank', 'noopener,noreferrer')
+      }
+    } finally {
+      window.setTimeout(() => {
+        propertySendingRef.current = false
+        setPropertySending(false)
+      }, 1500)
     }
   }
 
@@ -311,6 +327,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             type="button"
             className="wd-action-btn send-property"
             onClick={sendToPropertyRegister}
+            disabled={propertySending}
             aria-label="매물관리 프로그램으로 이동"
           >
             <span aria-hidden="true">🏠</span> 매물보내기
@@ -887,6 +904,15 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             </button>
             <button
               type="button"
+              className="wd-action-btn send-property"
+              onClick={sendToPropertyRegister}
+              disabled={propertySending}
+              aria-label="매물관리 프로그램으로 이동"
+            >
+              <span aria-hidden="true">🏠</span> 매물보내기
+            </button>
+            <button
+              type="button"
               className={`wd-action-btn ${memo.status === 'important' ? 'active' : ''}`}
               onClick={() =>
                 onChangeStatus(memo.id, memo.status === 'important' ? 'normal' : 'important')
@@ -916,14 +942,6 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
               <span aria-hidden="true">✓</span> 완료
             </button>
             <span className="wd-action-spacer" />
-            <button
-              type="button"
-              className="wd-action-btn send-property"
-              onClick={sendToPropertyRegister}
-              aria-label="매물관리 프로그램으로 이동"
-            >
-              <span aria-hidden="true">🏠</span> 매물보내기
-            </button>
             <button
               type="button"
               className="wd-action-btn"
