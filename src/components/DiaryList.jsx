@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { DiaryPhotoStrip, DiaryPhotoUploader, PhotoGalleryModal } from './DiaryPhotos'
 import { DiaryFileUploader, DiaryFileList } from './DiaryFiles'
 import { getAttachmentSignedUrl } from '../lib/attachments'
-import { readLocalJSON, writeLocalJSON, removeLocalJSON } from '../lib/uiState'
+import { removeLocalJSON } from '../lib/uiState'
 import CustomerMemoLookupModal from './CustomerMemoLookupModal'
 
 /* ===== 스티커 메타 ===== */
@@ -307,6 +307,14 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             {expanded ? '간략보기' : '펼쳐보기'}
           </button>
           <button type="button" className="wd-action-btn" onClick={() => onOpenAddMemoForMemo?.(memo)}>메모 추가</button>
+          <button
+            type="button"
+            className="wd-action-btn send-property"
+            onClick={sendToPropertyRegister}
+            aria-label="매물관리 프로그램으로 이동"
+          >
+            <span aria-hidden="true">🏠</span> 매물보내기
+          </button>
           <button
             type="button"
             className={`wd-action-btn ${memo.status === 'important' ? 'active' : ''}`}
@@ -1192,32 +1200,23 @@ function LinkKeySearchBox({ currentValue, onSelect, disabled, variant = 'toprigh
   )
 }
 
-/* ── 작성 중인 메모 임시저장 (다른 탭/사이트를 보고 돌아오거나 새로고침해도 유지) ── */
+/* ── 작성 폼 닫힘/초기화 시 남은 임시값 정리 ── */
 const COMPOSER_DRAFT_KEY = 'wd_composer_draft'
-
-function loadComposerDraft() {
-  return readLocalJSON(COMPOSER_DRAFT_KEY)
-}
-
-function saveComposerDraft(draft) {
-  writeLocalJSON(COMPOSER_DRAFT_KEY, draft)
-}
 
 function clearComposerDraft() {
   removeLocalJSON(COMPOSER_DRAFT_KEY)
 }
 
 /* ===== 입력창 (Composer) ===== */
-function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
-  const initialDraft = useMemo(() => loadComposerDraft(), [])
-  const [value, setValue] = useState(initialDraft?.value ?? '')
-  const [writer, setWriter] = useState(initialDraft?.writer ?? '주현희')
-  const [sticker, setSticker] = useState(initialDraft?.sticker ?? null)
-  const [linkKey, setLinkKey] = useState(initialDraft?.linkKey ?? '')
-  const [name, setName] = useState(initialDraft?.name ?? '')
-  const [phone, setPhone] = useState(initialDraft?.phone ?? '')
-  const [title, setTitle] = useState(initialDraft?.title ?? '')
-  const [pickedCustomerId, setPickedCustomerId] = useState(initialDraft?.pickedCustomerId ?? null)
+function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate }) {
+  const [value, setValue] = useState('')
+  const [writer, setWriter] = useState('주현희')
+  const [sticker, setSticker] = useState(null)
+  const [linkKey, setLinkKey] = useState('')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [title, setTitle] = useState('')
+  const [pickedCustomerId, setPickedCustomerId] = useState(null)
   const [lookupOpen, setLookupOpen] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [diaryFiles, setDiaryFiles] = useState([])
@@ -1225,34 +1224,20 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
   const [submitting, setSubmitting] = useState(false)
   const composerRef = useRef(null)
 
-  // 입력값을 localStorage에 계속 동기화 — 완전히 빈 상태면 임시저장을 지운다
-  useEffect(() => {
-    const isEmpty = !value.trim() && !linkKey.trim() && !sticker && !name.trim() && !phone.trim() && !title.trim()
-    if (isEmpty) {
-      clearComposerDraft()
-    } else {
-      saveComposerDraft({ value, writer, sticker, linkKey, name, phone, title, pickedCustomerId })
-    }
-  }, [value, writer, sticker, linkKey, name, phone, title, pickedCustomerId])
-
-  // 다른 탭/사이트를 보고 돌아왔을 때(pageshow)도 저장된 작성 중인 메모·고객 연결정보로 다시 맞춘다
-  useEffect(() => {
-    function handlePageShow() {
-      const draft = loadComposerDraft()
-      if (!draft) return
-      setValue(draft.value ?? '')
-      setWriter(draft.writer ?? '주현희')
-      setSticker(draft.sticker ?? null)
-      setLinkKey(draft.linkKey ?? '')
-      setName(draft.name ?? '')
-      setPhone(draft.phone ?? '')
-      setTitle(draft.title ?? '')
-      setPickedCustomerId(draft.pickedCustomerId ?? null)
-      requestAnimationFrame(() => autoResizeComposer(composerRef.current))
-    }
-    window.addEventListener('pageshow', handlePageShow)
-    return () => window.removeEventListener('pageshow', handlePageShow)
-  }, [])
+  function resetComposerDraft() {
+    setValue('')
+    setSticker(null)
+    setLinkKey('')
+    setPhotoFiles([])
+    setDiaryFiles([])
+    setName('')
+    setPhone('')
+    setTitle('')
+    setPickedCustomerId(null)
+    setSubmitError('')
+    clearComposerDraft()
+    if (composerRef.current) composerRef.current.style.height = '120px'
+  }
 
   // 이름/연락처를 직접 고치면 불러온 고객과의 연결이 더 이상 정확하지 않을 수 있으므로 해제한다
   function handleNameInput(e) {
@@ -1293,16 +1278,7 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
     setSubmitError('')
     try {
       await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles, trimmedName, trimmedPhone, trimmedTitle, diaryFiles, pickedCustomerId)
-      setValue('')
-      setSticker(null)
-      setLinkKey('')
-      setPhotoFiles([])
-      setDiaryFiles([])
-      setName('')
-      setPhone('')
-      setTitle('')
-      setPickedCustomerId(null)
-      if (composerRef.current) composerRef.current.style.height = '120px'
+      resetComposerDraft()
     } catch (err) {
       setSubmitError(err.message || String(err))
     } finally {
@@ -1519,6 +1495,17 @@ function Composer({ onSubmit, disabled, allLinkKeys, onNavigate }) {
           </select>
           <button
             type="button"
+            className="wd-btn wd-btn-ghost"
+            onClick={() => {
+              resetComposerDraft()
+              onCancel?.()
+            }}
+            disabled={submitting}
+          >
+            취소
+          </button>
+          <button
+            type="button"
             className="wd-btn wd-btn-primary"
             onClick={handleSubmit}
             disabled={disabled || submitting || !value.trim()}
@@ -1575,6 +1562,17 @@ export default function DiaryList({
 
   const importantCount = memos.filter((m) => m.status === 'important').length
   const doneCount = memos.filter((m) => m.status === 'done').length
+  const selectedDateKey = selectedDate
+    ? `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`
+    : ''
+
+  useEffect(() => {
+    // 날짜가 바뀌면 열려 있던 작성 폼을 즉시 닫고 다음 열림 때 빈 폼으로 시작한다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setComposerOpen(false)
+    clearComposerDraft()
+    setComposerKey((key) => key + 1)
+  }, [selectedDateKey])
 
   function openComposer() {
     onNewMemo?.()
@@ -1631,6 +1629,11 @@ export default function DiaryList({
           key={composerKey}
           onSubmit={async (content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId) => {
             await onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId)
+            setComposerOpen(false)
+          }}
+          onCancel={() => {
+            clearComposerDraft()
+            setComposerKey((key) => key + 1)
             setComposerOpen(false)
           }}
           disabled={composerDisabled}
