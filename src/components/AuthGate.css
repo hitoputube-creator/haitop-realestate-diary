@@ -109,7 +109,7 @@
   color: #000;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
   .auth-topbar {
     position: static;
     justify-content: flex-end;

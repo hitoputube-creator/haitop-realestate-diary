@@ -203,7 +203,42 @@
   }
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
+  .wd-header {
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .wd-header .wd-brand {
+    flex: 0 0 100%;
+    width: 100%;
+  }
+
+  .wd-header .wd-searchbar {
+    flex: 0 0 100%;
+    max-width: none;
+    width: 100%;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .wd-header .wd-btn-workcenter {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+    max-width: 100%;
+    min-width: 0;
+    padding: 7px 9px;
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .wd-header .wd-btn-google-calendar {
+    flex: 1 1 100%;
+  }
+
   .wd-main {
     grid-template-columns: 1fr;
   }
