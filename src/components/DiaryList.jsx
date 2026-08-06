@@ -80,7 +80,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate, onOpenAddMemoForMemo, onOpenTimelineForMemo, variant = 'full' }) {
+function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate, onOpenAddMemoForMemo, onOpenTimelineForMemo, variant = 'full', resetToken = 0 }) {
   const [editing, setEditing] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState(memo.content)
@@ -96,6 +96,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
   const [diaryFiles, setDiaryFiles] = useState([])
   const [fileBusy, setFileBusy] = useState(false)
   const [fileError, setFileError] = useState('')
+  const [editError, setEditError] = useState('')
   const [propertySending, setPropertySending] = useState(false)
   const propertySendingRef = useRef(false)
   const taRef = useRef(null)
@@ -166,9 +167,34 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
     .filter(Boolean)
     .join(' ')
 
-  function saveEdit() {
+  function resetEditDraft() {
+    setDraft(memo.content)
+    setDraftName(memo.customer_name || '')
+    setDraftPhone(memo.customer_phone || '')
+    setDraftTitle(memo.title || '')
+    setDraftSticker(memo.sticker || null)
+    setLinkDraft(memo.link_key || '')
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEditing(false)
+    setExpanded(false)
+    setPhotoAddOpen(false)
+    setFileAddOpen(false)
+    setLinkEditing(false)
+    setEditError('')
+    resetEditDraft()
+    setPhotoFiles([])
+    setDiaryFiles([])
+    setPhotoError('')
+    setFileError('')
+  }, [resetToken]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function saveEdit() {
     const next = draft.trim()
     if (!next) return
+    setEditError('')
     const nextName = draftName.trim()
     const nextPhone = draftPhone.trim()
     const nextTitle = draftTitle.trim()
@@ -183,25 +209,41 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
       nextSticker !== (memo.sticker || null)
     if (!changed) {
       setEditing(false)
+      if (variant === 'compact') setExpanded(false)
       return
     }
-    onUpdateContent(memo.id, next, {
-      customer_name: nextName || null,
-      customer_phone: nextPhone || null,
-      title: nextTitle || null,
-      link_key: nextLinkKey || '',
-      sticker: nextSticker,
-    })
-    setEditing(false)
+    try {
+      const saved = await onUpdateContent(memo.id, next, {
+        customer_name: nextName || null,
+        customer_phone: nextPhone || null,
+        title: nextTitle || null,
+        link_key: nextLinkKey || '',
+        sticker: nextSticker,
+      })
+      if (saved === false) {
+        setEditError('수정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.')
+        return
+      }
+      setEditing(false)
+      if (variant === 'compact') setExpanded(false)
+    } catch (err) {
+      setEditError(err.message || String(err))
+    }
   }
 
-  function resetEditDraft() {
-    setDraft(memo.content)
-    setDraftName(memo.customer_name || '')
-    setDraftPhone(memo.customer_phone || '')
-    setDraftTitle(memo.title || '')
-    setDraftSticker(memo.sticker || null)
-    setLinkDraft(memo.link_key || '')
+  function openEditForm() {
+    setEditError('')
+    setPhotoAddOpen(false)
+    setFileAddOpen(false)
+    if (variant === 'compact') setExpanded(true)
+    setEditing(true)
+  }
+
+  function cancelEdit() {
+    resetEditDraft()
+    setEditError('')
+    setEditing(false)
+    if (variant === 'compact') setExpanded(false)
   }
 
   async function handleAddPhotos() {
@@ -321,11 +363,11 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
         <div className="wd-compact-actions">
           <button
             type="button"
-            className="wd-action-btn active"
+            className={`wd-action-btn ${expanded ? 'active' : ''}`}
             onClick={() => setExpanded((value) => !value)}
             aria-expanded={expanded}
           >
-            {expanded ? '간략보기' : '펼쳐보기'}
+            {expanded ? '접기' : '전체보기'}
           </button>
           <button type="button" className="wd-action-btn" onClick={() => onOpenAddMemoForMemo?.(memo)}>메모 추가</button>
           <button
@@ -343,7 +385,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             onClick={() => onChangeStatus(memo.id, memo.status === 'important' ? 'normal' : 'important')}
             aria-pressed={memo.status === 'important'}
           >
-            ★ 중요
+            ★ {memo.status === 'important' ? '중요 해제' : '중요'}
           </button>
           <button
             type="button"
@@ -351,7 +393,15 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             onClick={() => onChangeStatus(memo.id, memo.status === 'done' ? 'normal' : 'done')}
             aria-pressed={memo.status === 'done'}
           >
-            ✓ 완료
+            ✓ {memo.status === 'done' ? '완료 취소' : '완료'}
+          </button>
+          <button
+            type="button"
+            className="wd-action-btn"
+            onClick={openEditForm}
+            aria-label="메모 수정"
+          >
+            수정
           </button>
         </div>
         {expanded && (
@@ -436,8 +486,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Escape') {
-                        resetEditDraft()
-                        setEditing(false)
+                        cancelEdit()
                       }
                       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                         saveEdit()
@@ -449,10 +498,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
                   <button
                     type="button"
                     className="wd-action-btn"
-                    onClick={() => {
-                      resetEditDraft()
-                      setEditing(false)
-                    }}
+                    onClick={cancelEdit}
                   >
                     취소
                   </button>
@@ -464,6 +510,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
                     저장
                   </button>
                 </div>
+                {editError && <div className="wd-photo-error" role="alert">{editError}</div>}
               </>
             ) : (
               <>
@@ -523,13 +570,6 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
                     disabled={fileBusy}
                   >
                     파일 추가
-                  </button>
-                  <button
-                    type="button"
-                    className="wd-action-btn active"
-                    onClick={() => setEditing(true)}
-                  >
-                    수정
                   </button>
                 </div>
                 {photoAddOpen && (
@@ -777,8 +817,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
-                  resetEditDraft()
-                  setEditing(false)
+                  cancelEdit()
                 }
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                   saveEdit()
@@ -924,7 +963,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
               }
               aria-pressed={memo.status === 'important'}
             >
-              <span aria-hidden="true">★</span> 중요
+              <span aria-hidden="true">★</span> {memo.status === 'important' ? '중요 해제' : '중요'}
             </button>
             <button
               type="button"
@@ -944,13 +983,13 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
               }
               aria-pressed={memo.status === 'done'}
             >
-              <span aria-hidden="true">✓</span> 완료
+              <span aria-hidden="true">✓</span> {memo.status === 'done' ? '완료 취소' : '완료'}
             </button>
             <span className="wd-action-spacer" />
             <button
               type="button"
               className="wd-action-btn"
-              onClick={() => setEditing(true)}
+              onClick={openEditForm}
               aria-label="메모 수정"
             >
               수정
@@ -972,10 +1011,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             <button
               type="button"
               className="wd-action-btn"
-              onClick={() => {
-                resetEditDraft()
-                setEditing(false)
-              }}
+              onClick={cancelEdit}
             >
               취소
             </button>
@@ -989,6 +1025,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
           </>
         )}
       </div>
+      {editing && editError && <div className="wd-photo-error" role="alert">{editError}</div>}
 
       {!editing && photoAddOpen && (
         <div className="wd-card-photo-panel">
@@ -1231,7 +1268,7 @@ function clearComposerDraft() {
 }
 
 /* ===== 입력창 (Composer) ===== */
-function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpenTimelineForCustomer }) {
+function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpenTimelineForCustomer, onDirtyChange }) {
   const [value, setValue] = useState('')
   const [writer, setWriter] = useState('주현희')
   const [sticker, setSticker] = useState(null)
@@ -1263,6 +1300,26 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpe
     clearComposerDraft()
     if (composerRef.current) composerRef.current.style.height = '120px'
   }
+
+  const composerDirty =
+    Boolean(value.trim()) ||
+    Boolean(title.trim()) ||
+    Boolean(name.trim()) ||
+    Boolean(phone.trim()) ||
+    Boolean(linkKey.trim()) ||
+    Boolean(sticker) ||
+    Boolean(pickedCustomerId) ||
+    writer !== '주현희' ||
+    photoFiles.length > 0 ||
+    diaryFiles.length > 0
+
+  useEffect(() => {
+    onDirtyChange?.(composerDirty)
+  }, [composerDirty, onDirtyChange])
+
+  useEffect(() => () => {
+    onDirtyChange?.(false)
+  }, [onDirtyChange])
 
   // 이름/연락처를 직접 고치면 불러온 고객과의 연결이 더 이상 정확하지 않을 수 있으므로 해제한다
   function handleNameInput(e) {
@@ -1619,6 +1676,8 @@ export default function DiaryList({
   highlightMemoId,
   photoMap,
   fileMap,
+  resetToken = 0,
+  onComposerDirtyChange,
 }) {
   const [gallery, setGallery] = useState(null)
   const [composerOpen, setComposerOpen] = useState(false)
@@ -1645,7 +1704,16 @@ export default function DiaryList({
     setComposerOpen(false)
     clearComposerDraft()
     setComposerKey((key) => key + 1)
-  }, [selectedDateKey])
+    onComposerDirtyChange?.(false)
+  }, [selectedDateKey, onComposerDirtyChange])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setComposerOpen(false)
+    clearComposerDraft()
+    setComposerKey((key) => key + 1)
+    onComposerDirtyChange?.(false)
+  }, [resetToken, onComposerDirtyChange])
 
   function openComposer() {
     onNewMemo?.()
@@ -1703,16 +1771,19 @@ export default function DiaryList({
           onSubmit={async (content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId) => {
             await onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId)
             setComposerOpen(false)
+            onComposerDirtyChange?.(false)
           }}
           onCancel={() => {
             clearComposerDraft()
             setComposerKey((key) => key + 1)
             setComposerOpen(false)
+            onComposerDirtyChange?.(false)
           }}
           disabled={composerDisabled}
           allLinkKeys={allLinkKeys}
           onNavigate={onNavigate}
           onOpenTimelineForCustomer={onOpenTimelineForCustomer}
+          onDirtyChange={onComposerDirtyChange}
         />
       )}
 
@@ -1760,6 +1831,7 @@ export default function DiaryList({
               onUnpin={onUnpin}
               isHighlighted={m.id === highlightMemoId}
               onNavigate={searchMode ? onNavigate : undefined}
+              resetToken={resetToken}
             />
           ))
         )}

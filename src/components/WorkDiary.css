@@ -4705,11 +4705,14 @@
   margin-top: 10px;
   padding-top: 9px;
   border-top: 1px solid var(--color-border);
+  align-items: stretch;
 }
 
 .wd-compact-actions .wd-action-btn {
   padding: 5px 8px;
   font-size: 10.5px;
+  min-height: 28px;
+  justify-content: center;
 }
 
 .wd-compact-expanded {
@@ -4803,7 +4806,7 @@
   }
 
   .wd-compact-actions .wd-action-btn {
-    flex: 1 1 auto;
+    flex: 1 1 calc(33.333% - 8px);
     justify-content: center;
   }
 

@@ -84,6 +84,11 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const [addMemoTarget, setAddMemoTarget] = useState(null) // { customer: {id,name,phone}, defaultDate }
   const [timelineCustomerId, setTimelineCustomerId] = useState(null)
   const [timelineReloadKey, setTimelineReloadKey] = useState(0)
+  const [diaryListResetToken, setDiaryListResetToken] = useState(0)
+  const [composerDirty, setComposerDirty] = useState(false)
+  const handleComposerDirtyChange = useCallback((dirty) => {
+    setComposerDirty(Boolean(dirty))
+  }, [])
 
   // 현재 고정된 diary_id Set — MemoCard 버튼 상태 판단용
   const pinnedDiaryIds = useMemo(
@@ -789,7 +794,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   }, [loadMemosForSelected])
 
   const handleUpdateContent = useCallback(async (id, content, meta = {}) => {
-    if (!isSupabaseConfigured) return
+    if (!isSupabaseConfigured) return false
     const tags = extractTags(content)
     let patch = { content, tags, ...meta }
 
@@ -832,9 +837,11 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       }
       loadMonthDots()
       setUpcomingRefreshKey((key) => key + 1)
+      return true
     } catch (err) {
       setError(`수정 실패: ${err.message || err}`)
       loadMemosForSelected()
+      return false
     }
   }, [loadMemosForSelected, loadMonthDots, memos, searchResults])
 
@@ -963,10 +970,22 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     setViewMonth(d.getMonth())
   }
   function handleJumpToday() {
+    if (composerDirty) {
+      const shouldReturn = window.confirm('작성 중인 메모가 있습니다. 저장하지 않고 오늘 목록으로 돌아갈까요?')
+      if (!shouldReturn) return
+    }
     const t = new Date()
     setViewYear(t.getFullYear())
     setViewMonth(t.getMonth())
     setSelectedDate(t)
+    setSearchQuery('')
+    setMainView('today')
+    setHighlightMemoId(null)
+    setComposerDirty(false)
+    setDiaryListResetToken((token) => token + 1)
+    setTimeout(() => {
+      document.querySelector('.wd-diary')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 0)
   }
   function handleSelectDate(d) {
     setSearchQuery('')
@@ -1100,11 +1119,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             role="tab"
             aria-selected={mainView === 'today'}
             className={`wd-view-tab segment ${mainView === 'today' ? 'is-active' : ''}`}
-            onClick={() => {
-              setSearchQuery('')
-              setMainView('today')
-              handleJumpToday()
-            }}
+            onClick={handleJumpToday}
           >
             오늘
           </button>
@@ -1303,6 +1318,8 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           searchQuery={searchQuery}
           photoMap={photoMap}
           fileMap={fileMap}
+          resetToken={diaryListResetToken}
+          onComposerDirtyChange={handleComposerDirtyChange}
         />
       </main>
       )}
