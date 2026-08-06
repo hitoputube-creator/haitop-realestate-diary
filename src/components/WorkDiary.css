@@ -539,7 +539,7 @@
 
 /* ===== 입력창 ===== */
 .wd-composer {
-  padding: 18px 24px 14px;
+  padding: 14px 18px 12px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-deeper);
 }
@@ -562,29 +562,31 @@
 
 .wd-composer-layout {
   display: grid;
-  grid-template-columns: minmax(270px, 35fr) minmax(0, 65fr);
-  gap: 24px;
+  grid-template-columns: minmax(270px, 276px) minmax(0, 1fr);
+  gap: 16px;
   align-items: stretch;
+  --wd-composer-field-height: 324px;
 }
 
 .wd-composer-fields {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .wd-field-row {
   display: grid;
-  grid-template-columns: 62px minmax(0, 1fr);
+  grid-template-columns: 50px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 7px;
   min-width: 0;
+  width: 100%;
 }
 
 .wd-field-row--connection-tag {
-  grid-template-columns: 58px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 50px minmax(0, 1fr);
+  gap: 7px;
 }
 
 .wd-field-row label,
@@ -592,7 +594,7 @@
 .wd-sticker-bar-label {
   min-width: 0;
   color: var(--color-on-surface-muted);
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -601,21 +603,23 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .wd-composer-note-area {
   min-width: 0;
   display: flex;
+  height: 100%;
 }
 
 .wd-composer-input {
   width: 100%;
-  min-height: clamp(360px, calc(100vh - 440px), 520px);
+  min-height: 0;
+  height: var(--wd-composer-field-height) !important;
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  padding: 18px 20px;
+  padding: 12px 14px;
   font-size: 13.5px;
   line-height: 1.6;
   resize: none;
@@ -636,8 +640,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 14px;
-  gap: 10px;
+  margin-top: 8px;
+  gap: 8px;
 }
 
 .wd-composer-hint {
@@ -975,13 +979,13 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .wd-composer-lookup-btn {
   width: 100%;
-  min-height: 38px;
-  padding: 0 12px;
+  min-height: 35px;
+  padding: 0 10px;
   font-size: 12.5px;
   font-weight: 800;
   color: var(--color-primary);
@@ -1025,16 +1029,17 @@
 .wd-composer-customer-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 .wd-composer-customer-input {
   width: 100%;
   min-width: 0;
-  height: 38px;
-  padding: 0 12px;
-  font-size: 13px;
+  box-sizing: border-box;
+  height: 35px;
+  padding: 0 10px;
+  font-size: 12.5px;
   border-radius: 8px;
   border: 1px solid var(--color-border);
   background: var(--color-bg-deeper);
@@ -1440,14 +1445,16 @@
   flex-wrap: wrap;
   margin-top: 0;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .wd-sticker-segmented-control {
-  display: inline-flex;
+  display: flex;
   align-items: stretch;
   flex-wrap: nowrap;
   gap: 0;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
   overflow: hidden;
   border: 1px solid var(--color-border);
@@ -1595,9 +1602,9 @@
 }
 
 .wd-sticker-btn {
-  min-height: 32px;
+  min-height: 30px;
   min-width: 58px;
-  padding: 0 12px;
+  padding: 0 9px;
   font-size: 11.5px;
   font-weight: 800;
   border-radius: 999px;
@@ -1609,8 +1616,10 @@
 }
 
 .wd-sticker-segmented-control .wd-sticker-btn {
-  min-height: 36px;
-  padding: 0 14px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 8px;
   font-weight: 600;
   border: 0;
   border-right: 1px solid var(--color-border);
@@ -1669,11 +1678,12 @@
   width: 100%;
   flex: 1;
   min-width: 0;
+  box-sizing: border-box;
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  height: 38px;
-  padding: 0 10px;
+  height: 35px;
+  padding: 0 9px;
   font-size: 12.5px;
   color: var(--color-on-surface);
   outline: none;
@@ -1703,23 +1713,25 @@
 /* ===== 검색창 행 (textarea 위 오른쪽 정렬) ===== */
 .wd-composer-tools-row {
   display: flex;
-  justify-content: flex-end;
+  justify-content: stretch;
   margin-bottom: 6px;
 }
 
 .wd-field-row .wd-link-input-wrap {
-  width: 76%;
-  min-width: min(220px, 100%);
-  max-width: min(320px, 100%);
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .wd-field-row .wd-link-input {
-  min-height: 36px;
-  height: 36px;
+  min-height: 35px;
+  height: 35px;
 }
 
 .wd-link-input-wrap {
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1735,6 +1747,8 @@
 .lks-wrap {
   position: relative;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* inline variant: link 에디터 바 안에서 flex 흐름을 따름 */
@@ -1748,11 +1762,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
   background: var(--color-surface-container);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  min-height: 38px;
-  padding: 0 10px;
+  min-height: 35px;
+  padding: 0 9px;
   transition: border-color 0.15s ease;
 }
 
@@ -1769,6 +1785,7 @@
 .lks-input {
   flex: 1;
   min-width: 0;
+  box-sizing: border-box;
   background: transparent;
   border: none;
   outline: none;
@@ -2696,7 +2713,8 @@
   align-items: stretch;
   gap: 0;
   width: 100%;
-  max-width: 320px;
+  max-width: none;
+  box-sizing: border-box;
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -2712,6 +2730,7 @@
 
 .attachment-button-group .wd-photo-uploader,
 .attachment-button-group .wd-file-uploader {
+  flex: 1 1 0;
   width: 50%;
 }
 
@@ -2736,13 +2755,14 @@
 
 .attachment-button-group .wd-photo-add-btn,
 .attachment-button-group .wd-file-add-btn {
-  height: 36px;
-  min-height: 36px;
+  box-sizing: border-box;
+  height: 34px;
+  min-height: 34px;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--color-on-surface-muted);
-  padding: 0 14px;
+  padding: 0 9px;
   font-size: 12.5px;
   font-weight: 600;
 }
@@ -3032,6 +3052,10 @@
   .wd-main {
     gap: 16px;
     padding: 16px;
+  }
+
+  .wd-left-top {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .wd-period-main {
@@ -3916,11 +3940,12 @@
 /* ===== Composer two-column layout ===== */
 .wd-composer-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 290px) minmax(0, 1fr);
+  grid-template-columns: minmax(270px, 276px) minmax(0, 1fr);
   grid-template-areas: "side content";
-  align-items: start;
+  align-items: stretch;
   gap: 16px;
   min-width: 0;
+  --wd-composer-field-height: 324px;
 }
 
 .wd-composer-side {
@@ -3964,7 +3989,15 @@
 }
 
 .wd-composer-side .wd-sticker-bar {
-  margin-top: 10px;
+  margin-top: 0;
+}
+
+.wd-composer .wd-field-row input,
+.wd-composer .wd-field-row button,
+.wd-composer .wd-field-row .lks-input-row,
+.wd-composer .wd-field-row .wd-sticker-segmented-control,
+.wd-composer .wd-field-row .attachment-button-group {
+  box-sizing: border-box;
 }
 
 @media (max-width: 960px) {
