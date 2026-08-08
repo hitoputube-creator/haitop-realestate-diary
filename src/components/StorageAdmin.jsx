@@ -19,6 +19,65 @@ const DONUT_ZERO_COLOR = '#33406b'
 const BAR_COLOR = '#3987e5'
 const TABLE_TOP_N = 10
 
+// Supabase 무료 플랜 저장공간 한도(1GiB). 플랜이 바뀌면 이 값만 수정하면 된다.
+const TOTAL_STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024
+
+// 화면에 보이는 이름만 한글로 바꾸는 표시용 매핑 — 실제 bucket id/테이블명은 그대로 사용한다.
+const BUCKET_LABELS = {
+  'crm-attachments': '고객 상담 첨부파일',
+  'listing-images': '매물 사진',
+  'prompt-images': '프롬프트 이미지',
+  'property-images': '부동산 정보 이미지',
+  'property-proposal-images': '견적서 이미지',
+}
+
+const TABLE_LABELS = {
+  admin_users: '관리자 계정',
+  building_files: '건물 첨부파일',
+  building_floors: '건물 층 정보',
+  buildings: '건물 정보',
+  consultations: '상담 문의',
+  content_items: '콘텐츠 스튜디오',
+  crm_attachments: '고객 상담 첨부파일 기록',
+  customers: '고객 정보',
+  dashboard_shortcuts: '대시보드 바로가기',
+  drive_resources: '자료실 파일',
+  listing_intakes: 'AI 매물 초안',
+  listings: '매물 정보',
+  memos: '메모',
+  private_notes: '개인 메모',
+  prompt_templates: '프롬프트 템플릿',
+  property_infos: '부동산 정보글',
+  property_sheets: '매물 조사서',
+  recommended_files: '추천 자료',
+  recommended_properties: '추천 매물',
+  reference_properties: '참고 매물',
+  requests: '요청 내역',
+  schedules: '일정',
+  sections: '섹션',
+  user_categories: '사용자 카테고리',
+  user_links: '공유 링크',
+  visitors: '방문자 카운터',
+  work_diary: '업무일지',
+  work_sticky_notes: '포스트잇',
+}
+
+function bucketLabel(id) {
+  return BUCKET_LABELS[id] || id
+}
+
+function tableLabel(name) {
+  return TABLE_LABELS[name] || name
+}
+
+// 70%/85%/95% 경고 단계 — 상단 요약과 배너 둘 다 이 함수로 상태를 판단한다.
+function storageStatus(percent) {
+  if (percent >= 95) return { label: '긴급', level: 'critical' }
+  if (percent >= 85) return { label: '경고', level: 'warning' }
+  if (percent >= 70) return { label: '주의', level: 'notice' }
+  return { label: '정상', level: 'ok' }
+}
+
 function formatBytes(bytes) {
   const n = Number(bytes) || 0
   if (n < 1024) return `${n} B`
@@ -93,6 +152,15 @@ export default function StorageAdmin({ onBack }) {
   const totalBytes = buckets.reduce((sum, b) => sum + Number(b.total_bytes || 0), 0)
   const totalFiles = buckets.reduce((sum, b) => sum + Number(b.file_count || 0), 0)
 
+  // 사용률 요약/경고 배너 — 기존 buckets 합계(totalBytes) 위에 얹는 표시 전용 계산이라
+  // 저장용량 집계 로직 자체는 손대지 않는다.
+  const usagePercent = TOTAL_STORAGE_LIMIT_BYTES > 0 ? (totalBytes / TOTAL_STORAGE_LIMIT_BYTES) * 100 : 0
+  const usage = storageStatus(usagePercent)
+  const topUsageBuckets = useMemo(
+    () => [...buckets].filter((b) => Number(b.total_bytes) > 0).sort((a, b) => Number(b.total_bytes || 0) - Number(a.total_bytes || 0)).slice(0, 3),
+    [buckets]
+  )
+
   const sortedBuckets = useMemo(
     () => [...buckets].sort((a, b) => Number(b.total_bytes || 0) - Number(a.total_bytes || 0)),
     [buckets]
@@ -106,7 +174,7 @@ export default function StorageAdmin({ onBack }) {
   }
 
   const donutData = {
-    labels: nonZeroBuckets.map((b) => b.bucket_id),
+    labels: nonZeroBuckets.map((b) => bucketLabel(b.bucket_id)),
     datasets: [
       {
         data: nonZeroBuckets.map((b) => Number(b.total_bytes)),
@@ -174,7 +242,14 @@ export default function StorageAdmin({ onBack }) {
       },
       y: {
         grid: { display: false },
-        ticks: { color: 'rgba(225, 227, 228, 0.7)', font: { size: 12 } },
+        ticks: {
+          color: 'rgba(225, 227, 228, 0.7)',
+          font: { size: 12 },
+          callback(value) {
+            const raw = topTables[value]?.table_name
+            return raw ? tableLabel(raw) : value
+          },
+        },
       },
     },
     plugins: {
@@ -187,6 +262,10 @@ export default function StorageAdmin({ onBack }) {
         bodyColor: '#e1e3e4',
         padding: 10,
         callbacks: {
+          title(items) {
+            const raw = topTables[items[0]?.dataIndex]?.table_name
+            return raw ? `${tableLabel(raw)} (${raw})` : ''
+          },
           label(ctx) {
             return topTables[ctx.dataIndex]?.pretty_size || ''
           },
@@ -222,6 +301,31 @@ export default function StorageAdmin({ onBack }) {
 
         {!dataLoading && !dataError && (
           <>
+            {usage.level !== 'ok' && (
+              <div className={`sa-alert sa-alert-${usage.level}`} role="alert">
+                <div className="sa-alert-title">
+                  ⚠ 저장공간 사용량 {usage.label} — {usagePercent.toFixed(1)}%
+                </div>
+                {topUsageBuckets.length > 0 && (
+                  <div className="sa-alert-detail">
+                    가장 많이 차지하는 버킷: {topUsageBuckets.map((b) => `${bucketLabel(b.bucket_id)} ${formatBytes(b.total_bytes)}`).join(' · ')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <section className={`sa-usage-card sa-usage-${usage.level}`}>
+              <div className="sa-usage-row">
+                <span className="sa-usage-text">
+                  {formatBytes(totalBytes)} / {formatBytes(TOTAL_STORAGE_LIMIT_BYTES)} · {usagePercent.toFixed(1)}%
+                </span>
+                <span className={`sa-usage-badge sa-usage-badge-${usage.level}`}>{usage.label}</span>
+              </div>
+              <div className="sa-usage-track">
+                <div className="sa-usage-fill" style={{ width: `${Math.min(usagePercent, 100)}%` }} />
+              </div>
+            </section>
+
             <div className="sa-stat-row">
               <div className="sa-stat-card">
                 <div className="sa-stat-label">총 파일 개수</div>
@@ -248,7 +352,10 @@ export default function StorageAdmin({ onBack }) {
                         className="sa-legend-swatch"
                         style={{ background: bucketColorOf(b.bucket_id) }}
                       />
-                      <span className="sa-legend-name">{b.bucket_id}</span>
+                      <span className="sa-legend-name">
+                        {bucketLabel(b.bucket_id)}
+                        <span className="sa-id-sub">{b.bucket_id}</span>
+                      </span>
                       <span className="sa-legend-meta">
                         {formatBytes(b.total_bytes)} · {Number(b.file_count).toLocaleString()}개
                       </span>
@@ -284,7 +391,10 @@ export default function StorageAdmin({ onBack }) {
                       <tbody>
                         {restTables.map((t) => (
                           <tr key={t.table_name}>
-                            <td>{t.table_name}</td>
+                            <td>
+                              {tableLabel(t.table_name)}
+                              <span className="sa-id-sub">{t.table_name}</span>
+                            </td>
                             <td>{t.pretty_size}</td>
                           </tr>
                         ))}
