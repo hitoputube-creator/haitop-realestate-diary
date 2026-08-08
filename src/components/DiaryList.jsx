@@ -80,7 +80,7 @@ function StatusBadge({ status }) {
 }
 
 /* ===== 메모 카드 ===== */
-function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate, onOpenAddMemoForMemo, onOpenTimelineForMemo, variant = 'full', resetToken = 0 }) {
+function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, onChangeStatus, onDelete, onUpdateContent, showDate, onLinkKeyClick, onUpdateLinkKey, allLinkKeys, isPinned, onPin, onUnpin, isHighlighted, onNavigate, onOpenAddMemoForMemo, onOpenTimelineForMemo, variant = 'full', resetToken = 0, dayContextDate = null }) {
   const [editing, setEditing] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState(memo.content)
@@ -88,6 +88,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
   const [draftPhone, setDraftPhone] = useState(memo.customer_phone || '')
   const [draftTitle, setDraftTitle] = useState(memo.title || '')
   const [draftSticker, setDraftSticker] = useState(memo.sticker || null)
+  const [draftScheduleDate, setDraftScheduleDate] = useState(memo.schedule_date || memo.date || '')
   const [photoAddOpen, setPhotoAddOpen] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -156,12 +157,27 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
     setDraftPhone(memo.customer_phone || '')
     setDraftTitle(memo.title || '')
     setDraftSticker(memo.sticker || null)
+    setDraftScheduleDate(memo.schedule_date || memo.date || '')
     setLinkDraft(memo.link_key || '')
-  }, [memo.content, memo.customer_name, memo.customer_phone, memo.title, memo.sticker, memo.link_key])
+  }, [memo.content, memo.customer_name, memo.customer_phone, memo.title, memo.sticker, memo.schedule_date, memo.date, memo.link_key])
 
   const tags = memo.tags && memo.tags.length ? memo.tags : extractTags(memo.content)
 
-  const stickerMeta = memo.sticker ? STICKER_META[memo.sticker] : null
+  // 일정일(schedule_date)이 작성일(date)과 다르면, 작성일 화면에서는 배지를 숨기고
+  // 일정일 화면(dayContextDate)에서만 스티커 배지를 보여준다.
+  const scheduleMismatch = Boolean(dayContextDate) && Boolean(memo.schedule_date) && memo.schedule_date !== dayContextDate
+  const stickerMeta = memo.sticker && !scheduleMismatch ? STICKER_META[memo.sticker] : null
+
+  function selectDraftSticker(opt) {
+    const isActive = draftSticker === opt.value
+    const nextValue = isActive && opt.value !== null ? null : opt.value
+    setDraftSticker(nextValue)
+    if (!nextValue) {
+      setDraftScheduleDate('')
+    } else if (!draftScheduleDate) {
+      setDraftScheduleDate(memo.date || '')
+    }
+  }
 
   const cls = ['wd-card', `status-${memo.status || 'normal'}`, editing && 'editing', isHighlighted && 'wd-card-highlighted']
     .filter(Boolean)
@@ -173,6 +189,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
     setDraftPhone(memo.customer_phone || '')
     setDraftTitle(memo.title || '')
     setDraftSticker(memo.sticker || null)
+    setDraftScheduleDate(memo.schedule_date || memo.date || '')
     setLinkDraft(memo.link_key || '')
   }
 
@@ -200,13 +217,15 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
     const nextTitle = draftTitle.trim()
     const nextLinkKey = linkDraft.trim()
     const nextSticker = draftSticker || null
+    const nextScheduleDate = nextSticker ? (draftScheduleDate || memo.date || null) : null
     const changed =
       next !== memo.content ||
       nextName !== (memo.customer_name || '') ||
       nextPhone !== (memo.customer_phone || '') ||
       nextTitle !== (memo.title || '') ||
       nextLinkKey !== (memo.link_key || '') ||
-      nextSticker !== (memo.sticker || null)
+      nextSticker !== (memo.sticker || null) ||
+      nextScheduleDate !== (memo.schedule_date || null)
     if (!changed) {
       setEditing(false)
       if (variant === 'compact') setExpanded(false)
@@ -219,6 +238,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
         title: nextTitle || null,
         link_key: nextLinkKey || '',
         sticker: nextSticker,
+        schedule_date: nextScheduleDate,
       })
       if (saved === false) {
         setEditError('수정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.')
@@ -445,13 +465,24 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
                               : { borderColor: `${meta.color}88`, color: meta.color }
                             : {}
                         }
-                        onClick={() => setDraftSticker(isActive && opt.value !== null ? null : opt.value)}
+                        onClick={() => selectDraftSticker(opt)}
                       >
                         {opt.label}
                       </button>
                     )
                   })}
                 </div>
+                {draftSticker && (
+                  <div className="wd-link-bar wd-schedule-date-edit">
+                    <span className="wd-link-bar-label">일정일</span>
+                    <input
+                      type="date"
+                      className="wd-link-input"
+                      value={draftScheduleDate || ''}
+                      onChange={(e) => setDraftScheduleDate(e.target.value)}
+                    />
+                  </div>
+                )}
                 <div className="wd-link-bar wd-compact-link-edit">
                   <span className="wd-link-bar-label">연결태그</span>
                   <input
@@ -842,13 +873,24 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
                         : { borderColor: `${meta.color}88`, color: meta.color }
                       : {}
                   }
-                  onClick={() => setDraftSticker(isActive && opt.value !== null ? null : opt.value)}
+                  onClick={() => selectDraftSticker(opt)}
                 >
                   {opt.label}
                 </button>
               )
             })}
           </div>
+          {draftSticker && (
+            <div className="wd-link-bar wd-schedule-date-edit">
+              <span className="wd-link-bar-label">일정일</span>
+              <input
+                type="date"
+                className="wd-link-input"
+                value={draftScheduleDate || ''}
+                onChange={(e) => setDraftScheduleDate(e.target.value)}
+              />
+            </div>
+          )}
           <details className="wd-card-edit-extra">
             <summary>연결태그</summary>
             <div className="wd-card-edit-extra-body">
@@ -1268,10 +1310,11 @@ function clearComposerDraft() {
 }
 
 /* ===== 입력창 (Composer) ===== */
-function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpenTimelineForCustomer, onDirtyChange }) {
+function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpenTimelineForCustomer, onDirtyChange, defaultDate = '' }) {
   const [value, setValue] = useState('')
   const [writer, setWriter] = useState('주현희')
   const [sticker, setSticker] = useState(null)
+  const [scheduleDate, setScheduleDate] = useState(defaultDate)
   const [linkKey, setLinkKey] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -1288,6 +1331,7 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpe
   function resetComposerDraft() {
     setValue('')
     setSticker(null)
+    setScheduleDate(defaultDate)
     setLinkKey('')
     setPhotoFiles([])
     setDiaryFiles([])
@@ -1352,6 +1396,17 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpe
     setPickedCustomerEntries([])
   }
 
+  function selectSticker(opt) {
+    const isActive = sticker === opt.value
+    const nextValue = isActive && opt.value !== null ? null : opt.value
+    setSticker(nextValue)
+    if (!nextValue) {
+      setScheduleDate('')
+    } else if (!scheduleDate) {
+      setScheduleDate(defaultDate)
+    }
+  }
+
   // 최초 마운트 시 저장된 값 기준으로 textarea 높이 복원
   useEffect(() => {
     autoResizeComposer(composerRef.current)
@@ -1372,7 +1427,8 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpe
     setSubmitting(true)
     setSubmitError('')
     try {
-      await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles, trimmedName, trimmedPhone, trimmedTitle, diaryFiles, pickedCustomerId)
+      const trimmedScheduleDate = sticker ? (scheduleDate || defaultDate || null) : null
+      await onSubmit(trimmed, writer, sticker, linkKey.trim(), photoFiles, trimmedName, trimmedPhone, trimmedTitle, diaryFiles, pickedCustomerId, trimmedScheduleDate)
       resetComposerDraft()
     } catch (err) {
       setSubmitError(err.message || String(err))
@@ -1502,7 +1558,7 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpe
                         ? { '--sticker-color': meta.color }
                         : {}
                     }
-                    onClick={() => setSticker(isActive && opt.value !== null ? null : opt.value)}
+                    onClick={() => selectSticker(opt)}
                     disabled={disabled || submitting}
                   >
                     {opt.label}
@@ -1511,6 +1567,20 @@ function Composer({ onSubmit, onCancel, disabled, allLinkKeys, onNavigate, onOpe
               })}
             </div>
           </div>
+
+          {sticker && (
+            <div className="wd-field-row wd-field-row--schedule-date">
+              <label htmlFor="wd-composer-schedule-date">일정일</label>
+              <input
+                id="wd-composer-schedule-date"
+                type="date"
+                className="wd-composer-customer-input"
+                value={scheduleDate || ''}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                disabled={disabled || submitting}
+              />
+            </div>
+          )}
 
           <div className="wd-field-row wd-field-row--link-search">
             <span className="wd-field-label-spacer" aria-hidden="true" />
@@ -1697,6 +1767,10 @@ export default function DiaryList({
   const selectedDateKey = selectedDate
     ? `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`
     : ''
+  // work_diary.date/schedule_date와 동일한 형식(YYYY-MM-DD, zero-padded)의 날짜 키
+  const selectedDateKeyPadded = selectedDate
+    ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
+    : ''
 
   useEffect(() => {
     // 날짜가 바뀌면 열려 있던 작성 폼을 즉시 닫고 다음 열림 때 빈 폼으로 시작한다.
@@ -1768,8 +1842,9 @@ export default function DiaryList({
       {!searchMode && composerOpen && (
         <Composer
           key={composerKey}
-          onSubmit={async (content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId) => {
-            await onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId)
+          defaultDate={selectedDateKeyPadded}
+          onSubmit={async (content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId, scheduleDate) => {
+            await onCreate(content, writer, sticker, linkKey, photoFiles, name, phone, title, diaryFiles, customerId, scheduleDate)
             setComposerOpen(false)
             onComposerDirtyChange?.(false)
           }}
@@ -1832,6 +1907,7 @@ export default function DiaryList({
               isHighlighted={m.id === highlightMemoId}
               onNavigate={searchMode ? onNavigate : undefined}
               resetToken={resetToken}
+              dayContextDate={searchMode ? null : selectedDateKeyPadded}
             />
           ))
         )}

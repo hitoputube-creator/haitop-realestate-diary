@@ -249,7 +249,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       const { data, error: e } = await supabase
         .from(TABLE)
         .select('*')
-        .eq('date', dateStr)
+        .or(`date.eq.${dateStr},schedule_date.eq.${dateStr}`)
         .order('created_at', { ascending: true })
       if (e) throw e
       const rows = data || []
@@ -286,21 +286,26 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       const endStr = toDateKey(end)
       const { data, error: e } = await supabase
         .from(TABLE)
-        .select('date, writer, sticker, link_key')
-        .gte('date', startStr)
-        .lte('date', endStr)
+        .select('date, writer, sticker, link_key, schedule_date')
+        .or(`and(date.gte.${startStr},date.lte.${endStr}),and(schedule_date.gte.${startStr},schedule_date.lte.${endStr})`)
       if (e) throw e
 
       // { [dateKey]: [{ writer, sticker }] }
+      // schedule_date가 date와 다르면(스티커를 다른 날짜로 옮긴 경우), 작성일에는
+      // 스티커 없이(sticker: null) 표시하고 일정일 쪽에 스티커를 표시한다.
       const dotsMap = {}
       if (data) {
         data.filter((r) => r.link_key !== DAILY_SCHEDULE_KEY).forEach((r) => {
-          const dateKey = r.date
-          if (!dotsMap[dateKey]) dotsMap[dateKey] = []
-          dotsMap[dateKey].push({
-            writer: r.writer || '주현희',
-            sticker: r.sticker || null,
-          })
+          const writer = r.writer || '주현희'
+          const moved = Boolean(r.schedule_date) && r.schedule_date !== r.date
+          if (r.date >= startStr && r.date <= endStr) {
+            if (!dotsMap[r.date]) dotsMap[r.date] = []
+            dotsMap[r.date].push({ writer, sticker: moved ? null : r.sticker })
+          }
+          if (moved && r.schedule_date >= startStr && r.schedule_date <= endStr) {
+            if (!dotsMap[r.schedule_date]) dotsMap[r.schedule_date] = []
+            dotsMap[r.schedule_date].push({ writer, sticker: r.sticker })
+          }
         })
       }
       setNotedDateKeys(dotsMap)
@@ -562,7 +567,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
 
   /* ===== CRUD 핸들러 ===== */
   const handleCreate = useCallback(
-    async (content, writer = '주현희', sticker = null, linkKey = '', name = '', phone = '', title = '', pickedCustomerId = null) => {
+    async (content, writer = '주현희', sticker = null, linkKey = '', name = '', phone = '', title = '', pickedCustomerId = null, scheduleDate = null) => {
       if (!isSupabaseConfigured) {
         setError('Supabase 연결이 설정되지 않았습니다. .env에 VITE_SUPABASE_URL 및 VITE_SUPABASE_ANON_KEY를 추가해주세요.')
         return
@@ -593,6 +598,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             date: dateStr,
             writer,
             sticker: sticker || null,
+            schedule_date: sticker ? (scheduleDate || dateStr) : null,
             link_key: linkKey || '',
             customer_name: name || null,
             customer_phone: phone || null,
@@ -1280,8 +1286,8 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           loading={searchMode ? searchLoading : loading}
           error={error}
           searchMode={searchMode}
-          onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '', diaryFiles = [], customerId = null) => {
-            const createdMemo = await handleCreate(content, writer, sticker, linkKey, name, phone, title, customerId)
+          onCreate={async (content, writer, sticker, linkKey, photoFiles = [], name = '', phone = '', title = '', diaryFiles = [], customerId = null, scheduleDate = null) => {
+            const createdMemo = await handleCreate(content, writer, sticker, linkKey, name, phone, title, customerId, scheduleDate)
             if (!createdMemo) return
             if (photoFiles.length > 0) {
               try {

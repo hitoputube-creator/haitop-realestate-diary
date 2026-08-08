@@ -47,14 +47,12 @@ export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0
       const startStr = toDateKey(today)
       const endStr = toDateKey(addDays(today, 6))
 
+      // 일정일(schedule_date)이 있으면 그 날짜를, 없으면 작성일(date)을 기준으로 "다가오는 일정"을 판단한다.
       let query = supabase
         .from('work_diary')
-        .select('id, date, sticker, title, content, writer, created_at')
-        .gte('date', startStr)
-        .lte('date', endStr)
+        .select('id, date, schedule_date, sticker, title, content, writer, created_at')
         .in('sticker', TARGET_STICKERS)
-        .order('date', { ascending: true })
-        .order('created_at', { ascending: true })
+        .or(`and(schedule_date.gte.${startStr},schedule_date.lte.${endStr}),and(schedule_date.is.null,date.gte.${startStr},date.lte.${endStr})`)
 
       if (filterWriter !== 'all') {
         query = query.eq('writer', filterWriter)
@@ -62,7 +60,13 @@ export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0
 
       const { data, error } = await query
       if (error) throw error
-      setItems(data || [])
+      const rows = (data || []).slice().sort((a, b) => {
+        const da = a.schedule_date || a.date
+        const db = b.schedule_date || b.date
+        if (da !== db) return da < db ? -1 : 1
+        return (a.created_at || '').localeCompare(b.created_at || '')
+      })
+      setItems(rows)
     } catch (err) {
       console.warn('[UpcomingSchedules] load failed:', err.message || err)
       setItems([])
@@ -95,15 +99,16 @@ export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0
         <div className="usw-list">
           {(variant === 'compact' ? items.slice(0, 5) : items).map((item) => {
             const stickerMeta = STICKER_META[item.sticker] || {}
+            const effectiveDate = item.schedule_date || item.date
             return (
               <button
                 key={item.id}
                 type="button"
                 className="usw-item"
-                onClick={() => variant === 'compact' ? setSelectedItem(item) : onNavigate?.(item.date, item.id)}
+                onClick={() => variant === 'compact' ? setSelectedItem(item) : onNavigate?.(effectiveDate, item.id)}
                 title="클릭하면 해당 날짜의 메모로 이동합니다"
               >
-                <span className="usw-date">{formatShortDate(item.date)}</span>
+                <span className="usw-date">{formatShortDate(effectiveDate)}</span>
                 <span
                   className="usw-sticker"
                   style={{ background: stickerMeta.color || 'var(--color-primary-container)' }}
@@ -121,7 +126,7 @@ export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0
       {selectedItem && (
         <DetailModal title="&#51068;&#51221; &#49345;&#49464;&#48372;&#44592;" onClose={() => setSelectedItem(null)} className="usw-detail-dialog">
           <div className="usw-detail-meta">
-            <span>{formatShortDate(selectedItem.date)}</span>
+            <span>{formatShortDate(selectedItem.schedule_date || selectedItem.date)}</span>
             <span className="usw-sticker" style={{ background: STICKER_META[selectedItem.sticker]?.color || 'var(--color-primary-container)' }}>
               {selectedItem.sticker}
             </span>
@@ -135,7 +140,7 @@ export default function UpcomingSchedules({ filterWriter = 'all', refreshKey = 0
               type="button"
               className="wd-action-btn active"
               onClick={() => {
-                onNavigate?.(selectedItem.date, selectedItem.id)
+                onNavigate?.(selectedItem.schedule_date || selectedItem.date, selectedItem.id)
                 setSelectedItem(null)
               }}
             >
