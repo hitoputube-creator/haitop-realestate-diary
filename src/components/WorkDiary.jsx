@@ -4,7 +4,7 @@ import Calendar, { toDateKey } from './Calendar'
 import DiaryList, { extractTags, STICKER_META as STICKER_META_REF } from './DiaryList'
 import SearchBar from './SearchBar'
 import UpcomingSchedules from './UpcomingSchedules'
-import SelectedScheduleMemos from './SelectedScheduleMemos'
+import SelectedScheduleMemos, { AllSchedulesModal } from './SelectedScheduleMemos'
 import { DiaryPhotoStrip, PhotoGalleryModal } from './DiaryPhotos'
 import { listDiaryPhotosForIds, uploadDiaryPhotos, listDiaryFilesForIds, uploadDiaryFiles } from '../lib/attachments'
 import { resolveOrCreateCustomer } from '../lib/customers'
@@ -53,6 +53,11 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
   const [scheduleSaving, setScheduleSaving] = useState(false)
   const [scheduleError, setScheduleError] = useState('')
   const [error, setError] = useState(null)
+
+  /* ===== 전체 일정 보기 ===== */
+  const [allScheduleNotes, setAllScheduleNotes] = useState([])
+  const [allSchedulesLoading, setAllSchedulesLoading] = useState(false)
+  const [allSchedulesOpen, setAllSchedulesOpen] = useState(false)
 
   const [notedDateKeys, setNotedDateKeys] = useState({})
 
@@ -632,7 +637,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     [selectedDate]
   )
 
-  const handleCreateDailySchedule = useCallback(async ({ writer = '주현희', content }) => {
+  const handleCreateDailySchedule = useCallback(async ({ writer = '주현희', content, sticker = null }) => {
     const text = (content || '').trim()
     if (!isSupabaseConfigured || !text) return
 
@@ -648,7 +653,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
           status: 'normal',
           date: dateStr,
           writer,
-          sticker: null,
+          sticker: sticker || null,
           link_key: DAILY_SCHEDULE_KEY,
           customer_name: null,
           customer_phone: null,
@@ -658,6 +663,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         .single()
       if (e) throw e
       setDailyScheduleNotes((prev) => [...prev, data])
+      setAllScheduleNotes((prev) => [data, ...prev])
     } catch (err) {
       setScheduleError(`일정 메모 저장 실패: ${err.message || err}`)
       throw err
@@ -666,15 +672,18 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
     }
   }, [selectedDate])
 
-  const handleUpdateDailySchedule = useCallback(async (id, { writer = '주현희', content }) => {
+  const handleUpdateDailySchedule = useCallback(async (id, { writer = '주현희', content, sticker }) => {
     const text = (content || '').trim()
     if (!isSupabaseConfigured || !id || !text) return
 
     const patch = { writer, content: text }
-    const prev = dailyScheduleNotes
-    setDailyScheduleNotes((items) =>
+    if (sticker !== undefined) patch.sticker = sticker || null
+    const prevDaily = dailyScheduleNotes
+    const prevAll = allScheduleNotes
+    const applyPatch = (items) =>
       items.map((item) => (item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item))
-    )
+    setDailyScheduleNotes(applyPatch)
+    setAllScheduleNotes(applyPatch)
     setScheduleSaving(true)
     setScheduleError('')
     try {
@@ -685,19 +694,22 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         .eq('link_key', DAILY_SCHEDULE_KEY)
       if (e) throw e
     } catch (err) {
-      setDailyScheduleNotes(prev)
+      setDailyScheduleNotes(prevDaily)
+      setAllScheduleNotes(prevAll)
       setScheduleError(`일정 메모 수정 실패: ${err.message || err}`)
       throw err
     } finally {
       setScheduleSaving(false)
     }
-  }, [dailyScheduleNotes])
+  }, [dailyScheduleNotes, allScheduleNotes])
 
   const handleDeleteDailySchedule = useCallback(async (id) => {
     if (!isSupabaseConfigured || !id) return
 
-    const prev = dailyScheduleNotes
+    const prevDaily = dailyScheduleNotes
+    const prevAll = allScheduleNotes
     setDailyScheduleNotes((items) => items.filter((item) => item.id !== id))
+    setAllScheduleNotes((items) => items.filter((item) => item.id !== id))
     setScheduleError('')
     try {
       const { error: e } = await supabase
@@ -707,10 +719,40 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
         .eq('link_key', DAILY_SCHEDULE_KEY)
       if (e) throw e
     } catch (err) {
-      setDailyScheduleNotes(prev)
+      setDailyScheduleNotes(prevDaily)
+      setAllScheduleNotes(prevAll)
       setScheduleError(`일정 메모 삭제 실패: ${err.message || err}`)
     }
-  }, [dailyScheduleNotes])
+  }, [dailyScheduleNotes, allScheduleNotes])
+
+  /* ===== 전체 일정 조회/열기 ===== */
+  const loadAllScheduleNotes = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setAllScheduleNotes([])
+      return
+    }
+    setAllSchedulesLoading(true)
+    setScheduleError('')
+    try {
+      const { data, error: e } = await supabase
+        .from(TABLE)
+        .select('*')
+        .eq('link_key', DAILY_SCHEDULE_KEY)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+      if (e) throw e
+      setAllScheduleNotes(data || [])
+    } catch (err) {
+      setScheduleError(`전체 일정 조회 실패: ${err.message || err}`)
+    } finally {
+      setAllSchedulesLoading(false)
+    }
+  }, [])
+
+  const handleOpenAllSchedules = useCallback(() => {
+    setAllSchedulesOpen(true)
+    loadAllScheduleNotes()
+  }, [loadAllScheduleNotes])
 
   const filteredMemos = useMemo(() => {
     const raw = searchMode ? searchResults : memos
@@ -1273,6 +1315,7 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
             onCreate={handleCreateDailySchedule}
             onUpdate={handleUpdateDailySchedule}
             onDelete={handleDeleteDailySchedule}
+            onOpenAll={handleOpenAllSchedules}
           />
           <UpcomingSchedules
             filterWriter={filterWriter}
@@ -1332,6 +1375,17 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       </main>
       )}
       {LinkPanel}
+      {allSchedulesOpen && (
+        <AllSchedulesModal
+          notes={allScheduleNotes}
+          loading={allSchedulesLoading}
+          saving={scheduleSaving}
+          error={scheduleError}
+          onUpdate={handleUpdateDailySchedule}
+          onDelete={handleDeleteDailySchedule}
+          onClose={() => setAllSchedulesOpen(false)}
+        />
+      )}
       {photoGallery && (
         <PhotoGalleryModal
           photos={photoGallery.photos}
