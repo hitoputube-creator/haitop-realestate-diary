@@ -89,6 +89,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
   const [draftTitle, setDraftTitle] = useState(memo.title || '')
   const [draftSticker, setDraftSticker] = useState(memo.sticker || null)
   const [draftScheduleDate, setDraftScheduleDate] = useState(memo.schedule_date || memo.date || '')
+  const [draftDate, setDraftDate] = useState(memo.date || '')
   const [photoAddOpen, setPhotoAddOpen] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -158,6 +159,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
     setDraftTitle(memo.title || '')
     setDraftSticker(memo.sticker || null)
     setDraftScheduleDate(memo.schedule_date || memo.date || '')
+    setDraftDate(memo.date || '')
     setLinkDraft(memo.link_key || '')
   }, [memo.content, memo.customer_name, memo.customer_phone, memo.title, memo.sticker, memo.schedule_date, memo.date, memo.link_key])
 
@@ -190,6 +192,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
     setDraftTitle(memo.title || '')
     setDraftSticker(memo.sticker || null)
     setDraftScheduleDate(memo.schedule_date || memo.date || '')
+    setDraftDate(memo.date || '')
     setLinkDraft(memo.link_key || '')
   }
 
@@ -218,6 +221,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
     const nextLinkKey = linkDraft.trim()
     const nextSticker = draftSticker || null
     const nextScheduleDate = nextSticker ? (draftScheduleDate || memo.date || null) : null
+    const nextDate = draftDate || memo.date
     const changed =
       next !== memo.content ||
       nextName !== (memo.customer_name || '') ||
@@ -225,7 +229,8 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
       nextTitle !== (memo.title || '') ||
       nextLinkKey !== (memo.link_key || '') ||
       nextSticker !== (memo.sticker || null) ||
-      nextScheduleDate !== (memo.schedule_date || null)
+      nextScheduleDate !== (memo.schedule_date || null) ||
+      nextDate !== memo.date
     if (!changed) {
       setEditing(false)
       if (variant === 'compact') setExpanded(false)
@@ -239,6 +244,7 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
         link_key: nextLinkKey || '',
         sticker: nextSticker,
         schedule_date: nextScheduleDate,
+        date: nextDate,
       })
       if (saved === false) {
         setEditError('수정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.')
@@ -423,6 +429,16 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
           >
             수정
           </button>
+          <button
+            type="button"
+            className="wd-action-btn danger"
+            onClick={() => {
+              if (window.confirm('이 메모를 삭제하시겠어요?')) onDelete(memo.id)
+            }}
+            aria-label="메모 삭제"
+          >
+            삭제
+          </button>
         </div>
         {expanded && (
           <div className="wd-compact-expanded">
@@ -446,6 +462,15 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
                     placeholder="연락처"
                     value={draftPhone}
                     onChange={(e) => setDraftPhone(e.target.value)}
+                  />
+                </div>
+                <div className="wd-link-bar wd-card-date-edit">
+                  <span className="wd-link-bar-label">작성일</span>
+                  <input
+                    type="date"
+                    className="wd-link-input"
+                    value={draftDate || ''}
+                    onChange={(e) => setDraftDate(e.target.value)}
                   />
                 </div>
                 <div className="wd-sticker-bar wd-card-sticker-edit">
@@ -747,6 +772,18 @@ function MemoCard({ memo, photos, files, onOpenPhotos, onAddPhotos, onAddFiles, 
             placeholder="연락처"
             value={draftPhone}
             onChange={(e) => setDraftPhone(e.target.value)}
+          />
+        </div>
+      )}
+
+      {editing && (
+        <div className="wd-link-bar wd-card-date-edit">
+          <span className="wd-link-bar-label">작성일</span>
+          <input
+            type="date"
+            className="wd-link-input"
+            value={draftDate || ''}
+            onChange={(e) => setDraftDate(e.target.value)}
           />
         </div>
       )}

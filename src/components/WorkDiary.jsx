@@ -843,6 +843,8 @@ export default function WorkDiary({ onOpenDiary, onOpenStorageAdmin }) {
       }
       loadMonthDots()
       setUpcomingRefreshKey((key) => key + 1)
+      // 작성일(date)이 바뀌면 선택된 날짜 목록에 그대로 남아있으면 안 되므로 다시 불러온다
+      if ('date' in meta) loadMemosForSelected()
       return true
     } catch (err) {
       setError(`수정 실패: ${err.message || err}`)
